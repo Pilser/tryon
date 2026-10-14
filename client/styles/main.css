@@ -1,0 +1,14 @@
+:root{--bg:#0e0f13;--card:#171922;--text:#f5f2ea;--muted:#a7aabc;--gold:#d8b36a;--wa:#25d366}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+.topbar{display:flex;justify-content:space-between;padding:14px 22px;border-bottom:1px solid #262836}.brand{font-weight:800;letter-spacing:.5px;color:var(--gold);text-decoration:none}
+.hero{padding:48px 22px;text-align:center;background:radial-gradient(600px 200px at 50% 0%,#2a2340,transparent)}
+.hero h1{font-size:2.4rem;margin:0}.filterbar{margin:18px auto;max-width:640px}.filterbar input{width:100%;padding:12px 16px;border-radius:12px;border:1px solid #333;background:#101220;color:var(--text)}
+.pills{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:10px}.pills button{border:1px solid #333;background:#151724;color:var(--text);border-radius:999px;padding:8px 14px;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;padding:22px;max-width:1200px;margin:0 auto}
+.card{background:var(--card);border-radius:16px;overflow:hidden;border:1px solid #262836;transition:transform .15s}.card:hover{transform:translateY(-3px)}
+.card img{width:100%;aspect-ratio:3/4;object-fit:cover}.card-body{padding:14px}.badge{font-size:.7rem;background:#262836;border-radius:999px;padding:3px 9px;color:var(--muted)}
+.price{color:var(--gold);font-weight:700}.actions{display:flex;gap:8px;margin-top:10px}
+.btn{padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid transparent}.btn.primary{background:var(--gold);color:#111}.btn.wa{background:transparent;border-color:var(--wa);color:var(--wa)}
+.detail{display:grid;grid-template-columns:1fr 1fr;gap:22px;max-width:1000px;margin:22px auto;padding:0 22px}.detail img{width:100%;border-radius:16px}
+.admin{max-width:640px;margin:22px auto;padding:0 22px}.admin-form{display:grid;gap:10px}.admin-form input,.admin-form textarea{padding:10px;border-radius:10px;border:1px solid #333;background:#101220;color:var(--text)}
+.footer{text-align:center;color:var(--muted);padding:26px}.count{text-align:center;color:var(--muted)}

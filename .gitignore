@@ -1,0 +1,19 @@
+# Whitelist: ignore everything, re-allow only tracked paths.
+*
+!.gitignore
+!AGENTS.md
+!Cargo.toml
+!Cargo.lock
+!wrangler.toml
+!docs/
+!docs/**
+!scripts/
+!scripts/**
+!client/
+!client/**
+!worker/
+!worker/**
+!shared/
+!shared/**
+!.github/
+!.github/**

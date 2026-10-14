@@ -7,8 +7,8 @@ name: release
 
 on:
   workflow_dispatch:
-    push:
-      tags: ["v*"]
+  push:
+    tags: ["v*"]
 
 jobs:
   build:
@@ -16,6 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - name: restore build cache
         uses: Swatinem/rust-cache@v2
         with:

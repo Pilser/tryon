@@ -1,41 +1,38 @@
 use leptos::*;
-use shared::models::{Product, TryOnRequest};
+use tryon_shared::models::Product;
 
-/// Button that sends a try‑on request for a given product.
 #[component]
-pub fn TryOnButton(product: Product) -> impl IntoView {
-    let on_click = move |_| {
-        let req = TryOnRequest {
-            product_id: product.id.clone(),
-            person_image_id: "initial-person".to_string(),
-        };
-        // In a real app we'd `fetch("/try-on", ...)` here.
-        log!("try‑on request for {}", product.title);
-    };
-
-    view! {
-        <button class="try-on-btn" onclick=on_click>
-            "Try on"
-        </button>
-    }
+pub fn TryOnButton(product_id: String) -> impl IntoView {
+    view! { <a class="btn primary" href=format!("/product/{product_id}")>"Try On"</a> }
 }
 
-/// Form component that can be used to submit a try‑on request.
 #[component]
-pub fn TryOnForm(product_id: String, person_image_id: String) -> impl IntoView {
-    let req = TryOnRequest {
-        product_id,
-        person_image_id,
+pub fn TryOnPanel(product: Product) -> impl IntoView {
+    let (result, set_result) = create_signal::<Option<String>>(None);
+    let pid = product.id.clone();
+    let start = move |_| {
+        let pid = pid.clone();
+        spawn_local(async move {
+            let req = tryon_shared::models::TryOnRequest {
+                product_id: pid,
+                person_image_id: "upload-first".into(),
+            };
+            let res = gloo_net::http::Request::post("/api/try-on")
+                .json(&req)
+                .unwrap()
+                .send()
+                .await;
+            if let Ok(r) = res {
+                if let Ok(v) = r.json::<serde_json::Value>().await {
+                    set_result.set(Some(v.to_string()));
+                }
+            }
+        });
     };
-
-    let on_click = move |_| {
-        // In a real app we would `fetch("/try-on", ...)` here.
-        log!("try‑on request submitted for product {}", product_id);
-    };
-
     view! {
-        <button class="try-on-btn" onclick=on_click>
-            "Try on"
-        </button>
+        <div class="tryon">
+            <button class="btn primary" on:click=start>"Start try-on"</button>
+            {move || result.get().map(|r| view! { <pre>{r}</pre> })}
+        </div>
     }
 }

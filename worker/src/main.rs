@@ -1,76 +1,67 @@
-use leptos::ssr::render_to_string;
-use leptos::view::StaticView;
-use worker::{Request, Env, Context, Response, Result};
-use shared::models::{Product, TryOnRequest, TryOnResponse};
-use uuid::Uuid;
-use reqwest::Client;
+use worker::{event, Context, Env, Request, Response, Result, Router};
+use tryon_shared::models::{ProductFilter, ShopSettings, TryOnRequest};
+use tryon_worker::{routes, ssr, store::MemoryStore};
 
-#[event]
-fn fetch(req: Request, env: Env, ctx: Context) -> Result<Response> {
-    let (method, path) = (req.method(), req.path());
-
-    // ---------- Product detail with SSR ----------
-    if method == "GET" && path.starts_with("/product/") {
-        let id = path.strip_prefix("/product/").unwrap().to_string();
-        let product = shared::models::Product {
-            id,
-            title: "Sample Product".to_string(),
-            description: "A great product for try‑on".to_string(),
-            price: 49.99,
-            image_url: "/placeholder.jpg".to_string(),
-        };
-
-        let html = render_product_page(ctx.cx(), product);
-        Response::html(html)
-    } else if method == "POST" && path == "/try-on" {
-        let body = req.json::<TryOnRequest>()?;
-
-        // ------------------------------------------------------------------
-        // TODO: Replace the stub with a real Genlook API call.
-        // The worker can read the API key from the Cloudflare secret:
-        //   env.GENLOOK_API_KEY
-        // ------------------------------------------------------------------
-        let gen_id = Uuid::new_v4().to_string();
-        let resp = TryOnResponse {
-            generation_id: gen_id.clone(),
-            status: "pending".to_string(),
-        };
-        Response::json(&serde_json::json!({
-            "generationId": gen_id,
-            "status": "pending"
-        }))
-    } else if path.starts_with("/result/") {
-        let id = path.strip_prefix("/result/").unwrap();
-        let status = if id == "pending" { "pending" } else { "completed" };
-        Response::json(&serde_json::json!({ "generationId": id, "status": status }))
-    } else {
-        Response::not_found("Unknown route")
+fn shop_from_env(env: &Env) -> ShopSettings {
+    ShopSettings {
+        shop_name: env.var("SHOP_NAME").map(|v| v.to_string()).unwrap_or_else(|_| "TryOn Shop".into()),
+        owner_whatsapp: env.var("OWNER_WHATSAPP").map(|v| v.to_string()).unwrap_or_default(),
+        currency: "USD".into(),
+        logo_url: String::new(),
     }
 }
 
-/// Render a Leptos product page to an HTML string with hydration markers.
-fn render_product_page(cx: leptos::cx::Cx, product: Product) -> String {
-    render_to_string(
-        cx,
-        view! { cx <StaticView> <product_page product=product/> </StaticView> },
-        leptos::options::RendlerOptions {
-            hydration: true,
-        },
-    )
+fn demo_products() -> Vec<tryon_shared::models::Product> {
+    // v1 placeholder; replaced by D1 query in phase7.
+    vec![]
 }
 
-// ---------------------------------------------------------------------
-// Leptos view for the product page (used by the SSR helper).
-// ---------------------------------------------------------------------
-#[leptos::view]
-fn product_page(product: Product) -> leptos::view::StaticView {
-    view! {
-        cx
-        <article>
-            <header>
-                <h2>{product.title}</h2>
-                <p>{product.description}</p>
-            </header>
-        </article>
-    }
+#[event(fetch)]
+async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
+    let router = Router::new();
+
+    router
+        .get_async("/", |_, ctx| async move {
+            let shop = shop_from_env(ctx.env);
+            let store = MemoryStore { products: demo_products(), shop: shop.clone() };
+            let list = store.list(&ProductFilter::default());
+            Response::from_html(ssr::render_landing(&shop, &list))
+        })
+        .get_async("/product/:id", |_, ctx| async move {
+            let shop = shop_from_env(ctx.env);
+            let id = ctx.param("id").cloned().unwrap_or_default();
+            let store = MemoryStore { products: demo_products(), shop: shop.clone() };
+            match store.get(&id) {
+                Some(p) => Response::from_html(ssr::render_detail(&shop, &p)),
+                None => Response::error("not found", 404),
+            }
+        })
+        .get_async("/admin", |_, ctx| async move {
+            let shop = shop_from_env(ctx.env);
+            Response::from_html(ssr::render_admin(&shop))
+        })
+        .get_async("/api/products", |req, _ctx| async move {
+            let q = req.url().map(|u| u.query().unwrap_or_default().to_string()).unwrap_or_default();
+            let filter = routes::products::parse_filter(&q);
+            let _ = filter;
+            Response::from_json(&serde_json::json!([]))
+        })
+        .get_async("/api/shop-settings", |_, ctx| async move {
+            Response::from_json(&shop_from_env(ctx.env))
+        })
+        .get("/healthz", |_, _| Response::from_json(&serde_json::json!({"ok": true})))
+        .post_async("/api/try-on", |mut req, ctx| async move {
+            let body: TryOnRequest = req.json().await.map_err(|e| worker::Error::RustError(e.to_string()))?;
+            routes::tryon::validate(&body).map_err(|e| worker::Error::RustError(e.into()))?;
+            let key = ctx.env.var("GENLOOK_API_KEY").map(|v| v.to_string()).unwrap_or_default();
+            let client = tryon_worker::GenlookClient::new("https://api.genlook.app", &key)
+                .map_err(|_| worker::Error::RustError("missing GENLOOK_API_KEY".into()))?;
+            // v1: return path proof; phase7 does real `fetch` to Genlook here.
+            Response::from_json(&serde_json::json!({
+                "generation_id": "pending",
+                "try_on_path": client.try_on_path(),
+            }))
+        })
+        .run(req, env)
+        .await
 }

@@ -1,6 +1,8 @@
 [workspace]
-members = [
-  "client",
-  "worker",
-  "shared",
-]
+resolver = "2"
+members = ["client", "worker", "shared"]
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1

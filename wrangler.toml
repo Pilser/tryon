@@ -1,0 +1,19 @@
+name = "tryon-shop"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-01-01"
+
+[vars]
+SHOP_NAME = "TryOn Shop"
+
+# Secrets (set via `wrangler secret put`): GENLOOK_API_KEY, ADMIN_TOKEN, OWNER_WHATSAPP
+# Bindings (uncomment when buckets/db exist):
+# [[r2_buckets]]
+# binding = "PRODUCTS"
+# bucket_name = "tryon-products"
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "tryon-db"
+# database_id = "replace-me"
+
+[build]
+command = "cargo install worker-build && worker-build --release"

@@ -121,7 +121,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/", |req, ctx| async move {
             let origin = origin_of(&req);
             let shop = shop_from_env(&ctx.env);
-            let store = MemoryStore { products: seed_products(ctx.env), shop: shop.clone() };
+            let store = MemoryStore { products: seed_products(&ctx.env), shop: shop.clone() };
             let list = store.list(&ProductFilter::default());
             Response::from_html(crate::ssr::render_landing(&shop, &list, &origin))
         })
@@ -129,7 +129,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let origin = origin_of(&req);
             let shop = shop_from_env(&ctx.env);
             let id = ctx.param("id").cloned().unwrap_or_default();
-            let store = MemoryStore { products: seed_products(ctx.env), shop: shop.clone() };
+            let store = MemoryStore { products: seed_products(&ctx.env), shop: shop.clone() };
             match store.get(&id) {
                 Some(p) => Response::from_html(crate::ssr::render_detail(&shop, &p, &origin)),
                 None => Response::error("not found", 404),
@@ -144,13 +144,13 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let q = req.url().map(|u| u.query().unwrap_or_default().to_string()).unwrap_or_default();
             let filter = crate::routes::products::parse_filter(&q);
             let shop = shop_from_env(&ctx.env);
-            let store = MemoryStore { products: seed_products(ctx.env), shop };
+            let store = MemoryStore { products: seed_products(&ctx.env), shop };
             Response::from_json(&store.list(&filter))
         })
         .get_async("/api/products/:id", |_, ctx| async move {
             let shop = shop_from_env(&ctx.env);
             let id = ctx.param("id").cloned().unwrap_or_default();
-            let store = MemoryStore { products: seed_products(ctx.env), shop };
+            let store = MemoryStore { products: seed_products(&ctx.env), shop };
             match store.get(&id) {
                 Some(p) => Response::from_json(&p),
                 None => Response::error("not found", 404),

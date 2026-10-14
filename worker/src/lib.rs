@@ -36,9 +36,14 @@ fn origin_of(req: &Request) -> String {
         .unwrap_or_default()
 }
 
-fn demo_products() -> Vec<tryon_shared::models::Product> {
-    // v1 placeholder; replaced by D1 query in phase7.
-    vec![]
+/// Local-test + edge seed: JSON array of products in `PRODUCTS_JSON`.
+/// Replaced by the D1 query in phase7; same struct, same code paths.
+fn seed_products(env: &Env) -> Vec<tryon_shared::models::Product> {
+    env.var("PRODUCTS_JSON")
+        .map(|v| v.to_string())
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
 }
 
 /// Forward a call to Genlook, passing the JSON body through so the client
@@ -116,7 +121,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/", |req, ctx| async move {
             let origin = origin_of(&req);
             let shop = shop_from_env(&ctx.env);
-            let store = MemoryStore { products: demo_products(), shop: shop.clone() };
+            let store = MemoryStore { products: seed_products(ctx.env), shop: shop.clone() };
             let list = store.list(&ProductFilter::default());
             Response::from_html(crate::ssr::render_landing(&shop, &list, &origin))
         })
@@ -124,7 +129,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let origin = origin_of(&req);
             let shop = shop_from_env(&ctx.env);
             let id = ctx.param("id").cloned().unwrap_or_default();
-            let store = MemoryStore { products: demo_products(), shop: shop.clone() };
+            let store = MemoryStore { products: seed_products(ctx.env), shop: shop.clone() };
             match store.get(&id) {
                 Some(p) => Response::from_html(crate::ssr::render_detail(&shop, &p, &origin)),
                 None => Response::error("not found", 404),
@@ -135,11 +140,21 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let shop = shop_from_env(&ctx.env);
             Response::from_html(crate::ssr::render_admin(&shop, &origin))
         })
-        .get_async("/api/products", |req, _ctx| async move {
+        .get_async("/api/products", |req, ctx| async move {
             let q = req.url().map(|u| u.query().unwrap_or_default().to_string()).unwrap_or_default();
             let filter = crate::routes::products::parse_filter(&q);
-            let _ = filter;
-            Response::from_json(&serde_json::json!([]))
+            let shop = shop_from_env(&ctx.env);
+            let store = MemoryStore { products: seed_products(ctx.env), shop };
+            Response::from_json(&store.list(&filter))
+        })
+        .get_async("/api/products/:id", |_, ctx| async move {
+            let shop = shop_from_env(&ctx.env);
+            let id = ctx.param("id").cloned().unwrap_or_default();
+            let store = MemoryStore { products: seed_products(ctx.env), shop };
+            match store.get(&id) {
+                Some(p) => Response::from_json(&p),
+                None => Response::error("not found", 404),
+            }
         })
         .get_async("/api/shop-settings", |_, ctx| async move {
             Response::from_json(&shop_from_env(&ctx.env))

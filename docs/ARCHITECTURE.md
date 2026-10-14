@@ -75,7 +75,8 @@ tryon/
   shared/src/
     mod.rs (re-export only)
     models.rs (Product, ShopSettings, filters)
-    whatsapp.rs (wa.me builder, pure fn + tests)
+    photo.rs (MAX_BYTES/MIMEs/dims/share_url + tests)
+    whatsapp.rs (wa.me builder + wa share, pure fn + tests)
     filter.rs (apply_filter pure fn + tests)
   client/src/
     main.rs (mount only)
@@ -90,14 +91,15 @@ tryon/
       layout/mod.rs (header, footer)
       product/mod.rs (card, grid)
       filters/mod.rs (search_bar, filters)
-      tryon/mod.rs (button, modal)
-      inquire/mod.rs (whatsapp_button)
-      admin/mod.rs (upload_form, product_row)
+      tryon/mod.rs + studio.rs (persistent studio: pick/review/working/done, download)
+      inquire/mod.rs (whatsapp_button, share_buttons)
+      admin/mod.rs (upload_form with WASM photo pipe + preview)
+    photo/pipe.rs (WASM validate + downscale + JPEG encode + preview URL)
     styles/main.css (premium theme)
   worker/src/
     lib.rs (re-export only)
     main.rs (fetch router only)
-    routes/mod.rs + products.rs + admin.rs + tryon.rs + shop.rs + health.rs
+    routes/mod.rs + products.rs + admin.rs + tryon.rs (sync body/parse) + person.rs (upload precheck) + shop.rs + health.rs
     store.rs (D1+R2 abstraction, testable without bindings)
     genlook.rs (REST client, key from env, testable with mock base_url)
     ssr.rs (landing/detail/admin render helpers)
@@ -133,9 +135,22 @@ Each phase ends with: `cargo fmt`, `ram-check -p <crate>`, `ram-test -p <crate>`
 - Product table with thumbnail, delete (v2), copy image URL.
 - Upload flow: `POST /api/admin/products` multipart -> Worker streams to R2 `products/<uuid>.<ext>`, inserts D1 row, returns JSON. No direct R2 credentials in browser.
 
-## 10. Genlook integration notes
+## 10. Genlook integration notes (verified against docs + example app)
 
-- Key stays in Worker secret. Browser sends only `product_id` + `person_image_id`.
-- Person photo upload: `POST /api/person-upload` -> Worker forwards to Genlook `/images/upload`, returns imageId (reuse per session).
-- Poll: client polls `GET /api/generations/:id` every 2s up to ~30s, or Worker can accept webhook (v2).
-- Failed try-ons refunded by Genlook; Worker surfaces `generation.failed` as JSON error with code.
+- Base `https://api.genlook.app/tryon/v1`, auth `x-api-key: gk_...` (Worker secret only).
+- Person upload: `POST /images/upload` multipart `file` (+ optional `crop` default true, `externalUserId`, `keepForDays` 1/3/7). Returns `imageId` (opaque, TTL in name e.g. `ttl-7d`, default 7 days) + short-lived `imageUrl`. Accepted: JPEG/PNG/WebP/HEIC, 10 MB max. Reuse one `imageId` per session.
+- Try-on: `POST /try-on/sync` (same body as async) waits up to 90 s: 200 = COMPLETED + temporary `resultImageUrl` (download at once or refetch generation for fresh URL), 202 = poll `GET /generations/:id`. Products 1–4 per call; inline shape `{externalId,title,description,images}` cached 15 days, reference `{externalId}` reuses analysis (faster), one-shot 7 days. First try-on of a product is slower (analysis); `POST /products` pre-register is v2.
+- Example app pattern mirrored: upload once -> try-on sync with `externalId` + `imageId`; browser talks only to our Worker routes; mock-engine toggle is v2.
+- Costs 1 credit/try-on, refunded on failure. Poll every 2 s, cap ~90 s.
+
+## 11. Try-on studio (solid, persistent)
+
+- Embedded `<section class="studio">` on the product page — NOT a dismissible popup. No overlay-click close, no Esc close. Explicit buttons only.
+- Steps: Pick (choose file + take-photo `capture="user"` inputs) -> Review (preview + dims/size note + Start/Change) -> Working (progress text) -> Done (result + Download + Try again + Change photo) / Failed (error + Retry).
+- Client gate before submit (`shared::photo` + `client/src/photo/pipe.rs` WASM): 10 MB, mime allowlist, min 256px; hi-res downscaled to 1600px edge + JPEG q85; HEIC passes through (Genlook-native).
+- Download: fetch result URL -> Blob -> `a[download]` click. Result URLs are temporary — UI tells user to download now.
+
+## 12. Share / bots
+
+- Share URL = Worker SSR product URL (`shared::photo::share_url`). `render_detail` emits absolute `og:title/description/image/url` + `twitter:card summary_large_image` + canonical, so WhatsApp/Twitter bots get full preview with zero JS.
+- `ShareButtons` component: readonly link field + WhatsApp share (`wa.me/?text=`).

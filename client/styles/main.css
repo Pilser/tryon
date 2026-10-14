@@ -12,3 +12,9 @@
 .detail{display:grid;grid-template-columns:1fr 1fr;gap:22px;max-width:1000px;margin:22px auto;padding:0 22px}.detail img{width:100%;border-radius:16px}
 .admin{max-width:640px;margin:22px auto;padding:0 22px}.admin-form{display:grid;gap:10px}.admin-form input,.admin-form textarea{padding:10px;border-radius:10px;border:1px solid #333;background:#101220;color:var(--text)}
 .footer{text-align:center;color:var(--muted);padding:26px}.count{text-align:center;color:var(--muted)}
+.studio{max-width:1000px;margin:22px auto;padding:22px;border:1px solid #262836;border-radius:16px;background:var(--card)}
+.studio h2{margin-top:0}.studio-pick .btn,.studio-review .btn,.studio-result .btn{cursor:pointer;display:inline-block}
+.studio-preview{max-width:280px;border-radius:12px}.studio-result-img{max-width:100%;border-radius:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.hint{color:var(--muted);font-size:.85rem}.error{color:#ff7a7a}.ok{color:var(--wa)}.progress{color:var(--gold)}
+.share-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.share-link{flex:1;min-width:200px;padding:10px;border-radius:10px;border:1px solid #333;background:#101220;color:var(--text)}
+.admin-preview{max-width:280px;border-radius:12px}.btn[disabled]{opacity:.5;cursor:not-allowed}

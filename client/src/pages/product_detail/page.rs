@@ -2,7 +2,11 @@ use leptos::*;
 use leptos_router::*;
 use tryon_shared::models::Product;
 
-use crate::components::{inquire::WhatsappButton, layout::{Footer, Header}, tryon::TryOnPanel};
+use crate::components::{
+    inquire::{ShareButtons, WhatsappButton},
+    layout::{Footer, Header},
+    tryon::TryOnStudio,
+};
 
 #[component]
 pub fn ProductDetailPage() -> impl IntoView {
@@ -22,10 +26,15 @@ pub fn ProductDetailPage() -> impl IntoView {
             {move || product.get().map(|p| p.map(|p| view! {
                 <article class="detail">
                     <img src=p.image_url.clone() alt=p.title.clone()/>
-                    <div><h1>{p.title.clone()}</h1><p>{p.price_display()}</p>
-                    <TryOnPanel product=p.clone()/>
-                    <WhatsappButton owner_whatsapp="".to_string() shop_name="Shop".to_string() title=p.title.clone() product_id=p.id.clone()/></div>
+                    <div>
+                        <h1>{p.title.clone()}</h1>
+                        <p>{p.description.clone()}</p>
+                        <p class="price">{p.price_display()}</p>
+                        <WhatsappButton owner_whatsapp="".to_string() shop_name="Shop".to_string() title=p.title.clone() product_id=p.id.clone()/>
+                        <ShareButtons title=p.title.clone() product_id=p.id.clone()/>
+                    </div>
                 </article>
+                <TryOnStudio product=p.clone()/>
             }))}
         </Suspense>
         <Footer/>

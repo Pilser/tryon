@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use worker::{event, Context, Env, Fetch, Headers, Method, Request, RequestInit, Response, Result, Router};
 use tryon_shared::models::{ProductFilter, ShopSettings, TryOnRequest};
-use tryon_worker::{routes, ssr, store::MemoryStore};
+use tryon_worker::{routes, ssr, store::{MemoryStore, ProductStore}};
 
 const GENLOOK_BASE: &str = "https://api.genlook.app/tryon/v1";
 
@@ -101,7 +101,7 @@ async fn handle_tryon_sync(mut req: Request, env: Env) -> Result<Response> {
 }
 
 #[event(fetch)]
-async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
+async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let router = Router::new();
 
     router

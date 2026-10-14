@@ -107,14 +107,14 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     router
         .get_async("/", |req, ctx| async move {
             let origin = origin_of(&req);
-            let shop = shop_from_env(ctx.env);
+            let shop = shop_from_env(&ctx.env);
             let store = MemoryStore { products: demo_products(), shop: shop.clone() };
             let list = store.list(&ProductFilter::default());
             Response::from_html(ssr::render_landing(&shop, &list, &origin))
         })
         .get_async("/product/:id", |req, ctx| async move {
             let origin = origin_of(&req);
-            let shop = shop_from_env(ctx.env);
+            let shop = shop_from_env(&ctx.env);
             let id = ctx.param("id").cloned().unwrap_or_default();
             let store = MemoryStore { products: demo_products(), shop: shop.clone() };
             match store.get(&id) {
@@ -124,7 +124,7 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         })
         .get_async("/admin", |req, ctx| async move {
             let origin = origin_of(&req);
-            let shop = shop_from_env(ctx.env);
+            let shop = shop_from_env(&ctx.env);
             Response::from_html(ssr::render_admin(&shop, &origin))
         })
         .get_async("/api/products", |req, _ctx| async move {
@@ -134,7 +134,7 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             Response::from_json(&serde_json::json!([]))
         })
         .get_async("/api/shop-settings", |_, ctx| async move {
-            Response::from_json(&shop_from_env(ctx.env))
+            Response::from_json(&shop_from_env(&ctx.env))
         })
         .get("/healthz", |_, _| Response::from_json(&serde_json::json!({"ok": true})))
         .post_async("/api/person-upload", |mut req, ctx| async move {

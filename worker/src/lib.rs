@@ -9,7 +9,7 @@ pub use store::{ProductStore, ShopStore};
 use serde::Deserialize;
 use worker::{event, Context, Env, Fetch, Headers, Method, Request, RequestInit, Response, Result, Router};
 use tryon_shared::models::{ProductFilter, ShopSettings, TryOnRequest};
-use crate::{routes, ssr, store::{MemoryStore, ProductStore}};
+use crate::store::MemoryStore;
 
 const GENLOOK_BASE: &str = "https://api.genlook.app/tryon/v1";
 
@@ -89,12 +89,12 @@ struct SyncIn {
 async fn handle_tryon_sync(mut req: Request, env: Env) -> Result<Response> {
     let key = api_key(&env)?;
     let input: SyncIn = req.json().await.map_err(|e| worker::Error::RustError(e.to_string()))?;
-    routes::tryon::validate(&TryOnRequest {
+    crate::routes::tryon::validate(&TryOnRequest {
         product_id: input.product_id.clone(),
         person_image_id: input.person_image_id.clone(),
     })
     .map_err(|e| worker::Error::RustError(e.into()))?;
-    let body = routes::tryon::build_sync_body(
+    let body = crate::routes::tryon::build_sync_body(
         &input.product_id,
         &input.title,
         &input.description,
@@ -118,7 +118,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let shop = shop_from_env(&ctx.env);
             let store = MemoryStore { products: demo_products(), shop: shop.clone() };
             let list = store.list(&ProductFilter::default());
-            Response::from_html(ssr::render_landing(&shop, &list, &origin))
+            Response::from_html(crate::ssr::render_landing(&shop, &list, &origin))
         })
         .get_async("/product/:id", |req, ctx| async move {
             let origin = origin_of(&req);
@@ -126,18 +126,18 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let id = ctx.param("id").cloned().unwrap_or_default();
             let store = MemoryStore { products: demo_products(), shop: shop.clone() };
             match store.get(&id) {
-                Some(p) => Response::from_html(ssr::render_detail(&shop, &p, &origin)),
+                Some(p) => Response::from_html(crate::ssr::render_detail(&shop, &p, &origin)),
                 None => Response::error("not found", 404),
             }
         })
         .get_async("/admin", |req, ctx| async move {
             let origin = origin_of(&req);
             let shop = shop_from_env(&ctx.env);
-            Response::from_html(ssr::render_admin(&shop, &origin))
+            Response::from_html(crate::ssr::render_admin(&shop, &origin))
         })
         .get_async("/api/products", |req, _ctx| async move {
             let q = req.url().map(|u| u.query().unwrap_or_default().to_string()).unwrap_or_default();
-            let filter = routes::products::parse_filter(&q);
+            let filter = crate::routes::products::parse_filter(&q);
             let _ = filter;
             Response::from_json(&serde_json::json!([]))
         })
@@ -152,7 +152,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                 .headers()
                 .get("content-length")?
                 .and_then(|v| v.parse::<usize>().ok());
-            routes::person::precheck(len, if ct.is_empty() { None } else { Some(ct.as_str()) })
+            crate::routes::person::precheck(len, if ct.is_empty() { None } else { Some(ct.as_str()) })
                 .map_err(|e| worker::Error::RustError(e.into()))?;
             let bytes = req.bytes().await.map_err(|e| worker::Error::RustError(e.to_string()))?;
             if bytes.len() > tryon_shared::photo::MAX_BYTES {

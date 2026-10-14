@@ -4,6 +4,7 @@ name: release
 # Never build releases locally or on PR (see AGENTS.md §1, §3).
 # Release-only: no check/test jobs here. Build cache is restored
 # before the build and saved after, so the next run reuses it.
+# Artifact is the Worker .wasm, downloaded for local `wrangler dev`.
 
 on:
   workflow_dispatch:
@@ -22,12 +23,12 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: tryon-release
-      - name: build release (capped for small runner)
-        run: cargo build --release --jobs 2
-      - name: upload artifacts
+      - name: build worker wasm (capped for small runner)
+        run: cargo build --release --target wasm32-unknown-unknown -p tryon-worker --jobs 2
+      - name: upload wasm artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tryon-${{ github.ref_name }}
+          name: tryon-worker-${{ github.ref_name }}
           path: |
-            target/release/tryon-*
-          if-no-files-found: warn
+            target/wasm32-unknown-unknown/release/*.wasm
+          if-no-files-found: error

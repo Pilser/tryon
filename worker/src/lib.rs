@@ -121,9 +121,12 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/", |req, ctx| async move {
             let origin = origin_of(&req);
             let shop = shop_from_env(&ctx.env);
+            let q = req.url().map(|u| u.query().unwrap_or_default().to_string()).unwrap_or_default();
+            let filter = crate::routes::products::parse_filter(&q);
             let store = MemoryStore { products: seed_products(&ctx.env), shop: shop.clone() };
-            let list = store.list(&ProductFilter::default());
-            Response::from_html(crate::ssr::render_landing(&shop, &list, &origin))
+            let all = store.list(&ProductFilter::default());
+            let list = store.list(&filter);
+            Response::from_html(crate::ssr::render_landing(&shop, &list, &all, &filter, &origin))
         })
         .get_async("/product/:id", |req, ctx| async move {
             let origin = origin_of(&req);

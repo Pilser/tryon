@@ -25,6 +25,7 @@ export const landing = stylex.create({
   pill: {
     display: "inline-block", minWidth: 90, height: 36, lineHeight: "36px",
     paddingLeft: 16, paddingRight: 16, marginLeft: 6, marginRight: 6,
+    boxSizing: "border-box", textAlign: "center", verticalAlign: "top",
     borderRadius: 10, backgroundColor: t.surface,
     borderWidth: 1, borderStyle: "solid", borderColor: "transparent",
     color: t.text, fontSize: 15, textDecoration: "none",

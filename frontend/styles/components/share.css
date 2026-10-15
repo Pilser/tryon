@@ -1,1 +1,0 @@
-.share-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.share-link:focus{border-color:var(--complement);outline:none}.share-link{flex:1;min-width:200px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text)}

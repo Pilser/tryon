@@ -5,7 +5,8 @@ import type { Product } from "../core/types";
 import { esc, money } from "../core/format";
 import { inquireUrl } from "../core/whatsapp";
 
-const cx = (s: any): string => (stylex.props(s) as { className?: string }).className ?? "";
+const cx = (...ss: any[]): string =>
+  (stylex.props(ss.filter(Boolean)) as { className?: string }).className ?? "";
 
 export function cardHTML(p: Product, shop: string, owner: string): string {
   const model = p.model_image_url || p.image_url;

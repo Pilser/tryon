@@ -7,7 +7,8 @@ import { loadTimeline } from "../core/store";
 import type { TimelineEntry } from "../core/types";
 import { skin } from "../skin";
 
-const cx = (s: any): string => (stylex.props(s) as { className?: string }).className ?? "";
+const cx = (...ss: any[]): string =>
+  (stylex.props(ss.filter(Boolean)) as { className?: string }).className ?? "";
 
 export type SelectFn = (e: TimelineEntry) => void;
 

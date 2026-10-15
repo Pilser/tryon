@@ -15,7 +15,7 @@ frontend/
 │       ├── filter-bar.css
 │       ├── studio.css
 │       ├── timeline.css
-│       ├── admin-form.css
+│       ├── owner-form.css
 │       └── share.css
 └── src/
     ├── core/
@@ -28,7 +28,7 @@ frontend/
     │   ├── filters.js       # pills render (imports core/*)
     │   ├── studio.js        # photo flow: pick/validate/upload/sync/poll/download
     │   ├── timeline.js      # strip render + select (imports core/store)
-    │   └── admin-form.js    # bundle upload (imports core/api)
+    │   └── owner-form.js    # bundle upload (imports core/api)
     └── pages/
         ├── landing.js    # compose: api + filters + product-card (no new markup)
         ├── product.js    # compose: detail + studio + timeline

@@ -52,7 +52,7 @@ export const generation = (id: string): Promise<{ status: string; resultImageUrl
   api("/api/generations/" + encodeURIComponent(id));
 
 export const createProduct = (formData: FormData, token = ""): Promise<{ id: string }> =>
-  api("/api/admin/products", {
+  api("/api/studio/products", {
     method: "POST",
     body: formData,
     ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),

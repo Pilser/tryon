@@ -27,9 +27,9 @@ bun /tmp/opencode/wbg/harness4.cjs
 - `GET /api/products/:id` → `Product`
 - `POST /api/person-upload` multipart `file` (+`crop`,`keepForDays`,`externalUserId`) → `{imageId, imageUrl}` (imageId ~7d TTL)
 - `POST /api/try-on/sync` JSON `{product_id,title,description,image_url,person_image_id}` → `200 {generationId,status,resultImageUrl}` (temporary URL — download at once) or `202 {generationId,status}` → poll `GET /api/generations/:id` every 2s, ~90s cap
-- `POST /api/owner/login` JSON `{token}` → `200 {ok:true}` or `401` (validates `ADMIN_TOKEN`; empty secret = open v1)
+- `POST /api/owner/login` JSON `{token}` → `200 {ok:true}` or `401` (validates `OWNER_TOKEN`; empty secret = open v1)
 - `POST /api/owner/logout` → `200 {ok:true}` (ack; browser clears the token)
-- `POST /api/admin/products` Bearer-gated multipart `image0*` (garment), `image1` (model), `image2` (styled), `title*`, `price_cents`, `category`, `sizes` (csv), `description` → full `Product` (files to R2 `products/<id>-<slot>.<ext>`, row into D1; reads fall back to seed when bindings are absent)
+- `POST /api/studio/products` Bearer-gated multipart `image0*` (garment), `image1` (model), `image2` (styled), `title*`, `price_cents`, `category`, `sizes` (csv), `description` → full `Product` (files to R2 `products/<id>-<slot>.<ext>`, row into D1; reads fall back to seed when bindings are absent)
 
 `Product = {id,title,description,price_cents,currency,image_url,model_image_url,styled_image_url,r2_key,category,sizes[],created_at}`
 
@@ -50,4 +50,4 @@ bun /tmp/opencode/wbg/harness4.cjs
 st-start, st-change, st-prog, st-res, st-resimg, st-dl, st-retry,
 st-timeline, st-tlhead, data-pid/title/desc/img, data-garment/model/styled,
 owner, owner-login, owner-panel, owner-gate, bundle-form, bd-token, bd-login, bd-login-err, bd-logout,
-bd-use-result, file0/1/2, filecam, btn-photo, btn-cam, slot-img-0/1/2, bd-submit, bd-err, bd-ok, admin-list`
+bd-use-result, file0/1/2, filecam, btn-photo, btn-cam, slot-img-0/1/2, bd-submit, bd-err, bd-ok, studio-list`

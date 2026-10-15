@@ -88,7 +88,7 @@ export const base = stylex.create({
     fontSize: 24,
     textDecoration: "none",
   },
-  adminLink: {
+  studioLink: {
     position: "absolute",
     right: 24,
     top: 20,

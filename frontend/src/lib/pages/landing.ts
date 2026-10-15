@@ -28,6 +28,6 @@ export async function landing(): Promise<void> {
   skin();
   el("search-form").addEventListener("submit", (ev) => {
     ev.preventDefault();
-    location.href = "/app/?q=" + encodeURIComponent(el<HTMLInputElement>("q").value);
+    location.href = "/?q=" + encodeURIComponent(el<HTMLInputElement>("q").value);
   });
 }

@@ -18,7 +18,7 @@ export async function product(): Promise<void> {
     `<article class="detail">${galleryHTML(p)}
      <div><h1>${esc(p.title)}</h1><p>${esc(p.description)}</p><p class="price">${esc(money(p))}</p>
      <div class="row"><a class="btn wa" target="_blank" href="${esc(inquireUrl(shop.owner_whatsapp, shop.shop_name, p.title, p.id))}">${waIcon()}Inquire on WhatsApp</a></div>
-     <div class="share-row"><input class="share-link" readonly value="${esc(location.origin + "/app/product.html?id=" + p.id)}" onclick="this.select()"/>
+     <div class="share-row"><input class="share-link" readonly value="${esc(location.origin + "/product?id=" + p.id)}" onclick="this.select()"/>
      <a class="btn" target="_blank" href="${esc(waShareUrl(location.origin, p.title, p.id))}">Share</a></div>
      </div></article>`;
   armAll(detail);

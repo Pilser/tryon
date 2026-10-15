@@ -54,7 +54,7 @@ export const timeline = stylex.create({
   itemOn: { borderColor: t.primary },
 });
 
-export const admin = stylex.create({
+export const owner = stylex.create({
   page: {
     position: "relative", maxWidth: 1200, minHeight: 560,
     marginTop: 64, marginBottom: 0, marginLeft: "auto", marginRight: "auto",

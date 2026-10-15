@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 const root = path.dirname(fileURLToPath(import.meta.url));
 
 await esbuild.build({
-  entryPoints: ["src/main.ts"],
+  entryPoints: ["src/lib/main.ts"],
   bundle: true,
   minify: true,
   target: "es2020",

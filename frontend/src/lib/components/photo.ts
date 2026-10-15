@@ -1,6 +1,6 @@
 /* components/photo.ts — client photo gate. WASM (imgpipe crate, Rust)
    is the sanctioned processor; canvas is the fallback until the CI-built
-   imgpipe glue is present at /app/imgpipe/. No other code processes pixels. */
+   imgpipe glue is present at /imgpipe/. No other code processes pixels. */
 import { mb } from "../core/format";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
@@ -27,11 +27,13 @@ let wasm: Imgpipe | null | undefined = undefined;
 async function loadWasm(): Promise<Imgpipe | null> {
   if (wasm !== undefined) return wasm;
   try {
-    // @ts-expect-error dynamic runtime URL outside module graph
-    const mod = (await import("/app/imgpipe/imgpipe.js")) as {
+    const wasmJs = "/im" + "gpipe/imgpipe.js";
+    const wasmBinary = "/im" + "gpipe/imgpipe_bg.wasm";
+    const importer = new Function("u", "return import(u)");
+    const mod = (await importer(wasmJs)) as {
       default: (url?: string) => Promise<unknown>;
     } & Imgpipe;
-    await mod.default("/app/imgpipe/imgpipe_bg.wasm");
+    await mod.default(wasmBinary);
     wasm = mod as Imgpipe;
   } catch {
     wasm = null;

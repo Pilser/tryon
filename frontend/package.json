@@ -3,8 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run build.ts",
-    "dev": "bun dev.ts",
+    "build": "astro build && bun run build.ts",
+    "astro": "astro",
+    "dev": "astro dev",
+    "dev:astro": "astro dev",
     "check": "tsc --noEmit"
   },
   "devDependencies": {
@@ -12,5 +14,9 @@
     "@stylexjs/stylex": "^0.11.0",
     "esbuild": "^0.25.0",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@stylexjs/unplugin": "^0.19.1",
+    "astro": "^7.4.0"
   }
 }

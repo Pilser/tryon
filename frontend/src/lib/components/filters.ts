@@ -10,7 +10,7 @@ const cx = (...ss: any[]): string =>
 export function pillsHTML(categories: string[], active: string): string {
   const link = (isAll: boolean, cat: string, label: string): string => {
     const cls = cx(s.pill, cat === active && s.pillOn, isAll && s.pillAll);
-    return `<a class="${cls}" href="/app/${cat ? "?category=" + encodeURIComponent(cat) : ""}">${esc(label)}</a>`;
+    return `<a class="${cls}" href="/${cat ? "?category=" + encodeURIComponent(cat) : ""}">${esc(label)}</a>`;
   };
   return link(true, "", "All") + categories.map((c) => link(false, c, c)).join("");
 }

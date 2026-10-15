@@ -29,3 +29,12 @@ frontend/dist/**
 !.github/**
 !.opencode/
 !.opencode/**
+
+# astro generated
+frontend/dist-astro/
+frontend/dist-astro/**
+frontend/.astro/
+frontend/.astro/**
+# local generated wasm glue copies
+frontend/public/imgpipe/
+frontend/public/imgpipe/**

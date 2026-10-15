@@ -4,14 +4,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { base } from "./styles/base.stylex";
 import { landing } from "./styles/landing.stylex";
-import { studio, timeline, admin, share } from "./styles/panels.stylex";
+import { studio, timeline, owner, share } from "./styles/panels.stylex";
 
 const MAP: Array<[string, any[]]> = [
   ["body", [base.body]],
   ["*", [base.reset]],
   [".landing", [landing.page]],
   [".topbar", [base.topbar]],  [".brand", [base.brand]],
-  [".admin-link", [base.adminLink]],
+  [".studio-link", [base.studioLink]],
   [".hero-title", [landing.heroTitle]],
   [".hero-sub", [landing.heroSub]],
   [".eyebrow", [landing.eyebrow]],
@@ -43,41 +43,46 @@ const MAP: Array<[string, any[]]> = [
   [".login-card", [studio.loginCard]],
   [".owner-bar", [studio.ownerBar]],
   [".owner-gate", [studio.gate]],
-  [".owner-gate a", [admin.listLink]],
+  [".owner-gate a", [owner.listLink]],
   [".studio-preview", [studio.preview]],
   [".studio-result-img", [studio.resultImg]],
   [".tl-head", [timeline.head]],
   [".tl-row", [timeline.row]],
   [".share-row", [share.row]],
   [".share-link", [share.link]],
-  [".bundle", [admin.page]],
-  [".bundle .title", [admin.title]],
-  [".lab1", [admin.lab, admin.lab0, admin.labReq]],
-  [".lab2", [admin.lab, admin.lab1, admin.labReq]],
-  [".lab3", [admin.lab, admin.lab2, admin.labOpt]],
-  [".slot-garment", [admin.slot, admin.slot0]],
-  [".slot-model", [admin.slot, admin.slot1]],
-  [".slot-styled", [admin.slot, admin.slot2]],
-  [".slot-img", [admin.slotImg]],
-  [".cap1", [admin.cap, admin.cap0]],
-  [".cap2", [admin.cap, admin.cap1]],
-  [".cap3", [admin.cap, admin.cap2]],
-  [".btn-photo", [admin.photoBtn]],
-  [".btn-cam", [admin.camBtn]],
-  [".f-in", [admin.field]],
-  [".f-title", [admin.field, admin.fTitle]],
-  [".f-price", [admin.field, admin.fPrice]],
-  [".f-cat", [admin.field, admin.fCat]],
-  [".f-sizes", [admin.field, admin.fSizes]],
-  [".f-desc", [admin.field, admin.fDesc]],
-  [".submit", [admin.submit]],
-  [".bundle .note", [admin.note]],
-  ["#admin-list", [admin.list]],
-  ["#admin-list a", [admin.listLink]],
+  [".bundle", [owner.page]],
+  [".bundle .title", [owner.title]],
+  [".lab1", [owner.lab, owner.lab0, owner.labReq]],
+  [".lab2", [owner.lab, owner.lab1, owner.labReq]],
+  [".lab3", [owner.lab, owner.lab2, owner.labOpt]],
+  [".slot-garment", [owner.slot, owner.slot0]],
+  [".slot-model", [owner.slot, owner.slot1]],
+  [".slot-styled", [owner.slot, owner.slot2]],
+  [".slot-img", [owner.slotImg]],
+  [".cap1", [owner.cap, owner.cap0]],
+  [".cap2", [owner.cap, owner.cap1]],
+  [".cap3", [owner.cap, owner.cap2]],
+  [".btn-photo", [owner.photoBtn]],
+  [".btn-cam", [owner.camBtn]],
+  [".f-in", [owner.field]],
+  [".f-title", [owner.field, owner.fTitle]],
+  [".f-price", [owner.field, owner.fPrice]],
+  [".f-cat", [owner.field, owner.fCat]],
+  [".f-sizes", [owner.field, owner.fSizes]],
+  [".f-desc", [owner.field, owner.fDesc]],
+  [".submit", [owner.submit]],
+  [".bundle .note", [owner.note]],
+  ["#studio-list", [owner.list]],
+  ["#studio-list a", [owner.listLink]],
 ];
 
 const cx = (ss: any[]): string =>
   ss.map((s) => (stylex.props(s) as { className?: string }).className ?? "").join(" ");
+
+if ((import.meta as any).env?.DEV) {
+  // @ts-ignore
+  import("/@id/virtual:stylex:runtime").catch(() => {});
+}
 
 export function skin(scope: ParentNode = document): void {
   for (const [sel, styles] of MAP) {

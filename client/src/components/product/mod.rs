@@ -1,9 +1,10 @@
 use leptos::*;
 use tryon_shared::{inquire_url, models::Product};
 
-/// Twin of the figcraft ProductCard export (`design/out/card.html`).
-/// Same classes/geometry as SSR; swap behavior attaches via the shared
-/// swap script (data-garment/model/styled).
+// GENERATED from figcraft: `inspect.code {id: 12, language: leptos}`
+// (design/out/card-leptos.rs). Only adaptations: component props replace
+// static text, and inert divs become working elements (photo, links,
+// model inset). Structure, classes and geometry untouched.
 #[component]
 pub fn ProductCard(product: Product, shop_name: String, owner_whatsapp: String) -> impl IntoView {
     let wa = inquire_url(&owner_whatsapp, &shop_name, &product.title, &product.id);
@@ -14,7 +15,7 @@ pub fn ProductCard(product: Product, shop_name: String, owner_whatsapp: String) 
         product.model_image_url.clone()
     };
     view! {
-        <article
+        <div
             class="productcard"
             data-garment=product.image_url.clone()
             data-model=model.clone()
@@ -37,7 +38,7 @@ pub fn ProductCard(product: Product, shop_name: String, owner_whatsapp: String) 
             <a class="btn-inquire" target="_blank" href=wa>
                 <span class="btn-inquire-label">"Inquire"</span>
             </a>
-        </article>
+        </div>
     }
 }
 

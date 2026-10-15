@@ -1,0 +1,138 @@
+use leptos::prelude::*;
+
+#[component]
+pub fn ProductCard() -> impl IntoView {
+    view! {
+        <div class="productcard">
+            <div class="img"></div>
+            <div class="badge-pill"></div>
+            <p class="badge">"Dresses"</p>
+            <p class="title">"Scarlet Silk Dress"</p>
+            <p class="price">"49.99 USD"</p>
+            <div class="btn-tryon"></div>
+            <p class="btn-tryon-label">"Try On"</p>
+            <div class="btn-inquire"></div>
+            <p class="btn-inquire-label">"Inquire"</p>
+            <div class="model-inset"></div>
+        </div>
+    }
+}
+
+/* productcard.css */
+:root {
+  --line: #2C3319;
+  --complement: #8B6FE8;
+  --text: #F4F7E4;
+  --primary: #B9D93C;
+  --primary-ink: #1A2005;
+  --surface: #1B1F12;
+  --wa: #25D366;
+}
+.productcard {
+  position: relative;
+  width: 300px;
+  height: 600px;
+  border-radius: 16px;
+  background: #1B1F12;
+}
+.img {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 300px;
+  height: 400px;
+  border-radius: 16px 16px 0px 0px;
+  background: var(--line, #2C3319);
+}
+.badge-pill {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 70px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--complement, #8B6FE8);
+}
+.badge {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  width: 70px;
+  color: var(--text, #F4F7E4);
+  font-family: "Inter";
+  font-size: 13px;
+  font-weight: 400;
+  text-align: center;
+}
+.title {
+  position: absolute;
+  left: 16px;
+  top: 416px;
+  width: 268px;
+  color: var(--text, #F4F7E4);
+  font-family: "Poppins";
+  font-size: 20px;
+  font-weight: 400;
+}
+.price {
+  position: absolute;
+  left: 16px;
+  top: 450px;
+  width: 268px;
+  color: var(--primary, #B9D93C);
+  font-family: "Poppins";
+  font-size: 16px;
+  font-weight: 400;
+}
+.btn-tryon {
+  position: absolute;
+  left: 16px;
+  top: 492px;
+  width: 130px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--primary, #B9D93C);
+}
+.btn-tryon-label {
+  position: absolute;
+  left: 17px;
+  top: 505px;
+  width: 130px;
+  color: var(--primary-ink, #1A2005);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+}
+.btn-inquire {
+  position: absolute;
+  left: 154px;
+  top: 492px;
+  width: 130px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--surface, #1B1F12);
+  border: 2px solid #25D366;
+}
+.btn-inquire-label {
+  position: absolute;
+  left: 154px;
+  top: 492px;
+  width: 130px;
+  height: 44px;
+  color: var(--wa, #25D366);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+}
+.model-inset {
+  position: absolute;
+  left: 216px;
+  top: 292px;
+  width: 72px;
+  height: 96px;
+  border-radius: 8px;
+  background: var(--line, #2C3319);
+  border: 2px solid #1B1F12;
+}

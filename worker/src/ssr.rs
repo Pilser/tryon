@@ -93,7 +93,7 @@ pub fn render_landing(
         cards = cards
     );
     let first_img = products.first().map(|p| p.image_url.clone()).unwrap_or_else(|| shop.logo_url.clone());
-    shell(&shop.shop_name, "Shop the collection with AI virtual try-on.", &first_img, origin, &body)
+    shell(crate::gen_texts::SHOP_NAME, crate::gen_texts::HERO_SUB, &first_img, origin, &body)
 }
 
 /// Persistent try-on studio: vanilla JS, no bundle needed. Pick/take photo

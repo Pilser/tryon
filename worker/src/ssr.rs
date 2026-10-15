@@ -80,11 +80,12 @@ pub fn render_landing(
         })
         .collect();
     let body = format!(
-        r#"{top}<section class="hero"><h1>{shop}</h1><p>Shop the collection. Try it on virtually, or inquire on WhatsApp.</p><form class="filterbar" method="get" action="/"><input name="q" type="search" placeholder="Search products…" value="{q}"/><input type="hidden" name="category" value="{cat}"/><button class="btn primary" type="submit">Search</button></form><div class="pills"><a href="/">All</a>{pills}</div><p class="count">{n} products</p></section><main class="grid">{cards}</main>"#,
+        r#"{top}<section class="hero"><h1>{shop}</h1><p>Shop the collection. Try it on virtually, or inquire on WhatsApp.</p><form class="filterbar" method="get" action="/"><input name="q" type="search" placeholder="Search products…" value="{q}"/><input type="hidden" name="category" value="{cat}"/><button class="btn primary" type="submit">Search</button></form><div class="pills"><a href="/" class="{all}">All</a>{pills}</div><p class="count">{n} products</p></section><main class="grid">{cards}</main>"#,
         top = topbar(&shop.shop_name),
         shop = esc(&shop.shop_name),
         q = esc(&filter.query),
         cat = esc(&filter.category),
+        all = if filter.category.is_empty() { "on" } else { "" },
         pills = pills,
         n = products.len(),
         cards = cards
@@ -96,12 +97,12 @@ pub fn render_landing(
 /// Persistent try-on studio: vanilla JS, no bundle needed. Pick/take photo
 /// -> browser validate + canvas downscale -> upload person -> sync try-on
 /// (200 = result, 202 = poll) -> preview + download. Explicit buttons only.
-const STUDIO_JS: &str = r##"(function(){var root=document.getElementById('studio');if(!root)return;
+const STUDIO_JS: &str = r##"<script>(function(){var root=document.getElementById('studio');if(!root)return;
 var d=root.dataset,pickA=document.getElementById('pick-file'),pickB=document.getElementById('pick-cam'),
 prev=document.getElementById('st-prev'),meta=document.getElementById('st-meta'),err=document.getElementById('st-err'),
 welcome=document.getElementById('st-welcome'),start=document.getElementById('st-start'),change=document.getElementById('st-change'),
 prog=document.getElementById('st-prog'),res=document.getElementById('st-res'),resImg=document.getElementById('st-resimg'),
-retry=document.getElementById('st-retry'),tl=document.getElementById('st-timeline');
+retry=document.getElementById('st-retry'),tl=document.getElementById('st-timeline'),th=document.getElementById('st-tlhead');
 var file=null,activeImageId=null,PK='tryon.person.v1',TK='tryon.timeline.v1',TTL=6*24*3600;
 function load(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -113,7 +114,7 @@ function thumbOf(img,cb){var s=128/Math.max(img.naturalWidth,img.naturalHeight);
 var c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.naturalWidth*s));c.height=Math.max(1,Math.round(img.naturalHeight*s));
 c.getContext('2d').drawImage(img,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',0.7));}
 function pushTl(e){var l=load(TK)||[];l=l.filter(function(x){return x.thumb!==e.thumb;});l.unshift(e);save(TK,l.slice(0,12));paintTl(e.thumb);}
-function paintTl(active){var l=load(TK)||[];tl.innerHTML='';if(!l.length){tl.style.display='none';return;}tl.style.display='';
+function paintTl(active){var l=load(TK)||[];tl.innerHTML='';if(!l.length){tl.style.display='none';th.style.display='none';return;}tl.style.display='';th.style.display='';
 l.forEach(function(e){var b=document.createElement('button');b.className='tl-item'+(e.thumb===active?' on':'');b.title=e.kind;
 var im=document.createElement('img');im.src=e.thumb;im.alt=e.kind;b.appendChild(im);
 b.onclick=function(){selectEntry(e);};tl.appendChild(b);});}
@@ -180,7 +181,7 @@ pub fn render_detail(shop: &ShopSettings, p: &Product, origin: &str) -> String {
     let inquire = tryon_shared::whatsapp::inquire_url(&shop.owner_whatsapp, &shop.shop_name, &p.title, &p.id);
     let wa_share = tryon_shared::whatsapp::wa_share_url(origin, &p.title, &p.id);
     let body = format!(
-        r#"{top}<a class="back" href="/">← Back to shop</a><article class="detail"><img src="{img}" alt="{title}"/><div><h1>{title}</h1><p>{desc}</p><p class="price">{price}</p><div class="row"><a class="btn wa" target="_blank" rel="noopener" href="{wa}">Inquire on WhatsApp</a></div><div class="share-row"><input class="share-link" readonly value="{canon}" onclick="this.select()"/><a class="btn" target="_blank" rel="noopener" href="{share}">Share</a></div></div></article><section class="studio" id="studio" data-pid="{id}" data-title="{title}" data-desc="{desc}" data-img="{img}"><h2>Virtual try-on</h2><div class="studio-pick"><p>Select a clear front-facing photo, or take one now.</p><div class="row"><label class="btn primary">Choose photo<input id="pick-file" type="file" accept="image/*" hidden/></label><label class="btn">Take photo<input id="pick-cam" type="file" accept="image/*" capture="user" hidden/></label></div><p class="hint">JPEG / PNG / WebP / HEIC · max 10 MB · hi-res auto-resized in your browser</p></div><img id="st-prev" class="studio-preview" style="display:none" alt="your photo"/><p id="st-meta" class="hint"></p><p id="st-welcome" class="hint ok" style="display:none"></p><p id="st-err" class="error" style="display:none"></p><div class="row"><button id="st-start" class="btn primary" style="display:none">Start try-on</button><button id="st-change" class="btn" style="display:none">Change photo</button></div><p id="st-prog" class="progress" style="display:none"></p><div id="st-res" style="display:none"><img id="st-resimg" class="studio-result-img" alt="try-on result"/><div class="row"><button id="st-dl" class="btn primary">Download image</button><button id="st-retry" class="btn">Try again</button></div><p class="hint">Result links expire — download it now to keep it.</p></div><h3 class="tl-head">Your timeline</h3><div id="st-timeline" class="tl-row" style="display:none"></div></section>{js}"#,
+        r#"{top}<a class="back" href="/">← Back to shop</a><article class="detail"><img src="{img}" alt="{title}"/><div><h1>{title}</h1><p>{desc}</p><p class="price">{price}</p><div class="row"><a class="btn wa" target="_blank" rel="noopener" href="{wa}">Inquire on WhatsApp</a></div><div class="share-row"><input class="share-link" readonly value="{canon}" onclick="this.select()"/><a class="btn" target="_blank" rel="noopener" href="{share}">Share</a></div></div></article><section class="studio" id="studio" data-pid="{id}" data-title="{title}" data-desc="{desc}" data-img="{img}"><h2>Virtual try-on</h2><div class="studio-pick"><p>Select a clear front-facing photo, or take one now.</p><div class="row"><label class="btn primary">Choose photo<input id="pick-file" type="file" accept="image/*" hidden/></label><label class="btn">Take photo<input id="pick-cam" type="file" accept="image/*" capture="user" hidden/></label></div><p class="hint">JPEG / PNG / WebP / HEIC · max 10 MB · hi-res auto-resized in your browser</p></div><img id="st-prev" class="studio-preview" style="display:none" alt="your photo"/><p id="st-meta" class="hint"></p><p id="st-welcome" class="hint ok" style="display:none"></p><p id="st-err" class="error" style="display:none"></p><div class="row"><button id="st-start" class="btn primary" style="display:none">Start try-on</button><button id="st-change" class="btn" style="display:none">Change photo</button></div><p id="st-prog" class="progress" style="display:none"></p><div id="st-res" style="display:none"><img id="st-resimg" class="studio-result-img" alt="try-on result"/><div class="row"><button id="st-dl" class="btn primary">Download image</button><button id="st-retry" class="btn">Try again</button></div><p class="hint">Result links expire — download it now to keep it.</p></div><h3 id="st-tlhead" class="tl-head" style="display:none">Your timeline</h3><div id="st-timeline" class="tl-row" style="display:none"></div></section>{js}"#,
         top = topbar(&shop.shop_name),
         img = esc(&p.image_url),
         title = esc(&p.title),

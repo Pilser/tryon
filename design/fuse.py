@@ -29,6 +29,10 @@ VALUE_MAP = [
     ("10px button radius", "border-radius:10px"),
     ("44px button height", "min-height:44px"),
     ("search focus violet", "2px solid var(--complement)"),
+    ("landing shell", ".hero-title{position:absolute;left:0;top:110px"),
+    ("pillrow flow", ".pillrow{position:absolute;left:0;top:290px"),
+    ("bundle slots", ".slot-garment{left:24px}"),
+    ("bundle fields", ".f-title{left:760px;top:150px"),
 ]
 
 

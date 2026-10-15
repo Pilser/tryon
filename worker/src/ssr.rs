@@ -73,21 +73,23 @@ pub fn render_landing(
     let mut cats: Vec<String> = all.iter().map(|p| p.category.clone()).collect();
     cats.sort();
     cats.dedup();
+    // Pills mirror the export (.pill-all 90px primary, .pill-1 110px);
+    // extra categories flow after the two designed slots.
     let pills: String = cats
         .iter()
         .map(|c| {
-            let active = if *c == filter.category { " class=\"on\"" } else { "" };
-            format!(r#"<a{active} href="/?category={c}">{c}</a>"#, active = active, c = esc(c))
+            let cls = if *c == filter.category { "pill-1 on" } else { "pill-1" };
+            format!(r#"<a class="{cls}" href="/?category={c}">{c}</a>"#, cls = cls, c = esc(c))
         })
         .collect();
     let body = format!(
-        r#"{top}<section class="hero"><h1>{shop}</h1><p>{sub}</p><form class="filterbar" method="get" action="/"><input name="q" type="search" placeholder="Search products…" value="{q}"/><input type="hidden" name="category" value="{cat}"/><button class="btn primary" type="submit">Search</button></form><div class="pills"><a href="/" class="{all}">All</a>{pills}</div><p class="count">{n} products</p></section><main class="grid">{cards}</main>"#,
-        top = topbar(&shop.shop_name),
+        r#"<div class="landing"><div class="topbar"><a class="brand" href="/">{brand}</a><a class="admin-link" href="/admin">Admin</a></div><p class="hero-title">{shop}</p><p class="hero-sub">{sub}</p><form class="search" method="get" action="/"><input type="hidden" name="category" value="{cat}"/><input class="search-input" name="q" type="search" placeholder="Search products…" value="{q}"/></form><div class="pillrow"><a class="pill-all{all}" href="/">All</a>{pills}</div><p class="count">{n} products</p></div><main class="grid">{cards}</main>"#,
+        brand = esc(crate::gen_texts::SHOP_NAME),
         shop = esc(crate::gen_texts::HERO_TITLE),
         sub = esc(crate::gen_texts::HERO_SUB),
         q = esc(&filter.query),
         cat = esc(&filter.category),
-        all = if filter.category.is_empty() { "on" } else { "" },
+        all = if filter.category.is_empty() { " on" } else { "" },
         pills = pills,
         n = products.len(),
         cards = cards
@@ -198,11 +200,35 @@ pub fn render_detail(shop: &ShopSettings, p: &Product, origin: &str) -> String {
     shell(&p.title, &p.description, &p.image_url, &canonical, &body)
 }
 
+const ADMIN_JS: &str = r##"<script>(function(){var slots=[0,1,2].map(function(i){return{img:document.getElementById('slot-img-'+i),input:document.getElementById('file'+i)};});
+function fail(m){var e=document.getElementById('bd-err');e.textContent=m;e.style.display='block';}
+function hook(i){var s=slots[i];s.input.addEventListener('change',function(){var f=s.input.files[0];if(!f)return;
+if(f.size>10*1024*1024){fail('Photo '+(i+1)+' over 10 MB.');s.input.value='';return;}
+var ok=['image/jpeg','image/png','image/webp','image/heic','image/heif'];
+if(f.type&&ok.indexOf(f.type)<0){fail('Photo '+(i+1)+': use JPEG, PNG, WebP or HEIC.');s.input.value='';return;}
+s.img.src=URL.createObjectURL(f);s.img.style.display='';});}
+slots.forEach(function(_,i){hook(i);});
+document.getElementById('btn-cam').addEventListener('click',function(){document.getElementById('filecam').click();});
+document.getElementById('btn-photo').addEventListener('click',function(){document.getElementById('file0').click();});
+document.getElementById('filecam').addEventListener('change',function(ev){var f=ev.target.files[0];if(!f)return;
+var dt=new DataTransfer();dt.items.add(f);document.getElementById('file0').files=dt.files;
+document.getElementById('file0').dispatchEvent(new Event('change'));});
+document.getElementById('bundle-form').addEventListener('submit',function(ev){ev.preventDefault();
+var fd=new FormData(ev.target);if(!fd.get('title')||!String(fd.get('title')).trim()){fail('Title is required.');return;}
+if(!(fd.get('image0') instanceof File)||!fd.get('image0').size){fail('Garment photo is required.');return;}
+var btn=document.getElementById('bd-submit');btn.disabled=true;btn.textContent='Uploading…';
+fetch('/api/admin/products',{method:'POST',body:fd}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});}).then(function(o){
+btn.disabled=false;btn.textContent='Save bundle';
+if(!o.ok||!o.j.id)throw new Error((o.j&&o.j.message)||'upload failed');
+document.getElementById('bd-ok').innerHTML='Saved: <a href="/product/'+o.j.id+'">'+o.j.id+'</a> — now on the landing grid.';
+document.getElementById('bd-ok').style.display='';}).catch(function(e){btn.disabled=false;btn.textContent='Save bundle';fail(e.message);});});
+})();</script>"##;
+
 pub fn render_admin(shop: &ShopSettings, origin: &str) -> String {
     let body = format!(
-        r#"{top}<main class="admin"><h1>Admin — {shop}</h1><form id="upload" method="post" action="/api/admin/products" enctype="multipart/form-data"><input name="title" required placeholder="Title"/><input name="price_cents" type="number" required placeholder="Price (cents)"/><input name="category" placeholder="Category"/><input name="image" type="file" accept="image/*" required/><button class="btn primary" type="submit">Upload to R2</button></form><div id="admin-list"></div></main>"#,
+        r#"{top}<div class="bundle"><p class="title">Upload bundle — 3 photos</p><p class="lab1">1 · Garment *</p><p class="lab2">2 · Model without *</p><p class="lab3">3 · Styled (auto after try-on)</p><form id="bundle-form" method="post" action="/api/admin/products" enctype="multipart/form-data"><label class="slot-garment" title="tap to pick garment photo"><img id="slot-img-0" class="slot-img slot0" style="display:none" alt="garment preview"/><input id="file0" name="image0" type="file" accept="image/*" hidden/></label><label class="slot-model" title="tap to pick model photo"><img id="slot-img-1" class="slot-img slot1" style="display:none" alt="model preview"/><input id="file1" name="image1" type="file" accept="image/*" hidden/></label><label class="slot-styled" title="tap to pick styled photo"><img id="slot-img-2" class="slot-img slot2" style="display:none" alt="styled preview"/><input id="file2" name="image2" type="file" accept="image/*" hidden/></label><p class="cap1">Garment flat</p><p class="cap2">Person, no garment</p><p class="cap3">Filled by first try-on result</p><button type="button" class="btn-photo" id="btn-photo">Product photo</button><button type="button" class="btn-cam" id="btn-cam">Take photo</button><input id="filecam" type="file" accept="image/*" capture="environment" hidden/><input class="f-title f-in" name="title" required placeholder="Title *"/><input class="f-price f-in" name="price_cents" type="number" min="0" placeholder="Price (cents) *"/><input class="f-cat f-in" name="category" placeholder="Category"/><input class="f-sizes f-in" name="sizes" placeholder="Sizes S,M,L"/><input class="f-desc f-in" name="description" placeholder="Description — helps the AI fit it right"/><button class="submit" id="bd-submit" type="submit"><span class="submit-t">Save bundle</span></button><p class="error" id="bd-err" style="display:none"></p><p class="ok" id="bd-ok" style="display:none"></p></form><p class="note">Stored as R2 keys garment / model / styled per product.</p></div>{js}"#,
         top = topbar(&shop.shop_name),
-        shop = esc(&shop.shop_name)
+        js = ADMIN_JS,
     );
     shell("Admin", "Owner product upload.", "", origin, &body)
 }

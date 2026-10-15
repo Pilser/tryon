@@ -1,0 +1,282 @@
+<div class="bundle">
+    <p class="title">Upload bundle — 3 photos</p>
+    <p class="lab1">1 · Garment *</p>
+    <p class="lab2">2 · Model without *</p>
+    <p class="lab3">3 · Styled (auto after try-on)</p>
+    <div class="slot-garment"></div>
+    <div class="slot-model"></div>
+    <div class="slot-styled"></div>
+    <p class="cap1">Garment flat</p>
+    <p class="cap2">Person, no garment</p>
+    <p class="cap3">Filled by first try-on result</p>
+    <div class="btn-photo"></div>
+    <p class="btn-photo-t">Product photo</p>
+    <div class="btn-cam"></div>
+    <p class="btn-cam-t">Take photo</p>
+    <div class="f-title"></div>
+    <p class="f-title-t">Title *</p>
+    <div class="f-price"></div>
+    <p class="f-price-t">Price (cents) *</p>
+    <div class="f-cat"></div>
+    <p class="f-cat-t">Category</p>
+    <div class="f-sizes"></div>
+    <p class="f-sizes-t">Sizes S,M,L</p>
+    <div class="submit"></div>
+    <p class="submit-t">Save bundle</p>
+    <p class="note">Stored as R2 keys garment / model / styled per product.</p>
+</div>
+
+<style>
+:root {
+  --text: #F4F7E4;
+  --primary: #B9D93C;
+  --muted: #9AA07E;
+  --line: #2C3319;
+  --primary-ink: #1A2005;
+  --surface: #1B1F12;
+}
+.bundle {
+  position: relative;
+  width: 1200px;
+  height: 760px;
+  background: #12140C;
+}
+.title {
+  position: absolute;
+  left: 24px;
+  top: 24px;
+  width: 700px;
+  color: var(--text, #F4F7E4);
+  font-family: "Poppins";
+  font-size: 28px;
+  font-weight: 400;
+}
+.lab1 {
+  position: absolute;
+  left: 24px;
+  top: 90px;
+  width: 216px;
+  color: var(--primary, #B9D93C);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+}
+.lab2 {
+  position: absolute;
+  left: 264px;
+  top: 90px;
+  width: 216px;
+  color: var(--primary, #B9D93C);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+}
+.lab3 {
+  position: absolute;
+  left: 504px;
+  top: 90px;
+  width: 300px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+}
+.slot-garment {
+  position: absolute;
+  left: 24px;
+  top: 120px;
+  width: 216px;
+  height: 270px;
+  background: var(--line, #2C3319);
+}
+.slot-model {
+  position: absolute;
+  left: 264px;
+  top: 120px;
+  width: 216px;
+  height: 270px;
+  background: var(--line, #2C3319);
+}
+.slot-styled {
+  position: absolute;
+  left: 504px;
+  top: 120px;
+  width: 216px;
+  height: 270px;
+  background: var(--line, #2C3319);
+}
+.cap1 {
+  position: absolute;
+  left: 24px;
+  top: 398px;
+  width: 216px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 13px;
+  font-weight: 400;
+}
+.cap2 {
+  position: absolute;
+  left: 264px;
+  top: 398px;
+  width: 216px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 13px;
+  font-weight: 400;
+}
+.cap3 {
+  position: absolute;
+  left: 504px;
+  top: 398px;
+  width: 300px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 13px;
+  font-weight: 400;
+}
+.btn-photo {
+  position: absolute;
+  left: 24px;
+  top: 440px;
+  width: 180px;
+  height: 48px;
+  background: var(--primary, #B9D93C);
+}
+.btn-photo-t {
+  position: absolute;
+  left: 24px;
+  top: 440px;
+  width: 180px;
+  color: var(--primary-ink, #1A2005);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+}
+.btn-cam {
+  position: absolute;
+  left: 216px;
+  top: 440px;
+  width: 180px;
+  height: 48px;
+  background: var(--surface, #1B1F12);
+  border: 1px solid #2C3319;
+}
+.btn-cam-t {
+  position: absolute;
+  left: 216px;
+  top: 440px;
+  width: 180px;
+  color: var(--text, #F4F7E4);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+}
+.f-title {
+  position: absolute;
+  left: 760px;
+  top: 120px;
+  width: 416px;
+  height: 52px;
+  background: var(--surface, #1B1F12);
+  border: 1px solid #2C3319;
+}
+.f-title-t {
+  position: absolute;
+  left: 778px;
+  top: 136px;
+  width: 380px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+}
+.f-price {
+  position: absolute;
+  left: 760px;
+  top: 184px;
+  width: 416px;
+  height: 52px;
+  background: var(--surface, #1B1F12);
+  border: 1px solid #2C3319;
+}
+.f-price-t {
+  position: absolute;
+  left: 778px;
+  top: 200px;
+  width: 380px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+}
+.f-cat {
+  position: absolute;
+  left: 760px;
+  top: 248px;
+  width: 200px;
+  height: 52px;
+  background: var(--surface, #1B1F12);
+  border: 1px solid #2C3319;
+}
+.f-cat-t {
+  position: absolute;
+  left: 778px;
+  top: 264px;
+  width: 180px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+}
+.f-sizes {
+  position: absolute;
+  left: 972px;
+  top: 248px;
+  width: 204px;
+  height: 52px;
+  background: var(--surface, #1B1F12);
+  border: 1px solid #2C3319;
+}
+.f-sizes-t {
+  position: absolute;
+  left: 990px;
+  top: 264px;
+  width: 180px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+}
+.submit {
+  position: absolute;
+  left: 760px;
+  top: 312px;
+  width: 240px;
+  height: 52px;
+  background: var(--primary, #B9D93C);
+}
+.submit-t {
+  position: absolute;
+  left: 760px;
+  top: 312px;
+  width: 240px;
+  color: var(--primary-ink, #1A2005);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+}
+.note {
+  position: absolute;
+  left: 760px;
+  top: 380px;
+  width: 416px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 13px;
+  font-weight: 400;
+}
+</style>

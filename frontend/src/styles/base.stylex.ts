@@ -40,6 +40,12 @@ export const base = stylex.create({
     ":hover": { borderWidth: 2, padding: "9px 15px" },
     ":active": { backgroundColor: t.wa, color: "#06280f" },
   },
+  btnSecondary: {
+    backgroundColor: t.surface,
+    borderColor: t.line,
+    color: t.text,
+    ":hover": { borderColor: t.primary },
+  },
   btnDisabled: { opacity: 0.5, cursor: "not-allowed" },
   price: { color: t.primary, fontWeight: 700, fontFamily: t.fontHead, fontSize: "1rem" },
   row: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 },

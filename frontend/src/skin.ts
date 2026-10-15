@@ -23,6 +23,7 @@ const MAP: Array<[string, any[]]> = [
   [".grid", [landing.grid]],
   [".btn.primary", [base.btn, base.btnPrimary]],
   [".btn.wa", [base.btn, base.btnWa]],
+  [".btn.secondary", [base.btn, base.btnSecondary]],
   [".btn", [base.btn]],
   [".price", [base.price]],
   [".row", [base.row]],

@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-/// Product stored in D1, image bytes in R2.
+/// Product stored in D1, image bytes in R2. Every product carries a
+/// 3-image bundle: the garment flat (`image_url`), the model WITHOUT the
+/// garment (`model_image_url`), and the model WEARING it (`styled_image_url`,
+/// empty until the first real try-on result is saved back).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Product {
     pub id: String,
@@ -9,6 +12,10 @@ pub struct Product {
     pub price_cents: u32,
     pub currency: String,
     pub image_url: String,
+    #[serde(default)]
+    pub model_image_url: String,
+    #[serde(default)]
+    pub styled_image_url: String,
     pub r2_key: String,
     pub category: String,
     pub sizes: Vec<String>,

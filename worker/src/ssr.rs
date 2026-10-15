@@ -11,11 +11,28 @@ fn topbar(shop: &str) -> String {
     )
 }
 
+/// Swap card: big garment photo + small inset of the model WITHOUT it.
+/// Click swaps them; press-and-hold (350ms) on the person shows her
+/// WEARING it (`styled_image_url`). All three URLs ship in the markup.
+const SWAP_JS: &str = r##"<script>(function(){function arm(root){var main=root.querySelector('.swap-main'),inset=root.querySelector('.swap-inset'),
+mi=root.dataset.model,si=root.dataset.styled,gi=root.dataset.garment,cur=root.querySelector('.swap-cur');
+var showing='garment',timer=null;
+function set(src,label){main.src=src;cur.textContent=label;}
+inset.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();
+if(showing==='garment'&&mi){showing='person';set(mi,'Model — tap-hold to see it worn');}else{showing='garment';set(gi,'Garment — tap model to swap');}});
+function hold(ev){if(showing!=='person'||!si)return;ev.preventDefault();timer=setTimeout(function(){set(si,'Wearing it — release to go back');timer='held';},350);}
+function release(){if(timer==='held'){set(mi,'Model — tap-hold to see it worn');}clearTimeout(timer);timer=null;}
+main.addEventListener('pointerdown',hold);main.addEventListener('pointerup',release);main.addEventListener('pointerleave',function(){clearTimeout(timer);timer=null;});}
+document.querySelectorAll('.swap').forEach(arm);})();</script>"##;
+
 fn card(p: &Product, wa: &str, shop: &str) -> String {
     let inquire = tryon_shared::whatsapp::inquire_url(wa, shop, &p.title, &p.id);
+    let model = if p.model_image_url.is_empty() { p.image_url.clone() } else { p.model_image_url.clone() };
     format!(
-        r#"<article class="card"><a href="/product/{id}"><img loading="lazy" src="{img}" alt="{title}"/></a><div class="card-body"><span class="eyebrow">{cat}</span><h3>{title}</h3><p class="price">{price}</p><div class="actions"><a class="btn primary" href="/product/{id}">Try On</a><a class="btn wa" target="_blank" rel="noopener" href="{wa}">Inquire</a></div></div></article>"#,
+        r#"<article class="card"><div class="swap" data-garment="{img}" data-model="{model}" data-styled="{styled}"><a class="swap-link" href="/product/{id}"><img class="swap-main" loading="lazy" src="{img}" alt="{title}"/></a><button class="swap-inset" aria-label="view model"><img loading="lazy" src="{model}" alt="model without garment"/></button><span class="swap-cur">Garment — tap model to swap</span></div><div class="card-body"><span class="eyebrow">{cat}</span><h3>{title}</h3><p class="price">{price}</p><div class="actions"><a class="btn primary" href="/product/{id}">Try On</a><a class="btn wa" target="_blank" rel="noopener" href="{wa}">Inquire</a></div></div></article>"#,
         img = esc(&p.image_url),
+        model = esc(&model),
+        styled = esc(&p.styled_image_url),
         title = esc(&p.title),
         cat = esc(&p.category),
         price = esc(&p.price_display()),
@@ -28,14 +45,19 @@ fn card(p: &Product, wa: &str, shop: &str) -> String {
 /// + full image. `origin` must be absolute (`https://shop.workers.dev`).
 fn shell(title: &str, desc: &str, image: &str, canonical: &str, body: &str) -> String {
     format!(
-        r#"<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>{t}</title><meta name="description" content="{d}"/><link rel="canonical" href="{c}"/><meta property="og:type" content="product"/><meta property="og:title" content="{t}"/><meta property="og:description" content="{d}"/><meta property="og:image" content="{i}"/><meta property="og:url" content="{c}"/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="{t}"/><meta name="twitter:description" content="{d}"/><meta name="twitter:image" content="{i}"/><link rel="stylesheet" href="/styles/main.css"/></head><body><div id="app">{b}</div></body></html>"#,
+        r#"<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>{t}</title><meta name="description" content="{d}"/><link rel="canonical" href="{c}"/><meta property="og:type" content="product"/><meta property="og:title" content="{t}"/><meta property="og:description" content="{d}"/><meta property="og:image" content="{i}"/><meta property="og:url" content="{c}"/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="{t}"/><meta name="twitter:description" content="{d}"/><meta name="twitter:image" content="{i}"/><link rel="stylesheet" href="/styles/main.css"/></head><body><div id="app">{b}</div>{swap}</body></html>"#,
         t = esc(title),
         d = esc(desc),
         i = esc(image),
         c = esc(canonical),
-        b = body
+        b = body,
+        swap = SWAP_JS,
     )
 }
+
+/// Full `<head>` so WhatsApp/Twitter bots (no JS) pull title + description
+/// + full image. `origin` must be absolute (`https://shop.workers.dev`).
+
 
 /// SSR landing: real shop page. Search + category pills are plain
 /// links/forms (server-filtered) so the page works with zero JS.
@@ -203,6 +225,12 @@ mod tests {
             price_cents: 4999,
             currency: "USD".into(),
             image_url: "https://cdn/x.jpg".into(),
+            model_image_url: "".into(),
+                model_image_url: "".into(),
+                styled_image_url: "".into(),
+            styled_image_url: "".into(),
+                model_image_url: "".into(),
+                styled_image_url: "".into(),
             r2_key: "".into(),
             category: "Dresses".into(),
             sizes: vec![],

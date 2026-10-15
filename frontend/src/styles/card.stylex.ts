@@ -3,15 +3,20 @@ import { tokens as t } from "./tokens.stylex";
 
 export const card = stylex.create({
   root: {
-    position: "relative", width: 300, height: 600, flexShrink: 0,
+    position: "relative", width: 300, flexShrink: 0,
     borderRadius: 16, backgroundColor: t.surface,
-    transitionProperty: "transform", transitionDuration: ".15s",
-    ":hover": { transform: "translateY(-3px)" },
+    borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    overflow: "hidden", paddingBottom: 16,
+    transitionProperty: "transform, border-color",
+    transitionDuration: ".15s, .15s",
+    ":hover": { transform: "translateY(-3px)", borderColor: t.primary },
+    "@media (max-width: 400px)": { width: "100%", maxWidth: 340 },
   },
+  media: { display: "block", position: "relative", width: "100%", aspectRatio: "3 / 4", backgroundColor: t.line },
   img: {
-    position: "absolute", left: 0, top: 0, width: 300, height: 400,
-    borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    width: "100%", height: "100%", aspectRatio: "3 / 4",
     objectFit: "cover", display: "block", cursor: "zoom-in",
+    userSelect: "none", touchAction: "pan-y",
   },
   badgePill: {
     position: "absolute", left: 12, top: 12, width: 70, height: 26,
@@ -22,35 +27,62 @@ export const card = stylex.create({
     color: t.text, fontSize: 13, textAlign: "center",
   },
   inset: {
-    position: "absolute", left: 216, top: 292, width: 72, height: 96,
+    position: "absolute", right: 12, bottom: 12, width: 72, height: 96,
     borderRadius: 8, backgroundColor: t.line,
-    borderWidth: 2, borderStyle: "solid", borderColor: t.surface,
+    borderWidth: 2, borderStyle: "solid", borderColor: "#f4f7e4",
     padding: 0, overflow: "hidden", cursor: "pointer",
+    boxShadow: "0 4px 14px rgba(0,0,0,.45)",
+    transitionProperty: "transform",
+    transitionDuration: ".12s",
+    ":hover": { transform: "scale(1.05)" },
   },
-  insetImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
+  insetImg: { width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" },
   caption: {
-    position: "absolute", left: 16, top: 398, width: 268, margin: 0,
-    fontSize: 11, color: t.muted,
+    margin: 0, paddingLeft: 16, paddingRight: 16, paddingTop: 8,
+    fontSize: 11, color: t.muted, minHeight: 28,
   },
   title: {
-    position: "absolute", left: 16, top: 416, width: 268, margin: 0,
-    color: t.text, fontFamily: t.fontHead, fontSize: 20,
+    margin: 0, paddingLeft: 16, paddingRight: 16, paddingTop: 2,
+    color: t.text, fontFamily: t.fontHead, fontSize: 20, lineHeight: 1.2,
   },
   price: {
-    position: "absolute", left: 16, top: 450, width: 268, margin: 0,
-    color: t.primary, fontFamily: t.fontHead, fontSize: 16,
+    margin: 0, paddingLeft: 16, paddingRight: 16, paddingTop: 4,
+    color: t.primary, fontFamily: t.fontHead, fontSize: 16, fontWeight: 700,
   },
   tryon: {
-    position: "absolute", left: 16, top: 492, width: 130, height: 44,
-    borderRadius: 10, backgroundColor: t.primary,
-    display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    marginLeft: 16, marginRight: 16, marginTop: 12, width: "calc(100% - 32px)", height: 44,
+    borderRadius: 10, backgroundColor: t.primary, textDecoration: "none",
   },
-  tryonLabel: { color: t.primaryInk, fontSize: 15 },
+  tryonLabel: { color: t.primaryInk, fontSize: 15, fontWeight: 700 },
   inquire: {
-    position: "absolute", left: 154, top: 492, width: 130, height: 44,
-    borderRadius: 10, backgroundColor: t.surface,
-    borderWidth: 2, borderStyle: "solid", borderColor: t.wa,
-    display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    marginLeft: 16, marginRight: 16, marginTop: 8, width: "calc(100% - 32px)", height: 44,
+    borderRadius: 10, backgroundColor: "transparent",
+    borderWidth: 1, borderStyle: "solid", borderColor: t.wa, textDecoration: "none",
   },
-  inquireLabel: { color: t.wa, fontSize: 15 },
+  inquireLabel: { color: t.wa, fontSize: 15, fontWeight: 700 },
+});
+
+/* Detail-page gallery: same interaction, larger frame. */
+export const gallery = stylex.create({
+  root: { width: "100%" },
+  frame: {
+    position: "relative", width: "100%", aspectRatio: "3 / 4",
+    borderRadius: 12, overflow: "hidden", backgroundColor: "#2c3319",
+    borderWidth: 1, borderStyle: "solid", borderColor: "#2c3319",
+  },
+  main: {
+    width: "100%", height: "100%", objectFit: "cover", display: "block",
+    userSelect: "none", touchAction: "pan-y",
+  },
+  inset: {
+    position: "absolute", right: 14, bottom: 14, width: 88, height: 116,
+    borderRadius: 8, overflow: "hidden", padding: 0, cursor: "pointer",
+    borderWidth: 2, borderStyle: "solid", borderColor: "#f4f7e4",
+    boxShadow: "0 4px 14px rgba(0,0,0,.45)",
+  },
+  insetImg: { width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" },
+  cap: { marginTop: 8, marginBottom: 0, fontSize: 13, color: "#9aa07e" },
+  hint: { marginTop: 4, marginBottom: 0, fontSize: 12, color: "#9aa07e", opacity: 0.85 },
 });

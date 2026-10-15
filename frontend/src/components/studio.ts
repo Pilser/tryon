@@ -1,8 +1,9 @@
 /* components/studio.ts — try-on flow. Binds the sacred studio ids.
-   Uploads once per photo (imageId persists via core/store), sync-or-poll,
-   result + download. Pixels only via components/photo.ts (WASM first). */
+   Photo is uploaded EAGERLY on pick so the timeline entry is reusable
+   at once (imageId patched in when upload lands); Start reuses it.
+   Result prepends to timeline top. Pixels via components/photo.ts. */
 import { tryOnSync, pollGeneration, uploadPerson } from "../core/api";
-import { nowSecs, savePerson, pushTimeline, loadPerson, personUsable } from "../core/store";
+import { nowSecs, savePerson, pushTimeline, updateTimelineEntry, loadPerson, personUsable } from "../core/store";
 import type { Product, TimelineEntry } from "../core/types";
 import { prepFile, thumbOf, previewURL } from "./photo";
 import { paintTimeline } from "./timeline";
@@ -17,9 +18,11 @@ const show = (e: HTMLElement, on: boolean): void => { e.style.display = on ? "" 
 export function initStudio(product: Product): void {
   let file: { blob: Blob; mime: string } | null = null;
   let activeImageId: string | null = null;
+  let activeThumb = "";
   const fail = (m: string): void => { const e = el("st-err"); e.textContent = m; show(e, true); };
   const clear = (): void => { const e = el("st-err"); e.textContent = ""; show(e, false); };
   const ready = (thumb: string, note: string, welcomed: boolean): void => {
+    activeThumb = thumb;
     (el("st-prev") as HTMLImageElement).src = thumb; show(el("st-prev"), true);
     el("st-meta").textContent = note;
     el("st-welcome").textContent = welcomed ? "Saved photo restored — Start try-on, or Change photo." : "";
@@ -38,10 +41,19 @@ export function initStudio(product: Product): void {
       const u = previewURL(r.blob);
       const im = new Image();
       im.onload = () => thumbOf(im, (t) => {
-        ready(u, r.note, false);
+        ready(u, r.note + " · uploading…", false);
         savePerson("", t);
         pushTimeline({ kind: "person", thumb: t, imageId: "", url: "", ts: nowSecs() });
         paintTimeline(selectEntry, t);
+        // Eager upload: timeline photo becomes reusable without Start.
+        void uploadPerson(file!.blob).then((up) => {
+          if (!up.imageId) throw new Error("no imageId returned");
+          activeImageId = up.imageId;
+          savePerson(up.imageId, t);
+          updateTimelineEntry(t, { imageId: up.imageId });
+          el("st-meta").textContent = r.note + " · saved, reusable ~6 days";
+          paintTimeline(selectEntry, t);
+        }).catch((e) => fail("Picked, but upload failed — retry Start: " + (e instanceof Error ? e.message : String(e))));
       });
       im.src = u;
     } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
@@ -75,11 +87,12 @@ export function initStudio(product: Product): void {
     el("st-prog").textContent = "Uploading photo…"; show(el("st-prog"), true);
     try {
       let imageId = activeImageId;
-      if (file) {
+      if (file && !imageId) {
         const u = await uploadPerson(file.blob);
         if (!u.imageId) throw new Error("no imageId returned");
         imageId = activeImageId = u.imageId;
-        savePerson(u.imageId);
+        savePerson(u.imageId, activeThumb);
+        if (activeThumb) updateTimelineEntry(activeThumb, { imageId: u.imageId });
       }
       el("st-prog").textContent = "Trying it on… (about 10 seconds)";
       const { status, body } = await tryOnSync({

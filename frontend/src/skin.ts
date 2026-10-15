@@ -36,6 +36,14 @@ const MAP: Array<[string, any[]]> = [
   [".detail img", [base.detailImg]],
   [".back", [base.back]],
   [".studio", [studio.root]],
+  [".studio-page", [studio.page]],
+  [".st-pick-row", [studio.pickRow]],
+  [".st-select", [studio.select]],
+  [".owner-token", [studio.token]],
+  [".login-card", [studio.loginCard]],
+  [".owner-bar", [studio.ownerBar]],
+  [".owner-gate", [studio.gate]],
+  [".owner-gate a", [admin.listLink]],
   [".studio-preview", [studio.preview]],
   [".studio-result-img", [studio.resultImg]],
   [".tl-head", [timeline.head]],
@@ -74,10 +82,12 @@ const cx = (ss: any[]): string =>
 export function skin(scope: ParentNode = document): void {
   for (const [sel, styles] of MAP) {
     scope.querySelectorAll(sel).forEach((n) => {
-      const have = new Set(n.className.split(/\s+/));
-      for (const t of cx(styles).split(" ")) {
+      if (typeof (n as Element).className !== "string") return; // skip SVG nodes
+      const extra = cx(styles);
+      const have = new Set(((n as Element).className as string).split(/\s+/));
+      for (const t of extra.split(" ")) {
         if (t && !have.has(t)) {
-          n.className += " " + t;
+          (n as Element).className += " " + t;
           have.add(t);
         }
       }

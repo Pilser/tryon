@@ -37,8 +37,13 @@ pub fn build_sync_body(
 /// `resultImageUrl` immediately, it is a temporary signed URL), 202 =
 /// still running, poll `GET /generations/:id`.
 pub enum SyncOutcome {
-    Completed { generation_id: String, result_image_url: String },
-    Pending { generation_id: String },
+    Completed {
+        generation_id: String,
+        result_image_url: String,
+    },
+    Pending {
+        generation_id: String,
+    },
 }
 
 pub fn parse_sync_response(status: u16, body: &Value) -> Result<SyncOutcome, String> {
@@ -53,12 +58,21 @@ pub fn parse_sync_response(status: u16, body: &Value) -> Result<SyncOutcome, Str
                 .get("resultImageUrl")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| "missing resultImageUrl".to_string())?;
-            Ok(SyncOutcome::Completed { generation_id: gid, result_image_url: url.to_string() })
+            Ok(SyncOutcome::Completed {
+                generation_id: gid,
+                result_image_url: url.to_string(),
+            })
         }
         202 => Ok(SyncOutcome::Pending { generation_id: gid }),
         _ => {
-            let code = body.get("code").and_then(|v| v.as_str()).unwrap_or("GENLOOK_ERROR");
-            let msg = body.get("message").and_then(|v| v.as_str()).unwrap_or("try-on failed");
+            let code = body
+                .get("code")
+                .and_then(|v| v.as_str())
+                .unwrap_or("GENLOOK_ERROR");
+            let msg = body
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("try-on failed");
             Err(format!("{code}: {msg}"))
         }
     }
@@ -70,7 +84,11 @@ mod tests {
 
     #[test]
     fn rejects_empty_ids() {
-        assert!(validate(&TryOnRequest { product_id: "".into(), person_image_id: "x".into() }).is_err());
+        assert!(validate(&TryOnRequest {
+            product_id: "".into(),
+            person_image_id: "x".into()
+        })
+        .is_err());
     }
 
     #[test]
@@ -82,10 +100,17 @@ mod tests {
 
     #[test]
     fn parses_200_and_202() {
-        let done = parse_sync_response(200, &json!({"generationId": "g", "resultImageUrl": "https://x/y.jpg"}));
+        let done = parse_sync_response(
+            200,
+            &json!({"generationId": "g", "resultImageUrl": "https://x/y.jpg"}),
+        );
         assert!(matches!(done, Ok(SyncOutcome::Completed { .. })));
         let pend = parse_sync_response(202, &json!({"generationId": "g", "status": "PROCESSING"}));
         assert!(matches!(pend, Ok(SyncOutcome::Pending { .. })));
-        assert!(parse_sync_response(402, &json!({"code": "INSUFFICIENT_CREDITS", "message": "empty"})).is_err());
+        assert!(parse_sync_response(
+            402,
+            &json!({"code": "INSUFFICIENT_CREDITS", "message": "empty"})
+        )
+        .is_err());
     }
 }

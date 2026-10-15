@@ -26,7 +26,10 @@ impl GenlookClient {
         if api_key.is_empty() {
             return Err(GenlookError::MissingKey);
         }
-        Ok(Self { base_url: base_url.into(), api_key: api_key.into() })
+        Ok(Self {
+            base_url: base_url.into(),
+            api_key: api_key.into(),
+        })
     }
 
     pub fn try_on_path(&self) -> String {
@@ -44,7 +47,10 @@ mod tests {
 
     #[test]
     fn rejects_empty_key() {
-        assert_eq!(GenlookClient::new("https://x", ""), Err(GenlookError::MissingKey));
+        assert!(matches!(
+            GenlookClient::new("https://x", ""),
+            Err(GenlookError::MissingKey)
+        ));
     }
 
     #[test]

@@ -66,7 +66,7 @@ export const base = stylex.create({
     paddingBottom: 0,
     paddingLeft: 22,
     paddingRight: 22,
-    "@media (max-width: 720px)": { gridTemplateColumns: "1fr" },
+    "@media (max-width: 720px)": { gridTemplateColumns: "1fr", paddingLeft: 12, paddingRight: 12, paddingTop: 76 },
   },
   detailImg: { width: "100%", borderRadius: 12 },
   detailTitle: { fontSize: "2rem", marginTop: ".5rem", marginBottom: ".5rem" },

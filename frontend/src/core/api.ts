@@ -51,8 +51,23 @@ export const tryOnSync = (body: SyncBody): Promise<SyncResult> =>
 export const generation = (id: string): Promise<{ status: string; resultImageUrl?: string }> =>
   api("/api/generations/" + encodeURIComponent(id));
 
-export const createProduct = (formData: FormData): Promise<{ id: string }> =>
-  api("/api/admin/products", { method: "POST", body: formData });
+export const createProduct = (formData: FormData, token = ""): Promise<{ id: string }> =>
+  api("/api/admin/products", {
+    method: "POST",
+    body: formData,
+    ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),
+  });
+
+/* Owner auth (stateless Bearer; browser keeps the token, logout clears it). */
+export const ownerLogin = (token: string): Promise<{ ok: boolean }> =>
+  api("/api/owner/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+
+export const ownerLogout = (): Promise<{ ok: boolean }> =>
+  api<{ ok: boolean }>("/api/owner/logout", { method: "POST" }).catch(() => ({ ok: true }));
 
 export async function pollGeneration(id: string, onTick: (secs: number) => void): Promise<string> {
   for (let n = 0; n < 45; n++) {

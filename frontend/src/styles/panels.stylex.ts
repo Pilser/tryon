@@ -6,9 +6,40 @@ export const studio = stylex.create({
     maxWidth: 1100, marginTop: 22, marginBottom: 22, marginLeft: "auto", marginRight: "auto",
     padding: 24, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
     borderRadius: 16, backgroundColor: t.surface,
+    "@media (max-width: 720px)": { padding: 16, marginTop: 12, marginBottom: 12, borderRadius: 12 },
   },
   preview: { maxWidth: 280, borderRadius: 8 },
   resultImg: { maxWidth: "100%", borderRadius: 12 },
+  page: {
+    maxWidth: 1100, marginLeft: "auto", marginRight: "auto",
+    paddingTop: 88, paddingLeft: 22, paddingRight: 22, paddingBottom: 22,
+    "@media (max-width: 720px)": { paddingTop: 76, paddingLeft: 12, paddingRight: 12 },
+  },
+  pickRow: {
+    display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap",
+    marginBottom: 12,
+  },
+  select: {
+    flexGrow: 1, minWidth: 200, height: 48, borderRadius: 10,
+    backgroundColor: t.surface, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    color: t.text, fontSize: 15, paddingLeft: 14, paddingRight: 14, outlineStyle: "none",
+  },
+  token: {
+    flexGrow: 1, minWidth: 200, height: 48, borderRadius: 10,
+    backgroundColor: t.bg, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    color: t.text, fontSize: 15, paddingLeft: 16, paddingRight: 16, outlineStyle: "none",
+  },
+  loginCard: {
+    borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    borderRadius: 16, backgroundColor: t.surface,
+    padding: 24, marginBottom: 22,
+    "@media (max-width: 720px)": { padding: 16, borderRadius: 12 },
+  },
+  ownerBar: {
+    display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between",
+    flexWrap: "wrap", marginBottom: 4,
+  },
+  gate: { textAlign: "center", marginTop: 20, marginBottom: 8 },
 });
 
 export const timeline = stylex.create({

@@ -65,5 +65,6 @@ export const landing = stylex.create({
   grid: {
     display: "flex", flexWrap: "wrap", gap: 30, justifyContent: "center",
     padding: 22, maxWidth: 1200, marginLeft: "auto", marginRight: "auto",
+    [MOBILE]: { gap: 16, padding: 12 },
   },
 });

@@ -5,7 +5,7 @@ frontend/
 ├── HANDOFF.md            # API contract + owner rules (stable)
 ├── index.html            # landing shell: mounts only, no logic
 ├── product.html          # detail shell: mounts only
-├── admin.html            # admin shell: mounts only
+├── studio.html           # unified studio shell: try-on + owner bundle
 ├── styles/
 │   ├── main.css          # ONLY @imports, in load order (no rules here)
 │   ├── tokens.css        # palette + type (law)
@@ -32,7 +32,7 @@ frontend/
     └── pages/
         ├── landing.js    # compose: api + filters + product-card (no new markup)
         ├── product.js    # compose: detail + studio + timeline
-        └── admin.js      # compose: admin-form + list
+        └── studio.js     # compose: product context + studio + owner bundle
 ```
 
 ## Rules

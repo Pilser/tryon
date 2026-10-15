@@ -17,6 +17,8 @@
 !worker/**
 !shared/
 !shared/**
+!frontend/
+!frontend/**
 !.github/
 !.github/**
 !.opencode/

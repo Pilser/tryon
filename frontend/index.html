@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TryOn &amp; Shop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap"/>
+<link rel="stylesheet" href="/app/styles/tokens.css"/>
+<link rel="stylesheet" href="/app/styles/main.css"/>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="admin-link" href="/app/admin.html">Admin</a></header>
+<main class="landing">
+  <h1 class="hero-title">TryOn and Shop</h1>
+  <p class="hero-sub">Try it on virtually, or inquire on WhatsApp.</p>
+  <form class="search" id="search-form"><input class="search-input" id="q" name="q" type="search" placeholder="Search products…"/></form>
+  <div class="pillrow" id="pills"></div>
+  <p class="count" id="count"></p>
+</main>
+<main class="grid" id="grid"></main>
+<script src="/app/js/shop.js"></script>
+<script>Shop.landing();</script>
+</body>
+</html>

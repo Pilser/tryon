@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Admin — upload bundle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap"/>
+<link rel="stylesheet" href="/app/styles/tokens.css"/>
+<link rel="stylesheet" href="/app/styles/main.css"/>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="admin-link" href="/app/admin.html">Admin</a></header>
+<main class="bundle">
+  <h1 class="title">Upload bundle — 3 photos</h1>
+  <form id="bundle-form" method="post" action="/api/admin/products" enctype="multipart/form-data">
+    <p class="lab1">1 · Garment *</p>
+    <p class="lab2">2 · Model without *</p>
+    <p class="lab3">3 · Styled (auto after try-on)</p>
+    <label class="slot-garment" title="tap to pick garment photo"><img id="slot-img-0" class="slot-img" style="display:none" alt="garment preview"/><input id="file0" name="image0" type="file" accept="image/*" hidden/></label>
+    <label class="slot-model" title="tap to pick model photo"><img id="slot-img-1" class="slot-img" style="display:none" alt="model preview"/><input id="file1" name="image1" type="file" accept="image/*" hidden/></label>
+    <label class="slot-styled" title="tap to pick styled photo"><img id="slot-img-2" class="slot-img" style="display:none" alt="styled preview"/><input id="file2" name="image2" type="file" accept="image/*" hidden/></label>
+    <p class="cap1">Garment flat</p>
+    <p class="cap2">Person, no garment</p>
+    <p class="cap3">Filled by first try-on result</p>
+    <button type="button" class="btn-photo" id="btn-photo">Product photo</button>
+    <button type="button" class="btn-cam" id="btn-cam">Take photo</button>
+    <input id="filecam" type="file" accept="image/*" capture="environment" hidden/>
+    <input class="f-title f-in" name="title" required placeholder="Title *"/>
+    <input class="f-price f-in" name="price_cents" type="number" min="0" placeholder="Price (cents) *"/>
+    <input class="f-cat f-in" name="category" placeholder="Category"/>
+    <input class="f-sizes f-in" name="sizes" placeholder="Sizes S,M,L"/>
+    <input class="f-desc f-in" name="description" placeholder="Description — helps the AI fit it right"/>
+    <button class="submit" id="bd-submit" type="submit"><span class="submit-t">Save bundle</span></button>
+    <p class="error" id="bd-err" style="display:none"></p>
+    <p class="ok" id="bd-ok" style="display:none"></p>
+  </form>
+  <p class="note">Stored as R2 keys garment / model / styled per product.</p>
+  <div id="admin-list"></div>
+</main>
+<script src="/app/js/shop.js"></script>
+<script>Shop.admin();</script>
+</body>
+</html>

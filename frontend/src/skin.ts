@@ -14,6 +14,8 @@ const MAP: Array<[string, any[]]> = [
   [".admin-link", [base.adminLink]],
   [".hero-title", [landing.heroTitle]],
   [".hero-sub", [landing.heroSub]],
+  [".eyebrow", [landing.eyebrow]],
+  [".glow", [landing.glow]],
   [".search", [landing.search]],
   [".search-input", [landing.searchInput]],
   [".pillrow", [landing.pillrow]],

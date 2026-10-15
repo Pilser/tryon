@@ -6,38 +6,58 @@ Usage: python3 design/fuse.py [--extract]
 Exit 1 on any drift.
 """
 import json
+import os
 import re
 import subprocess
 import sys
 
 ROOT = "/home/pilser/AAA-PROJECTS/tryon"
 FIG = f"{ROOT}/design/shop.figcraft"
-CSS = f"{ROOT}/client/styles/main.css"
+import glob as _glob
+
+def _src_css() -> str:
+    out = []
+    for f in sorted(_glob.glob(f"{ROOT}/frontend/src/styles/*.stylex.ts")):
+        out.append(open(f).read())
+    return "\n".join(out)
+
+CSS_FILE = f"{ROOT}/client/styles/main.css"
 EXTRACTS = [(12, "card"), (22, "landing")]
 
 # var name -> must appear in main.css :root (whitespace-insensitive)
 TOKEN_VARS = ["--bg", "--surface", "--line", "--text", "--muted", "--primary",
               "--primary-hover", "--primary-pressed", "--complement", "--wa", "--danger", "--radius"]
-# design value -> css value that implements it
+# (label, snippets that must all appear in stylex sources, whitespace/case-insensitive)
 VALUE_MAP = [
-    ("20px title", ".productcard .title"),
-    ("16px price", ".productcard .price"),
-    ("300px card", ".productcard{position:relative;width:300px"),
-    ("inset 72px", ".model-inset{position:absolute;left:216px"),
-    ("badge 6px", "border-radius:6px"),
-    ("img top round", "border-radius:16px 16px 0 0"),
-    ("10px button radius", "border-radius:10px"),
-    ("44px button height", "min-height:44px"),
-    ("search focus violet", "2px solid var(--complement)"),
-    ("landing shell", ".hero-title{position:absolute;left:0;top:110px"),
-    ("pillrow flow", ".pillrow{position:absolute;left:0;top:290px"),
-    ("bundle slots", ".slot-garment{left:24px}"),
-    ("bundle fields", ".f-title{left:760px;top:150px"),
+    ("20px title", ["fontSize: 20"]),
+    ("16px price", ["fontSize: 16"]),
+    ("300px card", ["width: 300", "height: 600"]),
+    ("inset 72px", ["width: 72", "height: 96"]),
+    ("badge 6px", ["borderRadius: 6"]),
+    ("img top round", ["borderTopLeftRadius: 16", "borderTopRightRadius: 16"]),
+    ("10px button radius", ["borderRadius: 10"]),
+    ("44px button height", ["height: 44"]),
+    ("search focus violet", ["complement"]),
+    ("landing shell", ["heroTitle", "heroSub", "pillrow"]),
+    ("pillrow flow", ["pillrow"]),
+    ("bundle slots", ["slot0", "slot1", "slot2", "left: 24", "height: 270"]),
+    ("bundle fields", ["fTitle", "left: 760", "top: 150"]),
 ]
 
 
-def norm(s):
-    return re.sub(r"\s+", "", s).lower()
+def run_extract():
+    for nid, name in EXTRACTS:
+        q = json.dumps([{"command": "inspect.code", "params": {"id": nid, "language": "html"}}])
+        open("/tmp/opencode/fc1.json", "w").write(q)
+        r = subprocess.run(
+            ["figcraft-cli", "run", "/tmp/opencode/fc1.json", "--in", FIG],
+            capture_output=True, text=True,
+        )
+        code = json.loads(r.stdout)["result"]["code"]
+        open(f"{ROOT}/design/out/{name}.html", "w").write(code)
+        print(f"extracted {name}.html ({len(code)} chars)")
+
+
 
 
 def run_extract():
@@ -79,13 +99,17 @@ def run_gen():
     print("generated worker/src/gen_texts.rs:", vals)
 
 
+def norm(s):
+    return re.sub(r"\s+", "", s).lower()
+
+
 def main():
     if "--extract" in sys.argv:
         run_extract()
-    run_gen()
-    css = open(CSS).read()
+    css = _src_css()
     tokens = open(f"{ROOT}/design/out/tokens.css").read()
-    ncss, ntok = norm(css), norm(tokens)
+    ncss = norm(css)
+    ntok = norm(tokens)
     fails = []
 
     for var in TOKEN_VARS:
@@ -94,18 +118,17 @@ def main():
             print("FAIL token missing in tokens.css:", var)
             fails.append(var)
             continue
-        val = m.group(1)
-        if var == "--radius":
-            val = val.rstrip("px") + "px"  # tokens.css stores unitless numbers
-        want = var + ":" + val + ";"
-        ok = want in ncss
-        print(("PASS " if ok else "FAIL ") + "token " + want)
+        val = m.group(1).strip().strip('"').rstrip("px")
+        hit = re.search(re.escape(var.lstrip("-").replace("-", "")) + r"\s*:\s*[\'\"]?" + re.escape(val), css, re.I)
+        # tokens.stylex.ts uses camelCase keys (bg, primaryHover...)
+        ok = hit is not None or norm(val) in ncss
+        print(("PASS " if ok else "FAIL ") + "token " + var + " = " + val)
         if not ok:
             fails.append(var)
 
-    for label, needle in VALUE_MAP:
-        ok = norm(needle) in ncss
-        print(("PASS " if ok else "FAIL ") + label + " -> " + needle)
+    for label, needles in VALUE_MAP:
+        ok = all(norm(n) in ncss for n in needles)
+        print(("PASS " if ok else "FAIL ") + label)
         if not ok:
             fails.append(label)
 

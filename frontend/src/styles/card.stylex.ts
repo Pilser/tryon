@@ -5,6 +5,8 @@ export const card = stylex.create({
   root: {
     position: "relative", width: 300, height: 600, flexShrink: 0,
     borderRadius: 16, backgroundColor: t.surface,
+    transitionProperty: "transform", transitionDuration: ".15s",
+    ":hover": { transform: "translateY(-3px)" },
   },
   img: {
     position: "absolute", left: 0, top: 0, width: 300, height: 400,

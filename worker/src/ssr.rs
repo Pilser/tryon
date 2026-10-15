@@ -11,25 +11,26 @@ fn topbar(shop: &str) -> String {
     )
 }
 
-/// Swap card: big garment photo + small inset of the model WITHOUT it.
-/// Click swaps them; press-and-hold (350ms) on the person shows her
-/// WEARING it (`styled_image_url`). All three URLs ship in the markup.
-const SWAP_JS: &str = r##"<script>(function(){function arm(root){var main=root.querySelector('.swap-main'),inset=root.querySelector('.swap-inset'),
+/// Swap card — transplanted 1:1 from `design/out/card.html`
+/// (ProductCard component). Placeholders replace static text; `.img` is a
+/// real photo, buttons are real links, `.model-inset` holds the model
+/// WITHOUT the garment. Click swaps; hold shows the styled shot.
+const SWAP_JS: &str = r##"<script>(function(){function arm(root){var main=root.querySelector('img.main'),inset=root.querySelector('.model-inset'),
 mi=root.dataset.model,si=root.dataset.styled,gi=root.dataset.garment,cur=root.querySelector('.swap-cur');
 var showing='garment',timer=null;
-function set(src,label){main.src=src;cur.textContent=label;}
-inset.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();
-if(showing==='garment'&&mi){showing='person';set(mi,'Model — tap-hold to see it worn');}else{showing='garment';set(gi,'Garment — tap model to swap');}});
+function set(src,label){main.src=src;if(cur)cur.textContent=label;}
+if(inset){inset.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();
+if(showing==='garment'&&mi){showing='person';set(mi,'Model — hold to see it worn');}else{showing='garment';set(gi,'Garment — tap model to swap');}});}
 function hold(ev){if(showing!=='person'||!si)return;ev.preventDefault();timer=setTimeout(function(){set(si,'Wearing it — release to go back');timer='held';},350);}
-function release(){if(timer==='held'){set(mi,'Model — tap-hold to see it worn');}clearTimeout(timer);timer=null;}
+function release(){if(timer==='held'){set(mi,'Model — hold to see it worn');}clearTimeout(timer);timer=null;}
 main.addEventListener('pointerdown',hold);main.addEventListener('pointerup',release);main.addEventListener('pointerleave',function(){clearTimeout(timer);timer=null;});}
-document.querySelectorAll('.swap').forEach(arm);})();</script>"##;
+document.querySelectorAll('.productcard').forEach(arm);})();</script>"##;
 
 fn card(p: &Product, wa: &str, shop: &str) -> String {
     let inquire = tryon_shared::whatsapp::inquire_url(wa, shop, &p.title, &p.id);
     let model = if p.model_image_url.is_empty() { p.image_url.clone() } else { p.model_image_url.clone() };
     format!(
-        r#"<article class="card"><div class="swap" data-garment="{img}" data-model="{model}" data-styled="{styled}"><a class="swap-link" href="/product/{id}"><img class="swap-main" loading="lazy" src="{img}" alt="{title}"/></a><button class="swap-inset" aria-label="view model"><img loading="lazy" src="{model}" alt="model without garment"/></button><span class="swap-cur">Garment — tap model to swap</span></div><div class="card-body"><span class="eyebrow">{cat}</span><h3>{title}</h3><p class="price">{price}</p><div class="actions"><a class="btn primary" href="/product/{id}">Try On</a><a class="btn wa" target="_blank" rel="noopener" href="{wa}">Inquire</a></div></div></article>"#,
+        r#"<article class="productcard" data-garment="{img}" data-model="{model}" data-styled="{styled}"><a href="/product/{id}"><img class="img main" loading="lazy" src="{img}" alt="{title}"/></a><div class="badge-pill"></div><p class="badge">{cat}</p><button class="model-inset" aria-label="view model"><img loading="lazy" src="{model}" alt="model without garment"/></button><p class="swap-cur">Garment — tap model to swap</p><p class="title">{title}</p><p class="price">{price}</p><a class="btn-tryon" href="/product/{id}"><span class="btn-tryon-label">Try On</span></a><a class="btn-inquire" target="_blank" rel="noopener" href="{wa}"><span class="btn-inquire-label">Inquire</span></a></article>"#,
         img = esc(&p.image_url),
         model = esc(&model),
         styled = esc(&p.styled_image_url),

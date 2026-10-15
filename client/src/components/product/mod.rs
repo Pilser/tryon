@@ -1,22 +1,42 @@
 use leptos::*;
 use tryon_shared::{inquire_url, models::Product};
 
+/// Twin of the figcraft ProductCard export (`design/out/card.html`).
+/// Same classes/geometry as SSR; swap behavior attaches via the shared
+/// swap script (data-garment/model/styled).
 #[component]
 pub fn ProductCard(product: Product, shop_name: String, owner_whatsapp: String) -> impl IntoView {
     let wa = inquire_url(&owner_whatsapp, &shop_name, &product.title, &product.id);
     let detail = format!("/product/{}", product.id);
+    let model = if product.model_image_url.is_empty() {
+        product.image_url.clone()
+    } else {
+        product.model_image_url.clone()
+    };
     view! {
-        <article class="card">
-            <img loading="lazy" src=product.image_url.clone() alt=product.title.clone()/>
-            <div class="card-body">
-                <span class="badge">{product.category.clone()}</span>
-                <h3>{product.title.clone()}</h3>
-                <p class="price">{product.price_display()}</p>
-                <div class="actions">
-                    <a class="btn primary" href=detail>"Try On"</a>
-                    <a class="btn wa" target="_blank" href=wa>"Inquire"</a>
-                </div>
-            </div>
+        <article
+            class="productcard"
+            data-garment=product.image_url.clone()
+            data-model=model.clone()
+            data-styled=product.styled_image_url.clone()
+        >
+            <a href=detail.clone()>
+                <img class="img main" loading="lazy" src=product.image_url.clone() alt=product.title.clone()/>
+            </a>
+            <div class="badge-pill"></div>
+            <p class="badge">{product.category.clone()}</p>
+            <button class="model-inset" aria-label="view model">
+                <img loading="lazy" src=model alt="model without garment"/>
+            </button>
+            <p class="swap-cur">"Garment — tap model to swap"</p>
+            <p class="title">{product.title.clone()}</p>
+            <p class="price">{product.price_display()}</p>
+            <a class="btn-tryon" href=detail>
+                <span class="btn-tryon-label">"Try On"</span>
+            </a>
+            <a class="btn-inquire" target="_blank" href=wa>
+                <span class="btn-inquire-label">"Inquire"</span>
+            </a>
         </article>
     }
 }

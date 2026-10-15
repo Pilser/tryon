@@ -20,10 +20,13 @@ TOKEN_VARS = ["--bg", "--surface", "--line", "--text", "--muted", "--primary",
               "--primary-hover", "--primary-pressed", "--complement", "--wa", "--danger", "--radius"]
 # design value -> css value that implements it
 VALUE_MAP = [
-    ("20px title", "1.25rem"),       # card title 20px
-    ("16px price", ".price"),       # price rule exists (1rem set beside it)
+    ("20px title", ".productcard .title"),
+    ("16px price", ".productcard .price"),
+    ("300px card", ".productcard{position:relative;width:300px"),
+    ("inset 72px", ".model-inset{position:absolute;left:216px"),
+    ("badge 6px", "border-radius:6px"),
+    ("img top round", "border-radius:16px 16px 0 0"),
     ("10px button radius", "border-radius:10px"),
-    ("6px badge radius", "letter-spacing:1.5px"),  # badge became eyebrow text
     ("44px button height", "min-height:44px"),
     ("search focus violet", "2px solid var(--complement)"),
 ]

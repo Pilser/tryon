@@ -1,0 +1,163 @@
+[
+{
+"command": "node.reparent",
+"params": {
+"ids": [
+23,
+24,
+25,
+26,
+27,
+28,
+29,
+30,
+31,
+32,
+33,
+34,
+35,
+36
+],
+"parent": 22
+}
+},
+{
+"command": "node.reparent",
+"params": {
+"ids": [
+68,
+69,
+70,
+71,
+72,
+73,
+74,
+75,
+76,
+77,
+78,
+79,
+80,
+81,
+82,
+83
+],
+"parent": 67
+}
+},
+{
+"command": "node.reparent",
+"params": {
+"ids": [
+85,
+86,
+87,
+88,
+89,
+90,
+91,
+92,
+93,
+94,
+95,
+96,
+97,
+98,
+99,
+100,
+101,
+102,
+103,
+104,
+105,
+106,
+107,
+108
+],
+"parent": 84
+}
+},
+{
+"command": "node.set",
+"params": {
+"ids": [
+87
+],
+"y": 80,
+"height": 48,
+"textAlignVertical": "middle"
+}
+},
+{
+"command": "node.set",
+"params": {
+"ids": [
+89
+],
+"y": 80,
+"height": 48,
+"textAlignVertical": "middle"
+}
+},
+{
+"command": "node.set",
+"params": {
+"ids": [
+101
+],
+"y": 336,
+"height": 52,
+"textAlignVertical": "middle"
+}
+},
+{
+"command": "node.set",
+"params": {
+"ids": [
+82
+],
+"y": 490,
+"height": 48,
+"textAlignVertical": "middle"
+}
+},
+{
+"command": "node.set",
+"params": {
+"ids": [
+75
+],
+"y": 278,
+"height": 48,
+"textAlignVertical": "middle"
+}
+},
+{
+"command": "proto.flow.add",
+"params": {
+"start": 22,
+"name": "Shop"
+}
+},
+{
+"command": "proto.interaction.add",
+"params": {
+"id": 18,
+"dest": 67
+}
+},
+{
+"command": "proto.interaction.add",
+"params": {
+"id": 25,
+"dest": 84
+}
+},
+{
+"command": "proto.interaction.add",
+"params": {
+"id": 68,
+"dest": 22
+}
+}
+]

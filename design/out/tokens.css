@@ -13,4 +13,6 @@
   --radius: 16;
   --font-head: "Poppins";
   --font-body: "Inter";
+  --primary-hover: #A5C42E;
+  --primary-pressed: #8FB027;
 }

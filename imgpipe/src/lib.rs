@@ -48,7 +48,10 @@ pub fn prepare(mut bytes: Vec<u8>, mime: &str) -> Result<Prepared, &'static str>
         return Ok(Prepared { bytes, mime: mime.to_string(), width: w, height: h, processed: false });
     }
     let scale = MAX_EDGE as f64 / w.max(h) as f64;
-    let (tw, th) = (((w as f64 * scale).round() as u32).max(1), (((h as f64 * scale).round() as u32).max(1));
+    let (tw, th) = (
+        ((w as f64 * scale).round() as u32).max(1),
+        ((h as f64 * scale).round() as u32).max(1),
+    );
     let small = img.thumbnail(tw, th);
     let mut out = Vec::new();
     JpegEncoder::new_with_quality(&mut out, 85)

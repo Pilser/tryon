@@ -120,7 +120,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         // UI lives in frontend/ (TypeScript + StyleX, served as static
         // assets). These redirects keep old links working; no HTML here.
         .get("/", |_, _| moved("/app/"))
-        .get("/product/:id", |_, ctx| async move {
+        .get_async("/product/:id", |_, ctx| async move {
             let id = ctx.param("id").cloned().unwrap_or_default();
             moved(&format!("/app/product.html?id={id}"))
         })

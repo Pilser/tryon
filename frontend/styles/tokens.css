@@ -2,6 +2,21 @@
    Single source of truth for color + type. The worker never hardcodes
    these values; pages reference only var(--*). */
 :root {
+  --bg: #12140c;
+  --surface: #1b1f12;
+  --line: #2c3319;
+  --text: #f4f7e4;
+  --muted: #9aa07e;
+  --primary: #b9d93c;
+  --primary-ink: #1a2005;
+  --primary-hover: #a5c42e;
+  --primary-pressed: #8fb027;
+  --complement: #8b6fe8;
+  --wa: #25d366;
+  --danger: #ff7a7a;
+  --radius: 16px;
+  --font-head: "Poppins", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
   --oil-950: #141509;
   --oil-900: #1e2010;
   --oil-800: #2a2d16;

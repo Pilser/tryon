@@ -1,10 +1,9 @@
 name: release
 
-# The ONLY place that may run `cargo build --release`.
-# Never build releases locally or on PR (see AGENTS.md §1, §3).
-# Release-only: no check/test jobs here. Build cache is restored
-# before the build and saved after, so the next run reuses it.
-# Artifact is the Worker .wasm, downloaded for local `wrangler dev`.
+# The ONLY place that may run `cargo build --release` or `bun run build`
+# for shipped artifacts. Never build releases locally or on PR
+# (see AGENTS.md §1, §3). Release-only: no check/test jobs here. Build
+# cache is restored before the build and saved after.
 
 on:
   workflow_dispatch:
@@ -12,7 +11,7 @@ on:
     tags: ["v*"]
 
 jobs:
-  build:
+  worker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,4 +30,56 @@ jobs:
           name: tryon-worker-${{ github.ref_name }}
           path: |
             target/wasm32-unknown-unknown/release/*.wasm
+          if-no-files-found: error
+
+  imgpipe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: restore build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: tryon-imgpipe
+      - name: build imgpipe wasm (capped for small runner)
+        run: cargo build --release --target wasm32-unknown-unknown -p tryon-imgpipe --jobs 2
+      - name: wasm-bindgen glue (prebuilt CLI, no compile)
+        run: |
+          curl -sL -o /tmp/wbg.tar.gz https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl.tar.gz
+          tar xzf /tmp/wbg.tar.gz -C /tmp
+          /tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen \
+            target/wasm32-unknown-unknown/release/tryon_imgpipe.wasm \
+            --out-dir frontend/dist/imgpipe --target web --out-name imgpipe
+      - name: upload imgpipe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tryon-imgpipe-${{ github.ref_name }}
+          path: |
+            frontend/dist/imgpipe/
+          if-no-files-found: error
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: install (frozen lockfile)
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+      - name: typecheck
+        working-directory: frontend
+        run: bun ./node_modules/typescript/bin/tsc --noEmit
+      - name: build (esbuild + stylex)
+        working-directory: frontend
+        run: bun build.ts
+      - name: upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tryon-frontend-${{ github.ref_name }}
+          path: |
+            frontend/dist/bundle.js
+            frontend/dist/stylex.css
+            frontend/*.html
           if-no-files-found: error

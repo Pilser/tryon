@@ -32,6 +32,20 @@
         <div class="btn-inquire-3"></div>
         <p class="btn-inquire-label-3">Inquire</p>
     </div>
+    <div class="topbar"></div>
+    <p class="brand">TryOn Shop</p>
+    <p class="admin-link">Admin</p>
+    <p class="hero-title">Shop the collection</p>
+    <p class="hero-sub">Try it on virtually, or inquire on WhatsApp.</p>
+    <div class="search"></div>
+    <p class="search-ph">Search products…</p>
+    <div class="pill-all"></div>
+    <p class="pill-all-t">All</p>
+    <div class="pill-1"></div>
+    <p class="pill-1-t">Dresses</p>
+    <div class="pill-2"></div>
+    <p class="pill-2-t">Jackets</p>
+    <p class="count">4 products</p>
 </div>
 
 <style>
@@ -43,6 +57,7 @@
   --primary-ink: #1A2005;
   --surface: #1B1F12;
   --wa: #25D366;
+  --muted: #9AA07E;
 }
 .landing {
   position: relative;
@@ -347,6 +362,147 @@
   color: var(--wa, #25D366);
   font-family: "Inter";
   font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+}
+.topbar {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 1200px;
+  height: 64px;
+  background: var(--surface, #1B1F12);
+}
+.brand {
+  position: absolute;
+  left: 24px;
+  top: 14px;
+  width: 300px;
+  color: var(--primary, #B9D93C);
+  font-family: "Poppins";
+  font-size: 24px;
+  font-weight: 400;
+}
+.admin-link {
+  position: absolute;
+  left: 1080px;
+  top: 20px;
+  width: 96px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 16px;
+  font-weight: 400;
+}
+.hero-title {
+  position: absolute;
+  left: 0px;
+  top: 110px;
+  width: 1200px;
+  color: var(--text, #F4F7E4);
+  font-family: "Poppins";
+  font-size: 40px;
+  font-weight: 400;
+  text-align: center;
+}
+.hero-sub {
+  position: absolute;
+  left: 0px;
+  top: 175px;
+  width: 1200px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 18px;
+  font-weight: 400;
+  text-align: center;
+}
+.search {
+  position: absolute;
+  left: 300px;
+  top: 220px;
+  width: 600px;
+  height: 52px;
+  border-radius: 10px;
+  background: var(--surface, #1B1F12);
+  border: 1px solid #2C3319;
+}
+.search-ph {
+  position: absolute;
+  left: 324px;
+  top: 234px;
+  width: 400px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 16px;
+  font-weight: 400;
+}
+.pill-all {
+  position: absolute;
+  left: 330px;
+  top: 290px;
+  width: 90px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--primary, #B9D93C);
+}
+.pill-all-t {
+  position: absolute;
+  left: 330px;
+  top: 290px;
+  width: 90px;
+  color: var(--primary-ink, #1A2005);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+}
+.pill-1 {
+  position: absolute;
+  left: 432px;
+  top: 290px;
+  width: 110px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface, #1B1F12);
+}
+.pill-1-t {
+  position: absolute;
+  left: 432px;
+  top: 290px;
+  width: 110px;
+  color: var(--text, #F4F7E4);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+}
+.pill-2 {
+  position: absolute;
+  left: 554px;
+  top: 290px;
+  width: 110px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface, #1B1F12);
+}
+.pill-2-t {
+  position: absolute;
+  left: 554px;
+  top: 290px;
+  width: 110px;
+  color: var(--text, #F4F7E4);
+  font-family: "Inter";
+  font-size: 15px;
+  font-weight: 400;
+  text-align: center;
+}
+.count {
+  position: absolute;
+  left: 0px;
+  top: 340px;
+  width: 1200px;
+  color: var(--muted, #9AA07E);
+  font-family: "Inter";
+  font-size: 14px;
   font-weight: 400;
   text-align: center;
 }

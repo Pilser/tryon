@@ -4,10 +4,10 @@ fn esc(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
-fn topbar(shop: &str) -> String {
+fn topbar(_shop: &str) -> String {
     format!(
         r##"<header class="topbar"><a class="brand" href="/">{}</a><nav><a href="/admin">Admin</a></nav></header>"##,
-        esc(shop)
+        esc(crate::gen_texts::SHOP_NAME)
     )
 }
 
@@ -81,9 +81,10 @@ pub fn render_landing(
         })
         .collect();
     let body = format!(
-        r#"{top}<section class="hero"><h1>{shop}</h1><p>Shop the collection. Try it on virtually, or inquire on WhatsApp.</p><form class="filterbar" method="get" action="/"><input name="q" type="search" placeholder="Search products…" value="{q}"/><input type="hidden" name="category" value="{cat}"/><button class="btn primary" type="submit">Search</button></form><div class="pills"><a href="/" class="{all}">All</a>{pills}</div><p class="count">{n} products</p></section><main class="grid">{cards}</main>"#,
+        r#"{top}<section class="hero"><h1>{shop}</h1><p>{sub}</p><form class="filterbar" method="get" action="/"><input name="q" type="search" placeholder="Search products…" value="{q}"/><input type="hidden" name="category" value="{cat}"/><button class="btn primary" type="submit">Search</button></form><div class="pills"><a href="/" class="{all}">All</a>{pills}</div><p class="count">{n} products</p></section><main class="grid">{cards}</main>"#,
         top = topbar(&shop.shop_name),
-        shop = esc(&shop.shop_name),
+        shop = esc(crate::gen_texts::HERO_TITLE),
+        sub = esc(crate::gen_texts::HERO_SUB),
         q = esc(&filter.query),
         cat = esc(&filter.category),
         all = if filter.category.is_empty() { "on" } else { "" },

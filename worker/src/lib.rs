@@ -1,3 +1,4 @@
+pub mod gen_texts;
 pub mod genlook;
 pub mod routes;
 pub mod ssr;

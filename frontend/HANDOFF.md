@@ -1,7 +1,7 @@
 # Frontend handoff (Astra build)
 
 The Rust worker owns the **API only**. Everything visual lives here in
-`frontend/` — plain HTML + CSS + vanilla JS, no build step. Rebuild or
+`frontend/` — TypeScript + StyleX, built with bun (`bun run build` -> `dist/`). Rebuild or
 reskin freely; the contract below is stable.
 
 ## Run locally
@@ -16,7 +16,7 @@ bun /tmp/opencode/wbg/harness4.cjs
 
 | File | Purpose |
 |---|---|
-| `index.html` | Shop landing: hero, search, category pills, product grid |
+| `index.html` | Shop landing shell (mounts only; `src/main.ts` boots by `data-page`) |
 | `product.html?id=<id>` | Detail: gallery swap, inquire/share, try-on studio, timeline |
 | `admin.html` | Owner bundle upload: garment + model + styled, fields, save |
 
@@ -38,7 +38,9 @@ bun /tmp/opencode/wbg/harness4.cjs
 3. **Try-on studio is persistent**: file pick + camera capture, client validation (10MB, JPEG/PNG/WebP/HEIC, ≥256px), hi-res downscale, upload-once (`imageId` in localStorage ~6d), sync-or-poll, result + **Download**. Never auto-dismiss.
 4. **Timeline**: newest-first strip of person photos + results in localStorage; click re-selects; photo survives product switches.
 5. **Inquire** opens `https://wa.me/<owner_digits>?text=...`; **Share** copies the product URL (SSR keeps OG tags for bots — worker-owned, don't remove).
-6. No secrets in this folder. No framework required — vanilla is fine.
+6. No secrets in this folder. No Tailwind, no plain CSS files — StyleX only (`src/styles/*.stylex.ts`).
+   Sacred classes live in HTML shells; `src/skin.ts` fuses them to hashed
+   StyleX rules (the ONLY place literal classes meet styles).
 
 ## Sacred element ids (studio/swap JS binds exactly these)
 

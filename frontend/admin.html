@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap"/>
 <link rel="stylesheet" href="/app/styles/tokens.css"/>
-<link rel="stylesheet" href="/app/styles/main.css"/>
+<link rel="stylesheet" href="/app/dist/stylex.css"/>
 </head>
-<body>
+<body data-page="admin">
 <header class="topbar"><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="admin-link" href="/app/admin.html">Admin</a></header>
 <main class="bundle">
   <h1 class="title">Upload bundle — 3 photos</h1>
@@ -38,6 +38,6 @@
   <p class="note">Stored as R2 keys garment / model / styled per product.</p>
   <div id="admin-list"></div>
 </main>
-<script type="module">import { admin } from "/app/js/pages/admin.js"; admin();</script>
+<script src="/app/dist/bundle.js"></script>
 </body>
 </html>

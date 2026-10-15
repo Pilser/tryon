@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap"/>
 <link rel="stylesheet" href="/app/styles/tokens.css"/>
-<link rel="stylesheet" href="/app/styles/main.css"/>
+<link rel="stylesheet" href="/app/dist/stylex.css"/>
 </head>
-<body>
+<body data-page="landing">
 <header class="topbar"><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="admin-link" href="/app/admin.html">Admin</a></header>
 <main class="landing">
   <h1 class="hero-title">TryOn and Shop</h1>
@@ -19,6 +19,6 @@
   <p class="count" id="count"></p>
 </main>
 <main class="grid" id="grid"></main>
-<script type="module">import { landing } from "/app/js/pages/landing.js"; landing();</script>
+<script src="/app/dist/bundle.js"></script>
 </body>
 </html>

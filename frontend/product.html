@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap"/>
 <link rel="stylesheet" href="/app/styles/tokens.css"/>
-<link rel="stylesheet" href="/app/styles/main.css"/>
+<link rel="stylesheet" href="/app/dist/stylex.css"/>
 </head>
-<body>
+<body data-page="product">
 <header class="topbar"><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="admin-link" href="/app/admin.html">Admin</a></header>
 <main id="detail"></main>
 <section class="studio" id="studio">
@@ -42,6 +42,6 @@
   <h3 class="tl-head" id="st-tlhead" style="display:none">Your timeline</h3>
   <div id="st-timeline" class="tl-row" style="display:none"></div>
 </section>
-<script type="module">import { product } from "/app/js/pages/product.js"; product();</script>
+<script src="/app/dist/bundle.js"></script>
 </body>
 </html>

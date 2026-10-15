@@ -17,9 +17,9 @@ frontend/
 │       ├── timeline.css
 │       ├── admin-form.css
 │       └── share.css
-└── js/
+└── src/
     ├── core/
-    │   ├── api.js        # fetch wrapper + all endpoints (only file that talks HTTP)
+    │   ├── api.ts        # fetch wrapper + all endpoints (only file that talks HTTP)
     │   ├── format.js     # money, escape, dates (pure, no DOM)
     │   ├── whatsapp.js   # wa.me link builders (pure, no DOM)
     │   └── store.js      # localStorage person + timeline (only file that touches storage)

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["client", "worker", "shared"]
+members = ["worker", "shared", "imgpipe"]
 
 [profile.release]
 lto = "thin"

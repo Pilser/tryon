@@ -1,7 +1,5 @@
-pub mod gen_texts;
 pub mod genlook;
 pub mod routes;
-pub mod ssr;
 pub mod store;
 
 pub use genlook::{GenlookClient, GenlookError};
@@ -31,10 +29,10 @@ fn api_key(env: &Env) -> Result<String> {
     Ok(k)
 }
 
-fn origin_of(req: &Request) -> String {
-    req.url()
-        .map(|u| format!("{}://{}", u.scheme(), u.host_str().unwrap_or_default()))
-        .unwrap_or_default()
+fn moved(to: &str) -> Result<Response> {
+    let mut headers = Headers::new();
+    headers.set("location", to)?;
+    Ok(Response::empty()?.with_status(302).with_headers(headers))
 }
 
 /// Local-test + edge seed: JSON array of products in `PRODUCTS_JSON`.
@@ -119,31 +117,14 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let router = Router::new();
 
     router
-        .get_async("/", |req, ctx| async move {
-            let origin = origin_of(&req);
-            let shop = shop_from_env(&ctx.env);
-            let q = req.url().map(|u| u.query().unwrap_or_default().to_string()).unwrap_or_default();
-            let filter = crate::routes::products::parse_filter(&q);
-            let store = MemoryStore { products: seed_products(&ctx.env), shop: shop.clone() };
-            let all = store.list(&ProductFilter::default());
-            let list = store.list(&filter);
-            Response::from_html(crate::ssr::render_landing(&shop, &list, &all, &filter, &origin))
-        })
-        .get_async("/product/:id", |req, ctx| async move {
-            let origin = origin_of(&req);
-            let shop = shop_from_env(&ctx.env);
+        // UI lives in frontend/ (TypeScript + StyleX, served as static
+        // assets). These redirects keep old links working; no HTML here.
+        .get("/", |_, _| moved("/app/"))
+        .get("/product/:id", |_, ctx| async move {
             let id = ctx.param("id").cloned().unwrap_or_default();
-            let store = MemoryStore { products: seed_products(&ctx.env), shop: shop.clone() };
-            match store.get(&id) {
-                Some(p) => Response::from_html(crate::ssr::render_detail(&shop, &p, &origin)),
-                None => Response::error("not found", 404),
-            }
+            moved(&format!("/app/product.html?id={id}"))
         })
-        .get_async("/admin", |req, ctx| async move {
-            let origin = origin_of(&req);
-            let shop = shop_from_env(&ctx.env);
-            Response::from_html(crate::ssr::render_admin(&shop, &origin))
-        })
+        .get("/admin", |_, _| moved("/app/admin.html"))
         .get_async("/api/products", |req, ctx| async move {
             let q = req.url().map(|u| u.query().unwrap_or_default().to_string()).unwrap_or_default();
             let filter = crate::routes::products::parse_filter(&q);

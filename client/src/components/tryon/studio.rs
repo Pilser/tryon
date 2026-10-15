@@ -1,12 +1,17 @@
-//! Persistent try-on studio. Embedded panel (never an auto-dismissing
-//! popup): explicit buttons only, no overlay-click close. Flow:
-//! pick/take photo -> client WASM validate + downscale -> upload person
-//! (`imageId`, Genlook keeps it ~7 days) -> `/api/try-on/sync` (200 =
-//! result, 202 = poll) -> preview + download.
+//! Persistent try-on studio with timeline. Embedded panel (never an
+//! auto-dismissing popup): explicit buttons only. Your person photo's
+//! Genlook `imageId` persists in localStorage (~6 days, Genlook TTL is 7),
+//! so switching products never forces a re-pick. Every person photo and
+//! result lands in a newest-first timeline strip; clicking an entry
+//! re-selects it. Flow: pick/take -> WASM validate + downscale -> upload
+//! once -> `/api/try-on/sync` (200 = result, 202 = poll) -> preview +
+//! download.
 
 use leptos::*;
-use tryon_shared::{models::Product, photo};
+use tryon_shared::{models::Product, photo, timeline as tl};
 use wasm_bindgen::JsCast;
+
+const PERSON_KEY: &str = "tryon.person.v1";
 
 #[derive(Clone, Copy, PartialEq)]
 enum Phase {
@@ -17,6 +22,28 @@ enum Phase {
     Failed,
 }
 
+fn now_secs() -> i64 {
+    (js_sys::Date::now() / 1000.0) as i64
+}
+
+fn storage() -> Option<web_sys::Storage> {
+    web_sys::window()?.local_storage().ok()?
+}
+
+fn load_person() -> Option<(String, i64)> {
+    let s = storage()?;
+    let raw = s.get_item(PERSON_KEY).ok()??;
+    let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    Some((v.get("imageId")?.as_str()?.to_string(), v.get("ts")?.as_i64()?))
+}
+
+fn save_person(image_id: &str) {
+    if let Some(s) = storage() {
+        let v = serde_json::json!({"imageId": image_id, "ts": now_secs()});
+        let _ = s.set_item(PERSON_KEY, &v.to_string());
+    }
+}
+
 async fn read_picked(
     ev: web_sys::Event,
     set_phase: WriteSignal<Phase>,
@@ -24,6 +51,8 @@ async fn read_picked(
     set_info: WriteSignal<String>,
     set_preview: WriteSignal<Option<String>>,
     set_person: WriteSignal<Option<(Vec<u8>, String)>>,
+    set_image_id: WriteSignal<Option<String>>,
+    push_entry: WriteSignal<Vec<tl::Entry>>,
 ) {
     let input: web_sys::HtmlInputElement = event_target(&ev);
     let file = input.files().and_then(|l| l.get(0));
@@ -60,8 +89,18 @@ async fn read_picked(
                         format!("HEIC original · {:.1} MB (sent as-is)", p.bytes.len() as f64 / 1e6)
                     };
                     set_info.set(note);
-                    set_preview.set(Some(url));
+                    set_preview.set(Some(url.clone()));
                     set_person.set(Some((p.bytes, p.mime)));
+                    set_image_id.set(None);
+                    push_entry.update(|l| {
+                        *l = tl::push(l.clone(), tl::Entry {
+                            kind: "person".into(),
+                            thumb: url,
+                            image_id: String::new(),
+                            url: String::new(),
+                            ts: now_secs(),
+                        })
+                    });
                     set_error.set(None);
                     set_phase.set(Phase::Ready);
                 }
@@ -123,6 +162,30 @@ fn download(url: &str) {
     });
 }
 
+async fn upload_person(bytes: Vec<u8>, mime: String) -> Result<String, String> {
+    let arr = js_sys::Uint8Array::from(bytes.as_slice());
+    let parts = js_sys::Array::of1(&arr.into());
+    let mut bag = web_sys::BlobPropertyBag::new();
+    bag.type_(&mime);
+    let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(&parts, &bag)
+        .map_err(|_| "could not pack photo".to_string())?;
+    let fd = web_sys::FormData::new().map_err(|_| "could not pack photo".to_string())?;
+    fd.append_with_blob_and_filename("file", &blob, "person.jpg")
+        .map_err(|_| "could not pack photo".to_string())?;
+    let up = gloo_net::http::Request::post("/api/person-upload")
+        .body(&fd)
+        .map_err(|_| "network error uploading photo".to_string())?
+        .send()
+        .await
+        .map_err(|_| "photo upload failed — check size/type and retry".to_string())?;
+    let v: serde_json::Value = up.json().await.map_err(|_| "photo upload failed".to_string())?;
+    v.get("imageId")
+        .and_then(|s| s.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "photo upload failed — check size/type and retry".to_string())
+}
+
 #[component]
 pub fn TryOnStudio(product: Product) -> impl IntoView {
     let (phase, set_phase) = create_signal(Phase::Pick);
@@ -130,11 +193,25 @@ pub fn TryOnStudio(product: Product) -> impl IntoView {
     let (info, set_info) = create_signal(String::new());
     let (preview, set_preview) = create_signal::<Option<String>>(None);
     let (person, set_person) = create_signal::<Option<(Vec<u8>, String)>>(None);
+    let (image_id, set_image_id) = create_signal::<Option<String>>(None);
+    let (entries, set_entries) = create_signal::<Vec<tl::Entry>>(vec![]);
     let (progress, set_progress) = create_signal(String::new());
     let (result, set_result) = create_signal::<Option<String>>(None);
 
+    // Restore saved person photo (imageId only; bytes re-uploaded never again).
+    create_effect(move |_| {
+        if let Some((id, ts)) = load_person() {
+            if now_secs() - ts < tl::PERSON_TTL_SECS && !id.is_empty() {
+                set_image_id.set(Some(id));
+                set_info.set("Saved photo restored — Start try-on, or Change photo.".into());
+                set_phase.set(Phase::Ready);
+            }
+        }
+    });
+
+    let push_entry = set_entries;
     let on_file = move |ev| {
-        spawn_local(read_picked(ev, set_phase, set_error, set_info, set_preview, set_person));
+        spawn_local(read_picked(ev, set_phase, set_error, set_info, set_preview, set_person, set_image_id, push_entry));
     };
 
     let change_photo = move |_| {
@@ -143,54 +220,69 @@ pub fn TryOnStudio(product: Product) -> impl IntoView {
         }
         set_preview.set(None);
         set_person.set(None);
+        set_image_id.set(None);
         set_error.set(None);
         set_phase.set(Phase::Pick);
     };
 
+    let select_entry = move |e: tl::Entry| {
+        set_error.set(None);
+        if e.kind == "person" {
+            if e.image_id.is_empty() {
+                set_error.set(Some("That photo has no upload yet — pick it again.".into()));
+                return;
+            }
+            set_image_id.set(Some(e.image_id.clone()));
+            set_person.set(None);
+            set_preview.set(Some(e.thumb.clone()));
+            set_info.set("Timeline photo selected.".into());
+            set_phase.set(Phase::Ready);
+        } else if !e.url.is_empty() {
+            set_result.set(Some(e.url.clone()));
+            set_phase.set(Phase::Done);
+        }
+    };
+
     let start = move |_| {
-        let person = set_person.get_untracked();
-        let Some((bytes, mime)) = person else {
+        let product = product.clone();
+        let fresh = set_person.get_untracked();
+        let stored = set_image_id.get_untracked();
+        if fresh.is_none() && stored.is_none() {
             set_error.set(Some("pick a photo first".into()));
             return;
-        };
-        let product = product.clone();
+        }
         set_error.set(None);
         set_phase.set(Phase::Working);
         set_progress.set("Uploading photo…".into());
         spawn_local(async move {
-            // 1. Person upload -> imageId (Genlook keeps ~7 days).
-            let arr = js_sys::Uint8Array::from(bytes.as_slice());
-            let parts = js_sys::Array::of1(&arr.into());
-            let mut bag = web_sys::BlobPropertyBag::new();
-            bag.type_(&mime);
-            let blob = match web_sys::Blob::new_with_u8_array_sequence_and_options(&parts, &bag) {
-                Ok(b) => b,
-                Err(_) => {
-                    set_error.set(Some("could not pack photo".into()));
-                    set_phase.set(Phase::Ready);
-                    return;
+            // Reuse saved/uploaded imageId; upload only fresh bytes once.
+            let image_id = match (fresh, stored) {
+                (Some((bytes, mime)), _) => {
+                    let id = match upload_person(bytes, mime).await {
+                        Ok(id) => id,
+                        Err(e) => {
+                            set_error.set(Some(e));
+                            set_phase.set(Phase::Ready);
+                            return;
+                        }
+                    };
+                    save_person(&id);
+                    set_image_id.set(Some(id.clone()));
+                    set_entries.update(|l| {
+                        for x in l.iter_mut() {
+                            if x.kind == "person" && x.image_id.is_empty() {
+                                x.image_id = id.clone();
+                            }
+                        }
+                    });
+                    id
                 }
+                (None, Some(id)) => {
+                    set_progress.set("Trying it on… (~10s)".into());
+                    id
+                }
+                (None, None) => unreachable!(),
             };
-            let fd = web_sys::FormData::new().unwrap();
-            fd.append_with_blob_and_filename("file", &blob, "person.jpg").unwrap();
-            let up = gloo_net::http::Request::post("/api/person-upload")
-                .body(&fd)
-                .unwrap()
-                .send()
-                .await;
-            let image_id: String = match up {
-                Ok(r) => match r.json::<serde_json::Value>().await {
-                    Ok(v) => v.get("imageId").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
-                    Err(_) => String::new(),
-                },
-                Err(_) => String::new(),
-            };
-            if image_id.is_empty() {
-                set_error.set(Some("photo upload failed — check size/type and retry".into()));
-                set_phase.set(Phase::Ready);
-                return;
-            }
-            // 2. Sync try-on (200 = ready, 202 = poll).
             set_progress.set("Trying it on… (~10s)".into());
             let req = serde_json::json!({
                 "product_id": product.id,
@@ -224,6 +316,15 @@ pub fn TryOnStudio(product: Product) -> impl IntoView {
             };
             match outcome {
                 Ok(url) => {
+                    set_entries.update(|l| {
+                        *l = tl::push(l.clone(), tl::Entry {
+                            kind: "result".into(),
+                            thumb: url.clone(),
+                            image_id: String::new(),
+                            url: url.clone(),
+                            ts: now_secs(),
+                        })
+                    });
                     set_result.set(Some(url));
                     set_phase.set(Phase::Done);
                 }
@@ -291,6 +392,14 @@ pub fn TryOnStudio(product: Product) -> impl IntoView {
                 }.into_view(),
             }}
             {move || error.get().map(|e| view! { <p class="error">{e}</p> })}
+            <h3 class="tl-head">"Your timeline"</h3>
+            <div class="tl-row">
+                <For each=move || entries.get() key=|e| e.thumb.clone() let:e>
+                    <button class="tl-item" on:click=move |_| select_entry(e.clone())>
+                        <img src=e.thumb.clone() alt=e.kind.clone()/>
+                    </button>
+                </For>
+            </div>
             <p class="hint">"Limits: " {photo::MAX_BYTES / 1024 / 1024} " MB max · min " {photo::MIN_DIM} "px"</p>
         </section>
     }

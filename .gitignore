@@ -19,3 +19,5 @@
 !shared/**
 !.github/
 !.github/**
+!.opencode/
+!.opencode/**

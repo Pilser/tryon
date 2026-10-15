@@ -6,7 +6,7 @@ fn esc(s: &str) -> String {
 
 fn topbar(_shop: &str) -> String {
     format!(
-        r##"<header class="topbar"><a class="brand" href="/">{}</a><nav><a href="/admin">Admin</a></nav></header>"##,
+        r##"<header class="topbar"><a class="brand" href="/">{}</a><a class="admin-link" href="/admin">Admin</a></header>"##,
         esc(crate::gen_texts::SHOP_NAME)
     )
 }

@@ -1,0 +1,16 @@
+/* shop · dark */
+:root {
+  --bg: #12140C;
+  --surface: #1B1F12;
+  --line: #2C3319;
+  --text: #F4F7E4;
+  --muted: #9AA07E;
+  --primary: #B9D93C;
+  --primary-ink: #1A2005;
+  --complement: #8B6FE8;
+  --wa: #25D366;
+  --danger: #FF7A7A;
+  --radius: 16;
+  --font-head: "Poppins";
+  --font-body: "Inter";
+}

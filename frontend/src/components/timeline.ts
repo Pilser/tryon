@@ -18,17 +18,20 @@ export function paintTimeline(onSelect: SelectFn, activeThumb: string | null = n
   if (!tl || !th) return;
   const list = loadTimeline();
   tl.innerHTML = "";
-  // Leading tiles: Take photo (camera) then Add photo (library).
-  // The ribbon itself is the whole photo interface - no separate picker box.
-  const take = document.createElement("label");
+  // Leading tiles: Take photo (camera UI) then Add photo (library).
+  // Buttons, not labels: the studio binds one delegated handler that
+  // survives every ribbon repaint.
+  const take = document.createElement("button");
+  take.type = "button";
   take.className = cx(s.take);
-  take.setAttribute("for", "pick-cam");
+  take.dataset.act = "take";
   take.title = "Take a photo now";
   take.innerHTML = `<span class="${cx(s.takeIcon)}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span><span class="${cx(s.addLabel)}">Take photo</span>`;
   tl.appendChild(take);
-  const add = document.createElement("label");
+  const add = document.createElement("button");
+  add.type = "button";
   add.className = cx(s.add);
-  add.setAttribute("for", "pick-file");
+  add.dataset.act = "add";
   add.title = "Add your photo";
   add.innerHTML = `<span class="${cx(s.addIcon)}">+</span><span class="${cx(s.addLabel)}">Add photo</span>`;
   tl.appendChild(add);

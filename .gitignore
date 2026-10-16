@@ -40,3 +40,7 @@ frontend/public/imgpipe/
 frontend/public/imgpipe/**
 frontend/imgpipe/
 frontend/imgpipe/**
+
+# vendored ionic camera UI (rebuilt by build.ts)
+frontend/pwa/
+frontend/pwa/**

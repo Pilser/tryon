@@ -302,29 +302,6 @@ export const owner = stylex.create({
   },
   slotRetake: { right: 8 },
   slotRelib: { left: 8 },
-  camOv: {
-    position: "fixed", left: 0, top: 0, width: "100%", height: "100dvh",
-    zIndex: 50, backgroundColor: "#000", overflow: "hidden",
-  },
-  camVideo: {
-    position: "absolute", left: 0, top: 0, width: "100%", height: "100%",
-    objectFit: "cover", display: "block", backgroundColor: "#000",
-  },
-  camBar: {
-    position: "absolute", left: 0, right: 0, bottom: 0,
-    display: "flex", gap: 12, alignItems: "center", justifyContent: "center",
-    paddingTop: 16, paddingBottom: 32, paddingLeft: 16, paddingRight: 16,
-  },
-  camSnap: {
-    minHeight: 48, paddingLeft: 22, paddingRight: 22, borderRadius: 10,
-    backgroundColor: t.primary, color: t.primaryInk,
-    fontSize: 15, fontWeight: 700, borderStyle: "none", cursor: "pointer",
-  },
-  camCancel: {
-    minHeight: 48, paddingLeft: 22, paddingRight: 22, borderRadius: 10,
-    backgroundColor: t.surface, color: t.text, cursor: "pointer",
-    borderWidth: 1, borderStyle: "solid", borderColor: t.line, fontSize: 15,
-  },
   cap: { position: "absolute", top: 428, color: t.muted, fontSize: 13, margin: 0,
     "@media (max-width: 900px)": { position: "static", marginTop: 4 } },
   cap0: { left: 24 },

@@ -210,12 +210,20 @@ export function initOwnerForm(): void {
     }
   };
   const feedFile = (i: number, f: File): void => {
-    if (f.size > 10 * 1024 * 1024) { fail(`Photo ${i + 1} over 10 MB.`); return; }
-    const img = el("slot-img-" + i) as HTMLImageElement;
-    img.src = URL.createObjectURL(f); show(img, true);
-    const dt = new DataTransfer(); dt.items.add(f);
-    (el("file" + i) as HTMLInputElement).files = dt.files;
-    paintSlot(i);
+    void (async () => {
+      try {
+        const { normalizeHeicFile } = await import("heic-normalize");
+        f = await normalizeHeicFile(f);
+      } catch {
+        /* keep the original file on normalizer failure */
+      }
+      if (f.size > 10 * 1024 * 1024) { fail(`Photo ${i + 1} over 10 MB.`); return; }
+      const img = el("slot-img-" + i) as HTMLImageElement;
+      img.src = URL.createObjectURL(f); show(img, true);
+      const dt = new DataTransfer(); dt.items.add(f);
+      (el("file" + i) as HTMLInputElement).files = dt.files;
+      paintSlot(i);
+    })();
   };
   const onSlotFile = (i: number) => (ev: Event): void => {
     const f = (ev.target as HTMLInputElement).files?.[0];

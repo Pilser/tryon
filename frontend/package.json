@@ -12,5 +12,9 @@
     "@stylexjs/stylex": "^0.11.0",
     "esbuild": "^0.25.0",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@ionic/pwa-elements": "^3.4.0",
+    "heic-normalize": "^1.0.0"
   }
 }

@@ -76,6 +76,14 @@ function canvasPrep(file: File): Promise<Prepared> {
 }
 
 export async function prepFile(file: File): Promise<Prepared> {
+  // iPhone HEIC (and friends) never reach canvas: normalize to JPEG first,
+  // lazily loading the WASM decoder only for actual HEIC files.
+  try {
+    const { normalizeHeicFile } = await import("heic-normalize");
+    file = await normalizeHeicFile(file);
+  } catch {
+    /* keep the original file on normalizer failure */
+  }
   validate(file);
   const pipe = await loadWasm();
   if (pipe) {

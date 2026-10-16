@@ -1,51 +1,83 @@
-/* components/capture.ts - desktop webcam capture modal. Mobile browsers
-   should prefer their native camera sheet (filecam inputs); this covers
-   desktop, where capture="" is ignored. Resolves null when unavailable. */
-import { skin } from "../skin";
+/* components/capture.ts - fullscreen camera via the vendored Ionic PWA
+   camera modal (viewfinder + flash + camera switch + shutter +
+   accept/cancel + gallery fallback, Shadow DOM so it never clashes
+   with shop styles). Resolves a File, or null when unavailable or
+   cancelled (caller falls back to the native file sheet). */
+
+interface PwaCameraModal extends HTMLElement {
+  facingMode: string;
+  present(): Promise<void>;
+  dismiss(): Promise<void>;
+}
+
+/* Only one camera UI at a time; anything left in the DOM is torn out so
+   it can never sit invisibly over the page swallowing taps. */
+function forceClose(): void {
+  try {
+    document
+      .querySelectorAll("pwa-camera-modal,pwa-camera-modal-instance")
+      .forEach((n) => n.remove());
+  } catch {
+    /* DOM already gone */
+  }
+}
+
+function modal(): PwaCameraModal | null {
+  try {
+    const m = document.createElement("pwa-camera-modal") as PwaCameraModal;
+    if (typeof m.present !== "function") return null;
+    return m;
+  } catch {
+    return null;
+  }
+}
 
 export function capturePhoto(): Promise<File | null> {
   return new Promise((resolve) => {
-    if (!navigator.mediaDevices?.getUserMedia) {
+    forceClose();
+    const m = modal();
+    if (!m) {
       resolve(null);
       return;
     }
-    const ov = document.createElement("div");
-    ov.className = "cam-ov";
-    ov.innerHTML = `<video class="cam-video" playsinline autoplay muted></video>`
-      + `<div class="cam-bar"><button type="button" class="cam-snap">Snap photo</button>`
-      + `<button type="button" class="cam-cancel">Cancel</button></div>`;
-    document.body.appendChild(ov);
-    skin(ov);
-    const video = ov.querySelector("video") as HTMLVideoElement;
-    let stream: MediaStream | null = null;
+    let settled = false;
     const done = (f: File | null): void => {
-      if (stream) stream.getTracks().forEach((t) => t.stop());
-      ov.remove();
+      if (settled) return;
+      settled = true;
+      try {
+        void m.dismiss().catch(() => undefined);
+      } catch {
+        /* fall through to DOM removal */
+      }
+      forceClose();
       resolve(f);
     };
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "environment" }, audio: false })
-      .then((s) => {
-        stream = s;
-        video.srcObject = s;
-        return video.play().catch(() => undefined);
-      })
-      .catch(() => done(null));
-    (ov.querySelector(".cam-snap") as HTMLButtonElement).addEventListener("click", () => {
-      try {
-        const c = document.createElement("canvas");
-        c.width = video.videoWidth || 1280;
-        c.height = video.videoHeight || 720;
-        c.getContext("2d")?.drawImage(video, 0, 0);
-        c.toBlob(
-          (b) => done(b ? new File([b], "camera.jpg", { type: "image/jpeg" }) : null),
-          "image/jpeg",
-          0.92
-        );
-      } catch {
+    m.addEventListener("onPhoto", (ev) => {
+      const detail = (ev as CustomEvent).detail as Blob | File | string | null;
+      if (!detail || (detail instanceof Blob && detail.size === 0)) {
         done(null);
+        return;
       }
+      if (typeof detail === "string") {
+        // Older builds emit a data URL; convert it back to bytes.
+        void fetch(detail)
+          .then((r) => r.blob())
+          .then((b) => done(new File([b], "camera.jpg", { type: "image/jpeg" })))
+          .catch(() => done(null));
+        return;
+      }
+      done(
+        new File([detail], "camera.jpg", {
+          type: detail.type.startsWith("image/") ? detail.type : "image/jpeg",
+        })
+      );
     });
-    (ov.querySelector(".cam-cancel") as HTMLButtonElement).addEventListener("click", () => done(null));
+    m.facingMode = "environment";
+    document.body.appendChild(m);
+    void m.present().catch(() => done(null));
+    // Safety net: never leave the modal hanging without a result.
+    window.setTimeout(() => {
+      if (!settled && !document.body.contains(m)) done(null);
+    }, 5000);
   });
 }

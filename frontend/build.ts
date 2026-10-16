@@ -2,8 +2,16 @@ import esbuild from "esbuild";
 import stylexPlugin from "@stylexjs/esbuild-plugin";
 import path from "path";
 import { fileURLToPath } from "url";
+import { cpSync, mkdirSync } from "node:fs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+
+// Vendor the Ionic PWA camera UI (fullscreen viewfinder + shutter +
+// accept/cancel) so shells load it same-origin with no CDN dependency.
+mkdirSync(path.join(root, "pwa"), { recursive: true });
+cpSync(path.join(root, "node_modules/@ionic/pwa-elements/dist/esm"), path.join(root, "pwa"), {
+  recursive: true,
+});
 
 await esbuild.build({
   entryPoints: ["src/main.ts"],

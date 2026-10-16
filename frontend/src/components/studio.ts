@@ -3,6 +3,7 @@
    at once (imageId patched in when upload lands); Start reuses it.
    Result prepends to timeline top. Pixels via components/photo.ts. */
 import { tryOnSync, pollGeneration, uploadPerson } from "../core/api";
+import { capturePhoto } from "./capture";
 import { nowSecs, savePerson, pushTimeline, updateTimelineEntry, loadPerson, loadTimeline, personUsable } from "../core/store";
 import { savePhoto, loadPhoto, prunePhotos } from "../core/photo-store";
 import type { Product, TimelineEntry } from "../core/types";
@@ -49,11 +50,8 @@ export function initStudio(product: Product): void {
     (el("st-prev") as HTMLImageElement).style.opacity = "";
   };
 
-  const onPick = async (ev: Event): Promise<void> => {
+  const onPickFile = async (f: File): Promise<void> => {
     clear();
-    const input = ev.target as HTMLInputElement;
-    const f = input.files && input.files[0];
-    if (!f) return;
     try {
       const r = await prepFile(f);
       const u = previewURL(r.blob);
@@ -73,8 +71,29 @@ export function initStudio(product: Product): void {
       im.src = u;
     } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
   };
-  el("pick-file").addEventListener("change", (ev) => void onPick(ev));
-  el("pick-cam").addEventListener("change", (ev) => void onPick(ev));
+  const onPick = (ev: Event): void => {
+    const f = (ev.target as HTMLInputElement).files?.[0];
+    if (f) void onPickFile(f);
+    // Reset the input so picking the same file again still fires change.
+    (ev.target as HTMLInputElement).value = "";
+  };
+  el("pick-file").addEventListener("change", onPick);
+  el("pick-cam").addEventListener("change", onPick);
+  // Ribbon tiles survive every repaint: one delegated handler, bound once.
+  el("st-timeline").addEventListener("click", (ev) => {
+    const b = (ev.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
+    if (!b) return;
+    ev.preventDefault();
+    void (async () => {
+      if (b.dataset.act === "take") {
+        const f = await capturePhoto();
+        if (f) await onPickFile(f);
+        else (el("pick-cam") as HTMLInputElement).click();
+      } else {
+        (el("pick-file") as HTMLInputElement).click();
+      }
+    })();
+  });
 
   /* Before/after compare: result stacked over the user photo in one
      frame. Hold (or tap) the top image to reveal the original photo

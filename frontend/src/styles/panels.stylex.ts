@@ -41,17 +41,27 @@ export const studio = stylex.create({
   },
   cta: {
     display: "flex", alignItems: "center", justifyContent: "center",
-    width: "100%", height: 50, borderRadius: 10,
+    flexGrow: 1, minWidth: 0, height: 50, borderRadius: 10,
     backgroundColor: t.primary, color: t.primaryInk,
     fontSize: 16, fontWeight: 800, borderStyle: "none", cursor: "pointer",
+    textDecoration: "none",
     boxShadow: "0 6px 20px rgba(185,217,60,.25)",
     ":active": { transform: "scale(.99)" },
+  },
+  ctaGhost: {
+    display: "flex", alignItems: "center", justifyContent: "center",
+    gap: 6, flexGrow: 1, minWidth: 0, height: 50, borderRadius: 10,
+    backgroundColor: "transparent", color: t.wa,
+    borderWidth: 1, borderStyle: "solid", borderColor: t.wa,
+    fontSize: 15, fontWeight: 700, cursor: "pointer",
+    textDecoration: "none",
+    ":active": { backgroundColor: t.wa, color: "#06280f" },
   },
   gate: { textAlign: "center", marginTop: 20, marginBottom: 8 },
 });
 
 export const timeline = stylex.create({
-  head: { marginTop: 22, marginBottom: 8, fontSize: "1rem", color: t.muted },
+  head: { marginTop: 10, marginBottom: 6, fontSize: ".85rem", color: t.muted },
   row: {
     display: "flex", gap: 8, overflowX: "auto", paddingTop: 4, paddingBottom: 4,
     alignItems: "center",
@@ -120,8 +130,8 @@ export const duo = stylex.create({
   userEmpty: {
     position: "absolute", left: 0, top: 0, width: "100%", height: "100%",
     display: "flex", alignItems: "center", justifyContent: "center",
-    textAlign: "center", margin: 0, padding: 20, boxSizing: "border-box",
-    color: t.muted, fontSize: 14,
+    textAlign: "center", margin: 0, padding: 12, boxSizing: "border-box",
+    color: t.muted, fontSize: 13,
   },
   arrow: {
     display: "none",
@@ -129,7 +139,7 @@ export const duo = stylex.create({
       display: "flex", alignItems: "center", justifyContent: "center",
       position: "absolute", right: 8, top: "40%", width: 40, height: 40,
       borderRadius: 10, borderStyle: "none", cursor: "pointer",
-      backgroundColor: t.primary, color: t.primaryInk,
+      backgroundColor: "rgba(185,217,60,.85)", color: t.primaryInk,
       fontSize: 22, fontWeight: 700,
       boxShadow: "0 4px 14px rgba(0,0,0,.45)",
     },

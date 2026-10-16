@@ -77,9 +77,10 @@ Rule: the studio product view reuses the feed state machine, not a copy.
   the before view (tap it to see before, tap the result for after).
 - [x] Timeline photo survives product switches; uploaded photos survive
   revisits (localStorage `tryon.person.v1`, ~6 day TTL; `core/store.ts`).
-- [x] Compact modern CTA: full-width lime "Try it on" button
-  (`.cta` in `styles/panels.stylex.ts`); device-hint line and
-  uploading-note line removed to save space.
+- [x] Compact modern CTA row below the ribbon: WhatsApp Inquire on
+  the left always; lime "Try it on" appears inline on its right once a
+  photo is chosen (`.cta` + `.cta-ghost` share the row 50/50).
+  Hint/caption texts squeezed (12/11px, tight margins).
 - [x] Download button on the result (result URLs expire, file does not).
 
 ## 4. Before/after compare

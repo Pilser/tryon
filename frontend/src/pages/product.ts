@@ -22,6 +22,13 @@ export async function product(): Promise<void> {
      <a class="btn" target="_blank" href="${esc(waShareUrl(location.origin, p.title, p.id))}">Share</a></div>
      </div></article>`;
   armDuo(detail);
+  // Inquire sits left in the CTA row; Start appears right of it on photo.
+  const inq = document.getElementById("st-inquire") as HTMLAnchorElement | null;
+  if (inq) {
+    inq.href = inquireUrl(shop.owner_whatsapp, shop.shop_name, p.title, p.id);
+    inq.innerHTML = waIcon() + "<span>Inquire</span>";
+    (inq as HTMLElement).style.display = "";
+  }
   initStudio(p);
   skin();
 }

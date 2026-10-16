@@ -28,9 +28,20 @@ export function armDuo(scope: ParentNode = document): void {
   });
   const next = scope.querySelector("#st-duo-next") as HTMLButtonElement | null;
   const duo = scope.querySelector("#st-duo") as HTMLElement | null;
+  const paintArrow = (): void => {
+    if (!duo || !next) return;
+    const max = duo.scrollWidth - duo.clientWidth;
+    const atEnd = max > 20 && duo.scrollLeft > max - 20;
+    next.textContent = atEnd ? "‹" : "›";
+    next.setAttribute("aria-label", atEnd ? "Back to product" : "See your photo");
+  };
   next?.addEventListener("click", () => {
     if (!duo) return;
-    const atEnd = duo.scrollLeft > duo.scrollWidth - duo.clientWidth - 20;
+    const max = duo.scrollWidth - duo.clientWidth;
+    const atEnd = max > 20 && duo.scrollLeft > max - 20;
     duo.scrollTo({ left: atEnd ? 0 : duo.scrollWidth, behavior: "smooth" });
   });
+  duo?.addEventListener("scroll", paintArrow, { passive: true });
+  window.addEventListener("load", paintArrow, { once: true });
+  paintArrow();
 }

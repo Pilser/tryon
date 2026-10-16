@@ -46,6 +46,7 @@ const MAP: Array<[string, any[]]> = [
   [".owner-gate", [studio.gate]],
   [".owner-gate a", [owner.listLink]],
   [".cta", [base.btn, base.btnPrimary, studio.cta]],
+  [".cta-ghost", [base.btn, base.btnWa, studio.ctaGhost]],
   [".studio-preview", [studio.preview]],
   [".studio-result-img", [studio.resultImg]],
   [".tl-head", [timeline.head]],

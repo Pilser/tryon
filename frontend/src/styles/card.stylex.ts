@@ -93,6 +93,6 @@ export const gallery = stylex.create({
     boxShadow: "0 4px 14px rgba(0,0,0,.45)",
   },
   insetImg: { width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" },
-  cap: { marginTop: 8, marginBottom: 0, fontSize: 13, color: "#9aa07e" },
-  hint: { marginTop: 4, marginBottom: 0, fontSize: 12, color: "#9aa07e", opacity: 0.85 },
+  cap: { marginTop: 4, marginBottom: 0, fontSize: 12, color: "#9aa07e" },
+  hint: { marginTop: 2, marginBottom: 0, fontSize: 11, color: "#9aa07e", opacity: 0.85 },
 });

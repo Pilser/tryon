@@ -3,6 +3,7 @@ import { getProduct, getShop } from "../core/api";
 import { esc, money } from "../core/format";
 import { inquireUrl, waShareUrl } from "../core/whatsapp";
 import { waIcon } from "../components/whatsapp-icon";
+import { linkIcon, shareIcon } from "../components/icons";
 import { loadOwner } from "../core/store";
 import { duoHTML, armDuo } from "../components/duo";
 import { initStudio } from "../components/studio";
@@ -20,15 +21,15 @@ export async function product(): Promise<void> {
     `<article class="detail">${duoHTML(p)}
      <div><h1>${esc(p.title)}</h1><p>${esc(p.description)}</p>
      <div class="row"><span class="price">${esc(money(p))}</span>
-     <button id="cp-link" class="btn secondary" type="button">Copy link</button>
-     <a class="btn secondary" target="_blank" href="${esc(waShareUrl(location.origin, p.title, p.id))}">Share</a></div>
+     <button id="cp-link" class="icon-btn" type="button" title="Copy link" aria-label="Copy link">${linkIcon()}</button>
+     <a id="wa-share" class="icon-btn" target="_blank" title="Share" aria-label="Share" href="${esc(waShareUrl(location.origin, p.title, p.id))}">${shareIcon()}</a></div>
      </div></article>`;
   armDuo(detail);
   document.getElementById("cp-link")?.addEventListener("click", (ev) => {
     const btn = ev.currentTarget as HTMLButtonElement;
     const done = (): void => {
-      btn.textContent = "Copied";
-      window.setTimeout(() => { btn.textContent = "Copy link"; }, 1500);
+      btn.style.opacity = ".5";
+      window.setTimeout(() => { btn.style.opacity = ""; }, 1200);
     };
     const fallback = (): void => {
       const i = document.createElement("input");

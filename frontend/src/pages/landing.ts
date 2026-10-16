@@ -1,6 +1,6 @@
-/* pages/landing.ts - compose only: shop + filters + cards. */
+/* pages/landing.ts - compose only: shop + inline search/filter + cards. */
 import { getShop, listProducts } from "../core/api";
-import { pillsHTML } from "../components/filters";
+import { esc } from "../core/format";
 import { cardHTML, armAll } from "../components/product-card";
 import { skin } from "../skin";
 
@@ -18,8 +18,10 @@ export async function landing(): Promise<void> {
   if (brand) brand.textContent = shop.shop_name;
   el<HTMLInputElement>("q").value = query;
   const all = await listProducts();
-  const cats = [...new Set(all.map((p) => p.category).filter(Boolean))].sort();
-  el("pills").innerHTML = pillsHTML(cats, category);
+  const cats = [...new Set(all.map((p) => (p.category || "").trim()).filter(Boolean))].sort();
+  const sel = el<HTMLSelectElement>("cat");
+  sel.innerHTML = `<option value="">All</option>` + cats.map((c) =>
+    `<option value="${esc(c)}"${c === category ? " selected" : ""}>${esc(c)}</option>`).join("");
   const list = await listProducts({ q: query, category });
   el("count").textContent = list.length + " products";
   el("grid").innerHTML =
@@ -28,6 +30,7 @@ export async function landing(): Promise<void> {
   skin();
   el("search-form").addEventListener("submit", (ev) => {
     ev.preventDefault();
-    location.href = "/?q=" + encodeURIComponent(el<HTMLInputElement>("q").value);
+    location.href = "/?q=" + encodeURIComponent(el<HTMLInputElement>("q").value)
+      + "&category=" + encodeURIComponent(el<HTMLSelectElement>("cat").value);
   });
 }

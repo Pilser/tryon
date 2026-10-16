@@ -17,7 +17,6 @@ Served by `bun run dev` (:8811, dev.ts) with `/api` proxied to :8787.
   `&owner=1` when owner mode is on. (`pages/studio.ts`)
 
 ## 2. Product block on studio (same as feed card + user card duo)
-
 Rule: the studio product view reuses the feed state machine, not a copy.
 
 - [x] Large garment (G) + small inset model-wearing (S).
@@ -50,6 +49,11 @@ Rule: the studio product view reuses the feed state machine, not a copy.
   inside fullscreen; tap the button again (or ESC) to exit.
   (`toggleFs` + `.fs-btn` in `components/product-card.ts` /
   `components/duo.ts`; `:fullscreen` rules in styles)
+- [x] Product info is one compact row (price inline + Copy link +
+  Share buttons); the duplicate WhatsApp inquire and the share-link
+  input are gone (inquire lives in the studio CTA row).
+- [x] Fullscreen keeps the photo's aspect ratio (contain on black)
+  instead of cover-cropping; inline stays cover.
 - [x] Product page matches the studio page: same duo (product gallery +
   user card, swipeable on mobile), same ribbon, same CTA, same compare,
   same fullscreen. Shared via `components/duo.ts`
@@ -121,8 +125,40 @@ before/after is visible in one view.
 ## 7. Local run (see docs/LOCAL_RUN.md)
 
 - [x] `bun run dev` serves the plain shells on :8811, proxies `/api`
-  to the worker harness on :8787.
+  AND `/uploads` to the worker harness on :8787 (uploads proxy added;
+  without it owner-uploaded images 404 on the frontend).
 - [x] Harness serves products + upload persistence locally.
+
+## 9. Categories (icon ribbon + managed list + Others bucket)
+
+- [x] Studio shows the icon ribbon directly (old garment dropdown
+  removed); tapping an icon expands search + product grid, same icon
+  collapses. Uncategorised products land in Others.
+- [x] Owner panel: Categories box clears the desktop absolute form
+  (flow clearance below it, natural stacking on mobile); bundle
+  category is a select listing managed + product-derived categories,
+  default Others; bottom product list removed.
+- [x] Backend: harness `categories.json` + `GET /api/categories` +
+  `POST /api/studio/categories`; worker D1 `categories` table + same
+  routes; `shared::Category`; ram-check clean, shared tests 8/8.
+- [x] Slim navbar (52px): back chevron + TryOn & Shop brand + Studio
+  link; brand reads TryOn & Shop end to end (harness + worker default
+  + wrangler).
+- [x] Usercard fullscreen fixed (button was buried under the photo in
+  paint order; moved last + z-index). Hold-to-peek previous kept.
+
+## 10. Product update (owner only, no duplicates)
+
+- [x] CTA row has an Update button next to Inquire / Try it on, shown
+  only when the owner is logged in (studio + product pages).
+- [x] Update fills the bundle form (photos as previews, title, text,
+  price, sizes, category) and scrolls to the owner section; saving
+  re-uses the same product id, unchanged slots re-save identical
+  bytes under identical R2 keys, created date preserved.
+- [x] Backends upsert: harness replaces the seed row in place (update
+  proven live: same id, image intact, count unchanged); worker uses
+  `INSERT ... ON CONFLICT(id) DO UPDATE` with old-row fill for
+  missing slots (ram-check clean).
 
 ## 8. Photo ribbon UX (timeline as floating ribbon)
 

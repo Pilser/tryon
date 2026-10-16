@@ -11,8 +11,8 @@ export const studio = stylex.create({
   resultImg: { maxWidth: "100%", borderRadius: 12 },
   page: {
     maxWidth: 1100, marginLeft: "auto", marginRight: "auto",
-    paddingTop: 88, paddingLeft: 22, paddingRight: 22, paddingBottom: 22,
-    "@media (max-width: 720px)": { paddingTop: 76, paddingLeft: 12, paddingRight: 12 },
+    paddingTop: 66, paddingLeft: 22, paddingRight: 22, paddingBottom: 22,
+    "@media (max-width: 720px)": { paddingTop: 62, paddingLeft: 12, paddingRight: 12 },
   },
   pickRow: {
     display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap",
@@ -38,6 +38,10 @@ export const studio = stylex.create({
   ownerBar: {
     display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between",
     flexWrap: "wrap", marginBottom: 4,
+    "@media (min-width: 901px)": { justifyContent: "flex-end" },
+  },
+  ownerHint: {
+    "@media (min-width: 901px)": { display: "none" },
   },
   cta: {
     display: "flex", alignItems: "center", justifyContent: "center",
@@ -58,6 +62,21 @@ export const studio = stylex.create({
     ":active": { backgroundColor: t.wa, color: "#06280f" },
   },
   gate: { textAlign: "center", marginTop: 20, marginBottom: 8 },
+  catbox: {
+    borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    borderRadius: 12, backgroundColor: t.surface,
+    padding: 16, marginTop: 560, marginBottom: 16,
+    "@media (max-width: 900px)": { marginTop: 12 },
+  },
+  catboxTitle: { marginTop: 0, marginBottom: 8, fontSize: 16, color: t.text },
+  catList: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  catChip: {
+    display: "flex", alignItems: "center", gap: 6,
+    padding: 4, paddingRight: 10, borderRadius: 10,
+    backgroundColor: t.bg, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    color: t.text, fontSize: 13,
+  },
+  catChipImg: { width: 32, height: 32, objectFit: "cover", borderRadius: 8, display: "block" },
 });
 
 export const timeline = stylex.create({
@@ -152,6 +171,11 @@ export const duo = stylex.create({
     marginLeft: "auto", marginRight: "auto",
     "@media (max-width: 720px)": { maxWidth: "none" },
   },
+  /* Small attached title on top of each duo box, every viewport. */
+  boxTitle: {
+    marginTop: 0, marginBottom: 6, marginLeft: 0, marginRight: 0,
+    fontFamily: t.fontHead, fontSize: 13, fontWeight: 700, color: t.text,
+  },
 });
 export const compare = stylex.create({
   frame: {
@@ -172,6 +196,53 @@ export const compare = stylex.create({
   cap: { marginTop: 8, marginBottom: 0, fontSize: 13, color: t.muted },
 });
 
+/* Category ribbon + expandable panel (studio page). */
+export const cats = stylex.create({
+  row: {
+    display: "flex", gap: 10, overflowX: "auto", paddingTop: 8, paddingBottom: 8,
+    scrollbarWidth: "none",
+    "::-webkit-scrollbar": { display: "none" },
+  },
+  item: {
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+    flexShrink: 0, width: 72, padding: 6, borderRadius: 10, cursor: "pointer",
+    backgroundColor: "transparent",
+    borderWidth: 2, borderStyle: "solid", borderColor: "transparent",
+  },
+  itemOn: { borderColor: t.primary },
+  img: {
+    width: 56, height: 56, objectFit: "cover", borderRadius: 10, display: "block",
+    backgroundColor: t.line,
+  },
+  imgBlank: {
+    display: "flex", alignItems: "center", justifyContent: "center",
+    color: t.muted, fontSize: 22, fontWeight: 700,
+  },
+  label: {
+    fontSize: 11, color: t.text, textAlign: "center",
+    maxWidth: 72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+  },
+  panel: {
+    marginTop: 4, marginBottom: 8, padding: 12,
+    borderRadius: 12, backgroundColor: t.surface,
+    borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+  },
+  q: {
+    width: "100%", height: 44, borderRadius: 10, boxSizing: "border-box",
+    backgroundColor: t.bg, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    color: t.text, fontSize: 15, paddingLeft: 14, paddingRight: 14, outlineStyle: "none",
+  },
+  title: { marginTop: 10, marginBottom: 8, marginLeft: 0, marginRight: 0, fontSize: 15, color: t.text },
+  grid: { display: "flex", flexWrap: "wrap", gap: 10 },
+  mini: {
+    width: 104, borderRadius: 10, overflow: "hidden", textDecoration: "none",
+    backgroundColor: t.bg, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+  },
+  miniImg: { width: "100%", height: 120, objectFit: "cover", display: "block" },
+  miniTitle: { display: "block", padding: 6, fontSize: 12, color: t.text },
+  miniEmpty: { color: t.muted, fontSize: 13 },
+});
+
 export const owner = stylex.create({
   page: {
     position: "relative", maxWidth: 1200, minHeight: 560,
@@ -190,7 +261,7 @@ export const owner = stylex.create({
   slot: {
     position: "absolute", top: 150, width: 216, height: 270, borderRadius: 8,
     backgroundColor: t.line, cursor: "pointer", overflow: "hidden", display: "block",
-    "@media (max-width: 900px)": { position: "static", width: "100%", height: 200, marginTop: 12 },
+    "@media (max-width: 900px)": { position: "relative", left: 0, top: "auto", width: "100%", height: 200, marginTop: 12 },
   },
   slotImg: { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover" },
   cap: { position: "absolute", top: 428, color: t.muted, fontSize: 13, margin: 0,

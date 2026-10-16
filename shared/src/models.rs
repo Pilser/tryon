@@ -77,3 +77,12 @@ pub struct StudioCreateProduct {
     pub category: String,
     pub sizes: Vec<String>,
 }
+
+/// Owner-managed category: title + icon image. Product rows keep a plain
+/// category string; anything empty or unknown surfaces under Others.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Category {
+    pub id: String,
+    pub title: String,
+    pub image_url: String,
+}

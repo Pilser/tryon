@@ -76,6 +76,16 @@ pub const PRODUCTS_DDL: &str = "CREATE TABLE IF NOT EXISTS products (
     created_at TEXT NOT NULL DEFAULT ''
 )";
 
+/// Owner-managed categories (title + icon image). Product rows keep a plain
+/// category string; products whose category is empty or unknown surface
+/// under Others on the client.
+pub const CATEGORIES_DDL: &str = "CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    image_url TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT ''
+)";
+
 #[cfg(test)]
 mod tests {
     use super::*;

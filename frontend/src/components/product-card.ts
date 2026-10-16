@@ -14,7 +14,9 @@ import { waIcon } from "./whatsapp-icon";
 const FS_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`;
 
 /* Fullscreen toggle: shows ONLY the photo frame. Same nodes stay mounted,
-   so tap-swap and hold-peek keep working inside fullscreen. */
+   so tap-swap and hold-peek keep working inside fullscreen. While any
+   frame is fullscreen its photo keeps its aspect ratio (contain) so the
+   full view is never cropped; inline it stays cover. */
 export async function toggleFs(elm: HTMLElement): Promise<void> {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
@@ -22,6 +24,14 @@ export async function toggleFs(elm: HTMLElement): Promise<void> {
   } catch {
     /* unsupported browser: stay inline */
   }
+}
+
+/* Keeps one photo uncropped whenever its frame is the fullscreen element. */
+export function armFsFit(root: Element, img: HTMLImageElement): void {
+  document.addEventListener("fullscreenchange", () => {
+    const on = !!document.fullscreenElement && root.contains(document.fullscreenElement);
+    img.style.objectFit = on ? "contain" : "";
+  });
 }
 
 const cx = (...ss: any[]): string =>
@@ -51,15 +61,17 @@ export function cardHTML(p: Product, shop: string, owner: string): string {
   </article>`;
 }
 
-/* Detail gallery reuses the same state machine, larger frame. */
+/* Detail gallery reuses the same state machine, larger frame. Title sits
+   directly on top of its frame on every viewport. */
 export function galleryHTML(p: Product): string {
   const b = bundleOf(p);
   const single = !(p.styled_image_url || p.model_image_url);
   return `<div class="${cx(g.root)} productcard" data-garment="${esc(b.g)}" data-model="${esc(b.m)}" data-styled="${esc(b.s)}">
+    ${single ? "" : `<p class="${cx(g.cap)} swap-cur">${CAP_G}</p>`}
     <div class="${cx(g.frame)}"><img class="${cx(g.main)} main" draggable="false" src="${esc(b.g)}" alt="${esc(p.title)}"/>
     <button class="${cx(g.fsBtn)} fs-btn" type="button" aria-label="Fullscreen">${FS_SVG}</button>
     ${single ? "" : `<button class="${cx(g.inset)} model-inset" aria-label="see it worn"><img class="${cx(g.insetImg)} inset-img" draggable="false" src="${esc(b.s)}" alt="model wearing it"/></button>`}</div>
-    ${single ? "" : `<p class="${cx(g.cap)} swap-cur">${CAP_G}</p><p class="${cx(g.hint)}">Tap inset to swap · hold worn photo to compare without</p>`}
+    ${single ? "" : `<p class="${cx(g.hint)}">Tap inset to swap · hold worn photo to compare without</p>`}
   </div>`;
 }
 
@@ -98,6 +110,7 @@ export function armSwap(root: Element): void {
       void toggleFs((main.parentElement ?? root) as HTMLElement);
     });
   }
+  armFsFit(root, main);
   const hold = (ev: Event): void => {
     if (showing !== "worn" || !mi || mi === si) return;
     ev.preventDefault();

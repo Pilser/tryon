@@ -21,8 +21,13 @@ export interface ShopSettings {
   logo_url: string;
 }
 
-export interface TimelineEntry {
-  kind: "person" | "result";
+export interface Category {
+  id: string;
+  title: string;
+  image_url: string;
+}
+
+export interface TimelineEntry {  kind: "person" | "result";
   thumb: string;
   imageId: string;
   url: string;

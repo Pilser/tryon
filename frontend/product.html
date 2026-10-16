@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/app/dist/stylex.css"/>
 </head>
 <body data-page="product">
-<header class="topbar"><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="studio-link" href="/app/studio.html?owner=1">Studio</a></header>
+<header class="topbar"><a class="nav-back" href="/app/" aria-label="Back">&#8249;</a><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="studio-link" href="/app/studio.html?owner=1">Studio</a></header>
 <main id="detail"></main>
 <section class="studio" id="studio">
   <h3 class="tl-head" id="st-tlhead" style="display:none">Your photos - tap to reuse</h3>
@@ -22,14 +22,15 @@
   <div class="row">
     <a id="st-inquire" class="cta-ghost" target="_blank" rel="noopener" style="display:none"></a>
     <button id="st-start" class="cta" style="display:none">Try it on</button>
+    <button id="st-edit" class="cta-ghost" type="button" style="display:none">Update</button>
   </div>
   <p id="st-prog" class="progress" style="display:none"></p>
   <div id="st-res" style="display:none">
+    <p id="st-cmp-cap" class="cmp-cap" style="display:none"></p>
     <div class="cmp-frame" id="st-cmp" style="display:none">
       <img id="st-cmp-base" class="cmp-base" alt="your original photo"/>
       <img id="st-cmp-top" class="cmp-top" alt="try-on result"/>
     </div>
-    <p id="st-cmp-cap" class="cmp-cap" style="display:none"></p>
     <img id="st-resimg" class="studio-result-img" alt="try-on result"/>
     <div class="row">
       <button id="st-dl" class="btn primary">Download image</button>

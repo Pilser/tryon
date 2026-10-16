@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/app/dist/stylex.css"/>
 </head>
 <body data-page="studio">
-<header class="topbar"><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="studio-link" href="/app/studio.html">Studio</a></header>
+<header class="topbar"><a class="nav-back" href="/app/" aria-label="Back">&#8249;</a><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="studio-link" href="/app/studio.html">Studio</a></header>
 <main class="studio-page">
   <div id="st-product"></div>
   <section class="studio" id="studio">
@@ -23,14 +23,15 @@
     <div class="row">
       <a id="st-inquire" class="cta-ghost" target="_blank" rel="noopener" style="display:none"></a>
       <button id="st-start" class="cta" style="display:none">Try it on</button>
+      <button id="st-edit" class="cta-ghost" type="button" style="display:none">Update</button>
     </div>
     <p id="st-prog" class="progress" style="display:none"></p>
     <div id="st-res" style="display:none">
+      <p id="st-cmp-cap" class="cmp-cap" style="display:none"></p>
       <div class="cmp-frame" id="st-cmp" style="display:none">
         <img id="st-cmp-base" class="cmp-base" alt="your original photo"/>
         <img id="st-cmp-top" class="cmp-top" alt="try-on result"/>
       </div>
-      <p id="st-cmp-cap" class="cmp-cap" style="display:none"></p>
       <img id="st-resimg" class="studio-result-img" alt="try-on result"/>
       <div class="row">
         <button id="st-dl" class="btn primary">Download image</button>
@@ -57,14 +58,11 @@
     <h2 class="title">Upload bundle - 3 photos</h2>
     <form id="bundle-form" method="post" action="/api/studio/products" enctype="multipart/form-data">
       <p class="lab1">1 · Garment *</p>
-      <p class="lab2">2 · Model without *</p>
-      <p class="lab3">3 · Styled (upload or generate)</p>
       <label class="slot-garment" title="tap to pick garment photo"><img id="slot-img-0" class="slot-img" style="display:none" alt="garment preview"/><input id="file0" name="image0" type="file" accept="image/*" hidden/></label>
+      <p class="lab2">2 · Model without *</p>
       <label class="slot-model" title="tap to pick model photo"><img id="slot-img-1" class="slot-img" style="display:none" alt="model preview"/><input id="file1" name="image1" type="file" accept="image/*" hidden/></label>
+      <p class="lab3">3 · Styled (upload or generate)</p>
       <label class="slot-styled" title="tap to pick styled photo"><img id="slot-img-2" class="slot-img" style="display:none" alt="styled preview"/><input id="file2" name="image2" type="file" accept="image/*" hidden/></label>
-      <p class="cap1">Garment flat</p>
-      <p class="cap2">Person, no garment</p>
-      <p class="cap3">Upload, or use last try-on below</p>
       <div class="row">
         <button type="button" class="btn-photo" id="btn-photo">Product photo</button>
         <button type="button" class="btn-cam" id="btn-cam">Take photo</button>
@@ -73,15 +71,26 @@
       <input id="filecam" type="file" accept="image/*" capture="environment" hidden/>
       <input class="f-title f-in" name="title" required placeholder="Title *"/>
       <input class="f-price f-in" name="price_cents" type="number" min="0" placeholder="Price (cents) *"/>
-      <input class="f-cat f-in" name="category" placeholder="Category"/>
+      <select class="f-cat f-in" id="bd-cat" name="category"><option value="">Others</option></select>
       <input class="f-sizes f-in" name="sizes" placeholder="Sizes S,M,L"/>
       <input class="f-desc f-in" name="description" placeholder="Description - helps the AI fit it right"/>
       <button class="submit" id="bd-submit" type="submit"><span class="submit-t">Save bundle</span></button>
       <p class="error" id="bd-err" style="display:none"></p>
       <p class="ok" id="bd-ok" style="display:none"></p>
     </form>
-    <p class="note">Stored as R2 keys garment / model / styled per product.</p>
-    <div id="studio-list"></div>
+    <div class="catbox" id="catbox">
+      <h3 class="catbox-title">Categories</h3>
+      <div class="row">
+        <input class="f-in" id="bd-cat-title" placeholder="New category title"/>
+        <label class="btn secondary">Category image<input id="bd-cat-file" type="file" accept="image/*" hidden/></label>
+        <button class="btn primary" id="bd-cat-add" type="button">Add</button>
+      </div>
+      <div class="row">
+        <img id="bd-cat-img" class="cat-chip-img" style="display:none" alt="category"/>
+        <select class="f-in" id="bd-cat-edit"><option value="">Edit existing…</option></select>
+      </div>
+      <div id="bd-cat-list" class="cat-list"></div>
+    </div>
     </div>
   </section>
   <p class="hint owner-gate" id="owner-gate"><a href="/app/studio.html?owner=1">Owner? log in to add products</a></p>

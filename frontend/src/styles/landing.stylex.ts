@@ -20,7 +20,7 @@ export const landing = stylex.create({
     position: "absolute", left: 0, top: 96, width: "100%", margin: 0,
     textAlign: "center", fontSize: 13, letterSpacing: 2, textTransform: "uppercase",
     color: t.primary, fontWeight: 700,
-    [MOBILE]: { position: "static", display: "block", paddingTop: 84, marginBottom: 6 },
+    [MOBILE]: { position: "static", display: "block", paddingTop: 68, marginBottom: 6 },
   },
   heroTitle: {
     position: "absolute", left: 0, top: 118, width: "100%", margin: 0,

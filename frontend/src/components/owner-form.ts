@@ -2,8 +2,8 @@
    studio page). Slot tap picks that slot's photo; previews + validation
    inline; styled slot also accepts the latest try-on result; submit posts
    multipart with the saved owner token. */
-import { createProduct, listProducts, ownerLogin, ownerLogout } from "../core/api";
-import { esc, money } from "../core/format";
+import { createProduct, listProducts, ownerLogin, ownerLogout, listCategories, createCategory } from "../core/api";
+import { esc } from "../core/format";
 import { loadOwner, saveOwner, loadTimeline } from "../core/store";
 import type { Product } from "../core/types";
 import { skin } from "../skin";
@@ -26,10 +26,10 @@ export function initOwnerForm(): void {
   };
   const loginFail = (m: string): void => { el("bd-login-err").textContent = m; show(el("bd-login-err"), true); };
   const refresh = async (): Promise<void> => {
-    if (!gated) { await loadList(); return; }
+    if (!gated) return;
     const t = loadOwner();
     if (t) {
-      try { await ownerLogin(t); showPanel(true); await loadList(); return; }
+      try { await ownerLogin(t); showPanel(true); return; }
       catch { saveOwner(""); }
     }
     showPanel(false);
@@ -43,7 +43,6 @@ export function initOwnerForm(): void {
       saveOwner(t); showPanel(true);
       el("bd-ok").textContent = "Logged in - add products below.";
       show(el("bd-ok"), true);
-      await loadList();
     } catch { loginFail("Wrong token - try again."); }
   })());
   document.getElementById("bd-logout")?.addEventListener("click", () => void (async () => {
@@ -53,6 +52,90 @@ export function initOwnerForm(): void {
     if (input) input.value = "";
     showPanel(false);
   })());
+  { // Categories: create with title + image, pick one for the bundle,
+    // or edit an existing one (dropdown loads its picture for update).
+    let editingCat = "";
+    const catImg = () => document.getElementById("bd-cat-img") as HTMLImageElement | null;
+    const loadCats = async (): Promise<void> => {
+      const box = document.getElementById("bd-cat-list");
+      const sel = document.getElementById("bd-cat") as HTMLSelectElement | null;
+      const edit = document.getElementById("bd-cat-edit") as HTMLSelectElement | null;
+      if (!box || !sel) return;
+      const keep = sel.value;
+      const cats = await listCategories();
+      // Managed first, then any product-only categories, so the select
+      // always lists every category in the shop.
+      const titles = cats.map((c) => c.title);
+      try {
+        for (const p of await listProducts()) {
+          const t = (p.category || "").trim();
+          if (t && !titles.some((x) => x.toLowerCase() === t.toLowerCase())) titles.push(t);
+        }
+      } catch { /* products optional here */ }
+      sel.innerHTML = `<option value="">Others</option>` + titles.map((t) =>
+        `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+      if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+      if (edit) {
+        const ekeep = edit.value;
+        edit.innerHTML = `<option value="">Edit existing…</option>` + cats.map((c) =>
+          `<option value="${esc(c.id)}">${esc(c.title)}</option>`).join("");
+        if ([...edit.options].some((o) => o.value === ekeep)) edit.value = ekeep;
+        else { editingCat = ""; syncCatBtn(); }
+      }
+      box.innerHTML = cats.map((c) =>
+        `<span class="cat-chip"><img class="cat-chip-img" src="${esc(c.image_url)}" alt=""/><span>${esc(c.title)}</span></span>`).join("")
+        || `<p class="hint">No categories yet - add one above.</p>`;
+      skin(box);
+    };
+    const syncCatBtn = (): void => {
+      const b = document.getElementById("bd-cat-add") as HTMLButtonElement | null;
+      if (b) b.textContent = editingCat ? "Save" : "Add";
+    };
+    const exitCatEdit = (): void => {
+      editingCat = "";
+      const title = document.getElementById("bd-cat-title") as HTMLInputElement | null;
+      if (title) title.value = "";
+      const file = document.getElementById("bd-cat-file") as HTMLInputElement | null;
+      if (file) file.value = "";
+      const img = catImg();
+      if (img) { img.removeAttribute("src"); show(img, false); }
+      syncCatBtn();
+    };
+    document.getElementById("bd-cat-edit")?.addEventListener("change", (ev) => void (async () => {
+      const id = (ev.target as HTMLSelectElement).value;
+      editingCat = id;
+      const title = document.getElementById("bd-cat-title") as HTMLInputElement | null;
+      const img = catImg();
+      if (!id) { if (title) title.value = ""; if (img) show(img, false); syncCatBtn(); return; }
+      const cat = (await listCategories()).find((c) => c.id === id);
+      if (title) title.value = cat ? cat.title : "";
+      if (img && cat?.image_url) { img.src = cat.image_url; show(img, true); }
+      syncCatBtn();
+    })());
+    document.getElementById("bd-cat-file")?.addEventListener("change", (ev) => {
+      const f = (ev.target as HTMLInputElement).files?.[0];
+      const img = catImg();
+      if (f && img) { img.src = URL.createObjectURL(f); show(img, true); }
+    });
+    document.getElementById("bd-cat-add")?.addEventListener("click", () => void (async () => {
+      const title = ((document.getElementById("bd-cat-title") as HTMLInputElement | null)?.value || "").trim();
+      const file = (document.getElementById("bd-cat-file") as HTMLInputElement | null)?.files?.[0];
+      if (!title) { fail("Category title is required."); return; }
+      if (!editingCat && !file) { fail("Category image is required."); return; }
+      const fd = new FormData();
+      if (editingCat) fd.set("id", editingCat);
+      fd.set("title", title);
+      if (file) fd.set("image", file);
+      try {
+        await createCategory(fd, loadOwner());
+        exitCatEdit();
+        const edit = document.getElementById("bd-cat-edit") as HTMLSelectElement | null;
+        if (edit) edit.value = "";
+        await loadCats();
+      } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+    })());
+    void loadCats();
+  }
   { // Styled slot from latest try-on result (fetched to a File on save).
     document.getElementById("bd-use-result")?.addEventListener("click", () => {
       const last = loadTimeline().find((e) => e.kind === "result" && e.url);
@@ -82,42 +165,80 @@ export function initOwnerForm(): void {
     (el("file0") as HTMLInputElement).files = dt.files;
     el("file0").dispatchEvent(new Event("change"));
   });
+  // Edit mode: filled from a product card's Update button. Unchanged
+  // slots keep their current photo (fetched back into the form), so a
+  // text-only change re-saves identical bytes under the same id.
+  let editingId = "";
+  const setField = (sel: string, v: string): void => {
+    const n = document.querySelector(`#bundle-form ${sel}`) as HTMLInputElement | null;
+    if (n) n.value = v;
+  };
+  function exitEdit(): void {
+    editingId = "";
+    (el("bd-submit") as HTMLButtonElement).textContent = "Save bundle";
+    for (let i = 0; i < 3; i++) {
+      (el("file" + i) as HTMLInputElement).value = "";
+      const img = el("slot-img-" + i) as HTMLImageElement;
+      delete img.dataset.keepUrl; delete img.dataset.genUrl;
+    }
+  }
+  (window as unknown as { __bdEdit?: (p: Product) => void }).__bdEdit = (p: Product) => {
+    editingId = p.id;
+    setField("[name=title]", p.title);
+    setField("[name=description]", p.description || "");
+    setField("[name=price_cents]", String(p.price_cents || 0));
+    setField("[name=sizes]", (p.sizes || []).join(","));
+    const sel = document.getElementById("bd-cat") as HTMLSelectElement | null;
+    if (sel) {
+      if (p.category && ![...sel.options].some((o) => o.value === p.category)) {
+        sel.add(new Option(p.category, p.category));
+      }
+      sel.value = p.category || "";
+    }
+    const urls = [p.image_url, p.model_image_url, p.styled_image_url];
+    urls.forEach((u, i) => {
+      const img = el("slot-img-" + i) as HTMLImageElement;
+      if (u) { img.src = u; img.dataset.keepUrl = u; show(img, true); }
+      else { img.removeAttribute("src"); delete img.dataset.keepUrl; show(img, false); }
+      (el("file" + i) as HTMLInputElement).value = "";
+    });
+    (el("bd-submit") as HTMLButtonElement).textContent = "Save changes";
+    el("bd-err").textContent = ""; show(el("bd-err"), false);
+    document.getElementById("owner")?.scrollIntoView({ behavior: "smooth" });
+  };
   el("bundle-form").addEventListener("submit", (ev) => {
     ev.preventDefault();
     void (async () => {
       const fd = new FormData(ev.target as HTMLFormElement);
+      if (editingId) fd.set("id", editingId);
       if (!String(fd.get("title") || "").trim()) { fail("Title is required."); return; }
+      // Slots without a new file keep their current photo: fetch it back
+      // so the save carries identical bytes (no duplicates, nothing lost).
+      for (let i = 0; i < 3; i++) {
+        const cur = fd.get("image" + i);
+        if (cur instanceof File && cur.size) continue;
+        const keep = (el("slot-img-" + i) as HTMLImageElement).dataset.keepUrl || "";
+        const gen = i === 2 ? (el("slot-img-2") as HTMLImageElement).dataset.genUrl || "" : "";
+        const src = keep || gen;
+        if (!src) continue;
+        try {
+          const b = await (await fetch(src)).blob();
+          fd.set("image" + i, new File([b], "slot" + i + ".jpg", { type: b.type || "image/jpeg" }));
+        } catch { fail("Kept photo expired - re-pick slot " + (i + 1) + "."); return; }
+      }
       const img0 = fd.get("image0");
       if (!(img0 instanceof File) || !img0.size) { fail("Garment photo is required."); return; }
-      // Generated styled photo: fetch the (temporary) result URL now.
-      const slot2 = document.getElementById("slot-img-2") as HTMLImageElement | null;
-      const gen = slot2?.dataset.genUrl || "";
-      const img2 = fd.get("image2");
-      if ((!(img2 instanceof File) || !img2.size) && gen) {
-        try {
-          const b = await (await fetch(gen)).blob();
-          fd.set("image2", new File([b], "styled.jpg", { type: b.type || "image/jpeg" }));
-        } catch { fail("Styled result expired - run try-on again, then save."); return; }
-      }
       const btn = el("bd-submit") as HTMLButtonElement;
       btn.disabled = true; btn.textContent = "Uploading…";
       try {
         const j = await createProduct(fd, loadOwner());
-        btn.disabled = false; btn.textContent = "Save bundle";
+        btn.disabled = false; btn.textContent = editingId ? "Save changes" : "Save bundle";
         const ok = el("bd-ok");
         ok.innerHTML = `Saved: <a href="/app/product.html?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> - now on the landing grid.`;
         show(ok, true);
-        await loadList();
-      } catch (e) { btn.disabled = false; btn.textContent = "Save bundle"; fail(e instanceof Error ? e.message : String(e)); }
+        exitEdit();
+      } catch (e) { btn.disabled = false; btn.textContent = editingId ? "Save changes" : "Save bundle"; fail(e instanceof Error ? e.message : String(e)); }
     })();
   });
-  async function loadList(): Promise<void> {
-    try {
-      const list: Product[] = await listProducts();
-      skin();
-      el("studio-list").innerHTML = list.slice(0, 8).map((p) =>
-        `<p><a href="/app/product.html?id=${esc(p.id)}">${esc(p.title)}</a> - ${esc(money(p))}</p>`).join("");
-    } catch { /* grid still works without list */ }
-  }
   void refresh();
 }

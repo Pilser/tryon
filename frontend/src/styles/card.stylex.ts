@@ -77,7 +77,7 @@ export const gallery = stylex.create({
     },
   },
   fsBtn: {
-    position: "absolute", right: 10, top: 10, width: 36, height: 36,
+    position: "absolute", right: 10, top: 10, width: 36, height: 36, zIndex: 2,
     display: "flex", alignItems: "center", justifyContent: "center",
     borderRadius: 8, borderStyle: "none", cursor: "pointer",
     backgroundColor: "rgba(0,0,0,.55)", color: "#fff",
@@ -93,6 +93,6 @@ export const gallery = stylex.create({
     boxShadow: "0 4px 14px rgba(0,0,0,.45)",
   },
   insetImg: { width: "100%", height: "100%", objectFit: "cover", display: "block", pointerEvents: "none" },
-  cap: { marginTop: 4, marginBottom: 0, fontSize: 12, color: "#9aa07e" },
-  hint: { marginTop: 2, marginBottom: 0, fontSize: 11, color: "#9aa07e", opacity: 0.85 },
+  cap: { marginTop: 0, marginBottom: 6, fontSize: 12, color: "#9aa07e" },
+  hint: { marginTop: 4, marginBottom: 0, fontSize: 11, color: "#9aa07e", opacity: 0.85 },
 });

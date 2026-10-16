@@ -1,5 +1,5 @@
 /* core/api.ts - the ONLY file that talks HTTP. All endpoints, one place. */
-import type { Product, ShopSettings } from "./types";
+import type { Category, Product, ShopSettings } from "./types";
 
 interface SyncBody {
   product_id: string;
@@ -53,6 +53,16 @@ export const generation = (id: string): Promise<{ status: string; resultImageUrl
 
 export const createProduct = (formData: FormData, token = ""): Promise<{ id: string }> =>
   api("/api/studio/products", {
+    method: "POST",
+    body: formData,
+    ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),
+  });
+
+export const listCategories = (): Promise<Category[]> =>
+  api<Category[]>("/api/categories").catch(() => []);
+
+export const createCategory = (formData: FormData, token = ""): Promise<Category> =>
+  api("/api/studio/categories", {
     method: "POST",
     body: formData,
     ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),

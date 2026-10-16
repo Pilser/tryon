@@ -2,11 +2,11 @@
    Visitor: pick/take photo (instant timeline) + try-on + results on top.
    Owner (??owner=1 or saved token): bundle upload below; styled slot can
    be uploaded OR filled from the latest try-on result. */
-import { getProduct, getShop, listProducts } from "../core/api";
-import { esc, money } from "../core/format";
+import { getProduct, getShop, listProducts, listCategories } from "../core/api";
 import { inquireUrl } from "../core/whatsapp";
 import { waIcon } from "../components/whatsapp-icon";
 import { duoHTML, armDuo } from "../components/duo";
+import { ribbonCats, catRibbonHTML, armCatRibbon } from "../components/cat-ribbon";
 import { initStudio } from "../components/studio";
 import { initOwnerForm } from "../components/owner-form";
 import { loadOwner } from "../core/store";
@@ -34,11 +34,19 @@ export async function studio(): Promise<void> {
   } else {
     const p = id ? await getProduct(target) : list[0];
     document.title = "Try on " + p.title + " - " + shop.shop_name;
-    box.innerHTML = `<div class="st-pick-row"><a class="back" href="/">&#8592; all products</a>
-      <label class="hint" for="st-prod">Garment:</label>
-      <select id="st-prod" class="st-select">${list.map((x) => `<option value="${esc(x.id)}"${x.id === p.id ? " selected" : ""}>${esc(x.title)} - ${esc(money(x))}</option>`).join("")}</select></div>`
+    box.innerHTML = `<div id="st-cats"></div>`
       + duoHTML(p);
     armDuo(box);
+    { // Category icon ribbon: collapsed icons, tap to expand search + grid.
+      const zone = document.getElementById("st-cats");
+      if (zone) {
+        const cats = ribbonCats(await listCategories(), list);
+        if (cats.length) {
+          zone.innerHTML = catRibbonHTML(cats);
+          armCatRibbon(zone, cats, list, owner);
+        }
+      }
+    }
     // Inquire sits left in the CTA row; Start appears right of it on photo.
     const inq = document.getElementById("st-inquire") as HTMLAnchorElement | null;
     if (inq) {
@@ -46,9 +54,17 @@ export async function studio(): Promise<void> {
       inq.innerHTML = waIcon() + "<span>Inquire</span>";
       (inq as HTMLElement).style.display = "";
     }
-    el<HTMLSelectElement>("st-prod").addEventListener("change", (ev) => {
-      location.href = "/app/studio.html?id=" + encodeURIComponent((ev.target as HTMLSelectElement).value) + (owner ? "&owner=1" : "");
-    });
+    // Update (owner only): fills the bundle form with this product so the
+    // owner can change photos, title or text and re-save the same id.
+    const edit = document.getElementById("st-edit") as HTMLButtonElement | null;
+    if (edit && owner) {
+      edit.style.display = "";
+      edit.addEventListener("click", () => {
+        const fn = (window as unknown as { __bdEdit?: (prod: typeof p) => void }).__bdEdit;
+        if (fn) fn(p);
+        else document.getElementById("owner")?.scrollIntoView({ behavior: "smooth" });
+      });
+    }
     initStudio(p);
   }
 

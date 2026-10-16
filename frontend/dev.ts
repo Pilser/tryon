@@ -36,7 +36,7 @@ Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
-    if (url.pathname.startsWith("/api/")) {
+    if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/uploads/")) {
       return fetch(API_UPSTREAM + url.pathname + url.search, {
         method: req.method,
         headers: req.headers,
@@ -50,7 +50,12 @@ Bun.serve({
     const file = Bun.file(path.join(ROOT, rel));
     if (await file.exists()) {
       const ext = path.extname(rel);
-      return new Response(file, { headers: { "content-type": MIME[ext] ?? "application/octet-stream" } });
+      return new Response(file, {
+        headers: {
+          "content-type": MIME[ext] ?? "application/octet-stream",
+          "cache-control": "no-store",
+        },
+      });
     }
     return new Response("not found", { status: 404 });
   },

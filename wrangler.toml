@@ -3,7 +3,7 @@ main = "build/worker/shim.mjs"
 compatibility_date = "2026-01-01"
 
 [vars]
-SHOP_NAME = "TryOn Shop"
+SHOP_NAME = "TryOn & Shop"
 R2_PUBLIC_BASE = ""
 
 # Secrets (set via `wrangler secret put`): GENLOOK_API_KEY, OWNER_TOKEN, OWNER_WHATSAPP

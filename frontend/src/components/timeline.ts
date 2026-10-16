@@ -24,7 +24,7 @@ export function paintTimeline(onSelect: SelectFn, activeThumb: string | null = n
   take.className = cx(s.take);
   take.setAttribute("for", "pick-cam");
   take.title = "Take a photo now";
-  take.innerHTML = `<span class="${cx(s.takeIcon)}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><span class="${cx(s.addLabel)}">Take photo</span>`;
+  take.innerHTML = `<span class="${cx(s.takeIcon)}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span><span class="${cx(s.addLabel)}">Take photo</span>`;
   tl.appendChild(take);
   const add = document.createElement("label");
   add.className = cx(s.add);

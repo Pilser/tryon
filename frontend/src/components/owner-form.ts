@@ -3,6 +3,7 @@
    inline; styled slot also accepts the latest try-on result; submit posts
    multipart with the saved owner token. */
 import { createProduct, listProducts, ownerLogin, ownerLogout, listCategories, createCategory, getShop, saveShop } from "../core/api";
+import { capturePhoto } from "./capture";
 import { esc, brandHTML } from "../core/format";
 import { loadOwner, saveOwner, loadTimeline } from "../core/store";
 import type { Product } from "../core/types";
@@ -182,7 +183,9 @@ export function initOwnerForm(): void {
     })());
   }
   { // Styled slot from latest try-on result (fetched to a File on save).
-    document.getElementById("bd-use-result")?.addEventListener("click", () => {
+    // Lives inside the styled box; stop the label from opening the picker.
+    document.getElementById("bd-use-result")?.addEventListener("click", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
       const last = loadTimeline().find((e) => e.kind === "result" && e.url);
       if (!last) { fail("No try-on result yet - run one above first."); return; }
       const img = el("slot-img-2") as HTMLImageElement;
@@ -192,23 +195,63 @@ export function initOwnerForm(): void {
       show(el("bd-ok"), true);
     });
   }
-  [0, 1, 2].forEach((i) => {
-    (el("file" + i) as HTMLInputElement).addEventListener("change", (ev) => {
-      const f = (ev.target as HTMLInputElement).files?.[0];
-      if (!f) return;
-      if (f.size > 10 * 1024 * 1024) { fail(`Photo ${i + 1} over 10 MB.`); (ev.target as HTMLInputElement).value = ""; return; }
-      const img = el("slot-img-" + i) as HTMLImageElement;
-      img.src = URL.createObjectURL(f); show(img, true);
-    });
-  });
-  el("btn-photo").addEventListener("click", () => el("file0").click());
-  el("btn-cam").addEventListener("click", () => el("filecam").click());
-  el("filecam").addEventListener("change", (ev) => {
+  // In-box slot actions: empty boxes show take/select (+ ribbon on
+  // styled); filled boxes keep library + camera badges so the photo can
+  // be changed or retaken. Buttons carry explicit handlers: clicks on
+  // nested buttons must not rely on label forwarding.
+  const paintSlot = (i: number): void => {
+    const filled = (el("slot-img-" + i) as HTMLImageElement).style.display !== "none";
+    show(el("slot-empty-" + i), !filled);
+    document.querySelectorAll(`.slot-retake[data-i="${i}"]`).forEach((b) => show(b as HTMLElement, filled));
+    document.querySelectorAll(`.slot-relib[data-i="${i}"]`).forEach((b) => show(b as HTMLElement, filled));
+    if (i === 2) {
+      const u = document.getElementById("bd-use-result");
+      if (u) show(u, !filled);
+    }
+  };
+  const feedFile = (i: number, f: File): void => {
+    if (f.size > 10 * 1024 * 1024) { fail(`Photo ${i + 1} over 10 MB.`); return; }
+    const img = el("slot-img-" + i) as HTMLImageElement;
+    img.src = URL.createObjectURL(f); show(img, true);
+    const dt = new DataTransfer(); dt.items.add(f);
+    (el("file" + i) as HTMLInputElement).files = dt.files;
+    paintSlot(i);
+  };
+  const onSlotFile = (i: number) => (ev: Event): void => {
     const f = (ev.target as HTMLInputElement).files?.[0];
     if (!f) return;
-    const dt = new DataTransfer(); dt.items.add(f);
-    (el("file0") as HTMLInputElement).files = dt.files;
-    el("file0").dispatchEvent(new Event("change"));
+    feedFile(i, f);
+  };
+  // Desktop webcam modal, native camera sheet on mobile, file fallback.
+  const takePhoto = (i: number): void => {
+    void (async () => {
+      const f = await capturePhoto();
+      if (f) feedFile(i, f);
+      else (el("filecam" + i) as HTMLInputElement).click();
+    })();
+  };
+  [0, 1, 2].forEach((i) => {
+    (el("file" + i) as HTMLInputElement).addEventListener("change", onSlotFile(i));
+    (el("filecam" + i) as HTMLInputElement).addEventListener("change", onSlotFile(i));
+    document.querySelectorAll(`.slot-pick[data-i="${i}"]`).forEach((b) => {
+      (b as HTMLButtonElement).addEventListener("click", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        (el("file" + i) as HTMLInputElement).click();
+      });
+    });
+    document.querySelectorAll(`.slot-cam[data-i="${i}"],.slot-retake[data-i="${i}"]`).forEach((b) => {
+      (b as HTMLButtonElement).addEventListener("click", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        takePhoto(i);
+      });
+    });
+    document.querySelectorAll(`.slot-relib[data-i="${i}"]`).forEach((b) => {
+      (b as HTMLButtonElement).addEventListener("click", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        (el("file" + i) as HTMLInputElement).click();
+      });
+    });
+    paintSlot(i);
   });
   // Edit mode: filled from a product card's Update button. Unchanged
   // slots keep their current photo (fetched back into the form), so a
@@ -225,6 +268,7 @@ export function initOwnerForm(): void {
       (el("file" + i) as HTMLInputElement).value = "";
       const img = el("slot-img-" + i) as HTMLImageElement;
       delete img.dataset.keepUrl; delete img.dataset.genUrl;
+      paintSlot(i);
     }
   }
   (window as unknown as { __bdEdit?: (p: Product) => void }).__bdEdit = (p: Product) => {
@@ -246,6 +290,7 @@ export function initOwnerForm(): void {
       if (u) { img.src = u; img.dataset.keepUrl = u; show(img, true); }
       else { img.removeAttribute("src"); delete img.dataset.keepUrl; show(img, false); }
       (el("file" + i) as HTMLInputElement).value = "";
+      paintSlot(i);
     });
     (el("bd-submit") as HTMLButtonElement).textContent = "Save changes";
     el("bd-err").textContent = ""; show(el("bd-err"), false);

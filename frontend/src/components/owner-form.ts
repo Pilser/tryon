@@ -105,7 +105,7 @@ export function initOwnerForm(): void {
         const j = await createProduct(fd, loadOwner());
         btn.disabled = false; btn.textContent = "Save bundle";
         const ok = el("bd-ok");
-        ok.innerHTML = `Saved: <a href="/product?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> — now on the landing grid.`;
+        ok.innerHTML = `Saved: <a href="/app/product.html?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> — now on the landing grid.`;
         show(ok, true);
         await loadList();
       } catch (e) { btn.disabled = false; btn.textContent = "Save bundle"; fail(e instanceof Error ? e.message : String(e)); }
@@ -116,7 +116,7 @@ export function initOwnerForm(): void {
       const list: Product[] = await listProducts();
       skin();
       el("studio-list").innerHTML = list.slice(0, 8).map((p) =>
-        `<p><a href="/product?id=${esc(p.id)}">${esc(p.title)}</a> — ${esc(money(p))}</p>`).join("");
+        `<p><a href="/app/product.html?id=${esc(p.id)}">${esc(p.title)}</a> — ${esc(money(p))}</p>`).join("");
     } catch { /* grid still works without list */ }
   }
   void refresh();

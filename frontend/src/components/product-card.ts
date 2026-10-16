@@ -28,12 +28,12 @@ export function cardHTML(p: Product, shop: string, owner: string): string {
   const b = bundleOf(p);
   const single = !(p.styled_image_url || p.model_image_url);
   return `<article class="${cx(s.root)} productcard" data-garment="${esc(b.g)}" data-model="${esc(b.m)}" data-styled="${esc(b.s)}">
-    <a class="${cx(s.media)}" href="/product?id=${esc(p.id)}" tabindex="-1"><img class="${cx(s.img)} main" loading="lazy" decoding="async" draggable="false" src="${esc(b.g)}" alt="${esc(p.title)}"/></a>
+    <a class="${cx(s.media)}" href="/app/product.html?id=${esc(p.id)}" tabindex="-1"><img class="${cx(s.img)} main" loading="lazy" decoding="async" draggable="false" src="${esc(b.g)}" alt="${esc(p.title)}"/></a>
     <div class="${cx(s.badgePill)}"></div><p class="${cx(s.badge)}">${esc(p.category)}</p>
     ${single ? "" : `<button class="${cx(s.inset)} model-inset" aria-label="see it worn"><img class="${cx(s.insetImg)} inset-img" loading="lazy" decoding="async" draggable="false" src="${esc(b.s)}" alt="model wearing it"/></button>
     <p class="${cx(s.caption)} swap-cur">${CAP_G}</p>`}
     <p class="${cx(s.title)}">${esc(p.title)}</p><p class="${cx(s.price)}">${esc(money(p))}</p>
-    <a class="${cx(s.tryon)}" href="/studio?id=${esc(p.id)}"><span class="${cx(s.tryonLabel)}">Try On</span></a>
+    <a class="${cx(s.tryon)}" href="/app/studio.html?id=${esc(p.id)}"><span class="${cx(s.tryonLabel)}">Try On</span></a>
     <a class="${cx(s.inquire)}" target="_blank" rel="noopener" href="${esc(inquireUrl(owner, shop, p.title, p.id))}"><span class="${cx(s.inquireLabel)}">${waIcon()} Inquire</span></a>
   </article>`;
 }

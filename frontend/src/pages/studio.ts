@@ -38,14 +38,18 @@ export async function studio(): Promise<void> {
       + duoHTML(p);
     armDuo(box);
     { // Category icon ribbon: collapsed icons, tap to expand search + grid.
-      const zone = document.getElementById("st-cats");
-      if (zone) {
-        const cats = ribbonCats(await listCategories(), list);
-        if (cats.length) {
-          zone.innerHTML = catRibbonHTML(cats);
-          armCatRibbon(zone, cats, list, owner);
-        }
-      }
+      // Repaints on cats-changed (owner adds/updates a category below).
+      const paintCats = async (): Promise<void> => {
+        const zone = document.getElementById("st-cats");
+        if (!zone) return;
+        const fresh = await listProducts();
+        const cats = ribbonCats(await listCategories(), fresh.length ? fresh : list);
+        if (!cats.length) { zone.innerHTML = ""; return; }
+        zone.innerHTML = catRibbonHTML(cats);
+        armCatRibbon(zone, cats, fresh.length ? fresh : list, owner);
+      };
+      await paintCats();
+      window.addEventListener("cats-changed", () => void paintCats());
     }
     // Inquire sits left in the CTA row; Start appears right of it on photo.
     const inq = document.getElementById("st-inquire") as HTMLAnchorElement | null;

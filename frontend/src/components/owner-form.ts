@@ -132,6 +132,7 @@ export function initOwnerForm(): void {
         const edit = document.getElementById("bd-cat-edit") as HTMLSelectElement | null;
         if (edit) edit.value = "";
         await loadCats();
+        window.dispatchEvent(new Event("cats-changed"));
       } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
     })());
     void loadCats();
@@ -237,6 +238,7 @@ export function initOwnerForm(): void {
         ok.innerHTML = `Saved: <a href="/app/product.html?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> - now on the landing grid.`;
         show(ok, true);
         exitEdit();
+        window.dispatchEvent(new Event("cats-changed"));
       } catch (e) { btn.disabled = false; btn.textContent = editingId ? "Save changes" : "Save bundle"; fail(e instanceof Error ? e.message : String(e)); }
     })();
   });

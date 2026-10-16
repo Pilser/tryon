@@ -9,6 +9,7 @@ import { duoHTML, armDuo } from "../components/duo";
 import { ribbonCats, catRibbonHTML, armCatRibbon } from "../components/cat-ribbon";
 import { initStudio } from "../components/studio";
 import { initOwnerForm } from "../components/owner-form";
+import { brandHTML } from "../core/format";
 import { loadOwner } from "../core/store";
 import { skin } from "../skin";
 
@@ -24,7 +25,7 @@ export async function studio(): Promise<void> {
   const owner = q.get("owner") === "1" || !!loadOwner();
   const shop = await getShop();
   const brand = document.querySelector(".brand");
-  if (brand) brand.textContent = shop.shop_name;
+  if (brand) brand.innerHTML = brandHTML(shop);
 
   const box = el("st-product");
   const list = await listProducts();
@@ -60,16 +61,26 @@ export async function studio(): Promise<void> {
     }
     // Update (owner only): fills the bundle form with this product so the
     // owner can change photos, title or text and re-save the same id.
+    // Shown only with a saved login token (?owner=1 alone is not enough).
     const edit = document.getElementById("st-edit") as HTMLButtonElement | null;
-    if (edit && owner) {
-      edit.style.display = "";
+    if (edit) {
       edit.addEventListener("click", () => {
+        if (!loadOwner()) {
+          document.getElementById("owner")?.scrollIntoView({ behavior: "smooth" });
+          return;
+        }
         const fn = (window as unknown as { __bdEdit?: (prod: typeof p) => void }).__bdEdit;
         if (fn) fn(p);
         else document.getElementById("owner")?.scrollIntoView({ behavior: "smooth" });
       });
+      if (loadOwner()) edit.style.display = "";
     }
     initStudio(p);
+    // Deep link from product-page Update: fill the form for this product.
+    if (q.get("edit") === "1" && loadOwner()) {
+      const fn = (window as unknown as { __bdEdit?: (prod: typeof p) => void }).__bdEdit;
+      if (fn) window.setTimeout(() => fn(p), 0);
+    }
   }
 
   const own = document.getElementById("owner");

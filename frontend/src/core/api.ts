@@ -68,6 +68,13 @@ export const createCategory = (formData: FormData, token = ""): Promise<Category
     ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),
   });
 
+export const saveShop = (formData: FormData, token = ""): Promise<ShopSettings> =>
+  api("/api/studio/shop", {
+    method: "POST",
+    body: formData,
+    ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),
+  });
+
 /* Owner auth (stateless Bearer; browser keeps the token, logout clears it). */
 export const ownerLogin = (token: string): Promise<{ ok: boolean }> =>
   api("/api/owner/login", {

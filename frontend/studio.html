@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/app/dist/stylex.css"/>
 </head>
 <body data-page="studio">
-<header class="topbar"><a class="nav-back" href="/app/" aria-label="Back">&#8249;</a><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="studio-link" href="/app/studio.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:4px" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg>Studio</a></header>
+<header class="topbar"><a class="nav-back" href="/app/" aria-label="Back">&#8249;</a><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="studio-link" href="/app/studio.html" aria-label="Studio"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></a></header>
 <main class="studio-page">
   <div id="st-product"></div>
   <section class="studio" id="studio">
@@ -80,18 +80,27 @@
       <p class="error" id="bd-err" style="display:none"></p>
       <p class="ok" id="bd-ok" style="display:none"></p>
     </form>
-    <div class="catbox" id="catbox">
+    <div class="catbox catbox-first" id="catbox">
       <h3 class="catbox-title">Categories</h3>
       <div class="row">
-        <input class="f-in" id="bd-cat-title" placeholder="New category title"/>
+        <input class="cat-in" id="bd-cat-title" placeholder="New category title"/>
         <label class="btn secondary">Category image<input id="bd-cat-file" type="file" accept="image/*" hidden/></label>
         <button class="btn primary" id="bd-cat-add" type="button">Add</button>
       </div>
       <div class="row">
         <img id="bd-cat-img" class="cat-chip-img" style="display:none" alt="category"/>
-        <select class="f-in" id="bd-cat-edit"><option value="">Edit existing…</option></select>
+        <select class="cat-in" id="bd-cat-edit"><option value="">Edit existing…</option></select>
       </div>
       <div id="bd-cat-list" class="cat-list"></div>
+    </div>
+    <div class="catbox" id="shopbox">
+      <h3 class="catbox-title">Shop</h3>
+      <div class="row">
+        <input class="cat-in" id="bd-shop-name" placeholder="Shop name"/>
+        <label class="btn secondary">Logo<input id="bd-shop-logo" type="file" accept="image/*" hidden/></label>
+        <button class="btn primary" id="bd-shop-save" type="button">Save</button>
+      </div>
+      <div id="bd-shop-cur" class="cat-list"></div>
     </div>
     </div>
   </section>

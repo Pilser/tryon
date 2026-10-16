@@ -2,8 +2,8 @@
    studio page). Slot tap picks that slot's photo; previews + validation
    inline; styled slot also accepts the latest try-on result; submit posts
    multipart with the saved owner token. */
-import { createProduct, listProducts, ownerLogin, ownerLogout, listCategories, createCategory } from "../core/api";
-import { esc } from "../core/format";
+import { createProduct, listProducts, ownerLogin, ownerLogout, listCategories, createCategory, getShop, saveShop } from "../core/api";
+import { esc, brandHTML } from "../core/format";
 import { loadOwner, saveOwner, loadTimeline } from "../core/store";
 import type { Product } from "../core/types";
 import { skin } from "../skin";
@@ -43,6 +43,8 @@ export function initOwnerForm(): void {
       saveOwner(t); showPanel(true);
       el("bd-ok").textContent = "Logged in - add products below.";
       show(el("bd-ok"), true);
+      const se = document.getElementById("st-edit") as HTMLButtonElement | null;
+      if (se) se.style.display = "";
     } catch { loginFail("Wrong token - try again."); }
   })());
   document.getElementById("bd-logout")?.addEventListener("click", () => void (async () => {
@@ -136,6 +138,48 @@ export function initOwnerForm(): void {
       } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
     })());
     void loadCats();
+  }
+  { // Shop card: name + logo shown in the navbar brand.
+    const paintCur = (name: string, logo: string): void => {
+      const box = document.getElementById("bd-shop-cur");
+      if (!box) return;
+      box.innerHTML = logo
+        ? `<span class="cat-chip"><img class="cat-chip-img" src="${esc(logo)}" alt=""/><span>${esc(name)}</span></span>`
+        : `<p class="hint">No logo yet - name only.</p>`;
+      skin(box);
+    };
+    void (async () => {
+      try {
+        const s = await getShop();
+        const name = document.getElementById("bd-shop-name") as HTMLInputElement | null;
+        if (name && !name.value) name.value = s.shop_name || "";
+        paintCur(s.shop_name || "", s.logo_url || "");
+      } catch { /* shop optional here */ }
+    })();
+    document.getElementById("bd-shop-logo")?.addEventListener("change", (ev) => {
+      const f = (ev.target as HTMLInputElement).files?.[0];
+      if (!f) return;
+      const box = document.getElementById("bd-shop-cur");
+      if (!box) return;
+      box.innerHTML = `<span class="cat-chip"><img class="cat-chip-img" src="${URL.createObjectURL(f)}" alt=""/><span>New logo - Save to keep</span></span>`;
+      skin(box);
+    });
+    document.getElementById("bd-shop-save")?.addEventListener("click", () => void (async () => {
+      const name = ((document.getElementById("bd-shop-name") as HTMLInputElement | null)?.value || "").trim();
+      const file = (document.getElementById("bd-shop-logo") as HTMLInputElement | null)?.files?.[0];
+      if (!name && !file) { fail("Enter a shop name or pick a logo."); return; }
+      const fd = new FormData();
+      if (name) fd.set("shop_name", name);
+      if (file) fd.set("logo", file);
+      try {
+        const s = await saveShop(fd, loadOwner());
+        paintCur(s.shop_name, s.logo_url || "");
+        const brand = document.querySelector(".brand");
+        if (brand) brand.innerHTML = brandHTML(s);
+        el("bd-ok").textContent = "Shop saved - navbar updated.";
+        show(el("bd-ok"), true);
+      } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+    })());
   }
   { // Styled slot from latest try-on result (fetched to a File on save).
     document.getElementById("bd-use-result")?.addEventListener("click", () => {

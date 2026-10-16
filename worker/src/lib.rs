@@ -31,6 +31,111 @@ fn shop_from_env(env: &Env) -> ShopSettings {
     }
 }
 
+/// Owner overrides from D1 win over env when the shop row exists.
+async fn shop_merged(env: &Env) -> ShopSettings {
+    let mut shop = shop_from_env(env);
+    if let Ok(db) = env.d1("DB") {
+        #[derive(serde::Deserialize)]
+        struct ShopRow {
+            #[serde(default)]
+            shop_name: String,
+            #[serde(default)]
+            logo_url: String,
+        }
+        if let Ok(res) = db
+            .prepare("SELECT shop_name,logo_url FROM shop WHERE id=1")
+            .all()
+            .await
+        {
+            if let Ok(mut rows) = res.results::<ShopRow>() {
+                if let Some(row) = rows.pop() {
+                    if !row.shop_name.is_empty() {
+                        shop.shop_name = row.shop_name;
+                    }
+                    if !row.logo_url.is_empty() {
+                        shop.logo_url = row.logo_url;
+                    }
+                }
+            }
+        }
+    }
+    shop
+}
+
+/// Owner shop card: Bearer-gated name + logo upload. Logo goes to R2
+/// (`shop/logo.<ext>`); row id 1 upserted, missing fields keep old values.
+async fn handle_shop_save(mut req: Request, env: Env) -> Result<Response> {
+    let expected = owner_token(&env);
+    let auth = req
+        .headers()
+        .get("authorization")
+        .map_err(|e| worker::Error::RustError(e.to_string()))?
+        .unwrap_or_default();
+    if !crate::routes::studio::authorized(Some(&auth), &expected) {
+        return Response::error("unauthorized", 401);
+    }
+    let bucket = env
+        .bucket("PRODUCTS")
+        .map_err(|_| worker::Error::RustError("R2 PRODUCTS bucket not configured".into()))?;
+    let db = env
+        .d1("DB")
+        .map_err(|_| worker::Error::RustError("D1 DB not configured".into()))?;
+    let base = env
+        .var("R2_PUBLIC_BASE")
+        .map(|v| v.to_string())
+        .unwrap_or_default();
+    if base.is_empty() {
+        return Response::error("R2_PUBLIC_BASE not configured", 500);
+    }
+    let form = req
+        .form_data()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let mut shop = shop_merged(&env).await;
+    let name = form.get_field("shop_name").unwrap_or_default().trim().to_string();
+    if !name.is_empty() {
+        shop.shop_name = name;
+    }
+    if let Some(FormEntry::File(f)) = form.get("logo") {
+        let bytes = f
+            .bytes()
+            .await
+            .map_err(|e| worker::Error::RustError(e.to_string()))?;
+        if !bytes.is_empty() {
+            crate::routes::person::check_file_part(&f.type_(), bytes.len())
+                .map_err(|e| worker::Error::RustError(e.to_string()))?;
+            let key = crate::routes::studio::slot_key("shop", "logo", &f.name());
+            bucket
+                .put(key.clone(), bytes)
+                .http_metadata(HttpMetadata {
+                    content_type: Some(f.type_()),
+                    ..Default::default()
+                })
+                .execute()
+                .await
+                .map_err(|e| worker::Error::RustError(e.to_string()))?;
+            shop.logo_url = crate::routes::studio::public_url(&base, &key);
+        }
+    }
+    db.exec(crate::routes::shop::SHOP_DDL)
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    db.prepare(
+        "INSERT INTO shop (id,shop_name,logo_url) VALUES (1,?,?) \
+         ON CONFLICT(id) DO UPDATE SET shop_name=excluded.shop_name,\
+         logo_url=excluded.logo_url",
+    )
+    .bind(&[
+        JsValue::from(shop.shop_name.clone()),
+        JsValue::from(shop.logo_url.clone()),
+    ])
+    .map_err(|e| worker::Error::RustError(e.to_string()))?
+    .run()
+    .await
+    .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    Response::from_json(&shop)
+}
+
 fn api_key(env: &Env) -> Result<String> {
     let k = env
         .var("GENLOOK_API_KEY")
@@ -584,7 +689,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                 .map(|u| u.query().unwrap_or_default().to_string())
                 .unwrap_or_default();
             let filter = crate::routes::products::parse_filter(&q);
-            let shop = shop_from_env(&ctx.env);
+            let shop = shop_merged(&ctx.env).await;
             // D1 first (owner uploads), seed fallback for local dev.
             let products = d1_products(&ctx.env)
                 .await
@@ -593,7 +698,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             Response::from_json(&store.list(&filter))
         })
         .get_async("/api/products/:id", |_, ctx| async move {
-            let shop = shop_from_env(&ctx.env);
+            let shop = shop_merged(&ctx.env).await;
             let id = ctx.param("id").cloned().unwrap_or_default();
             let products = d1_products(&ctx.env)
                 .await
@@ -605,7 +710,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             }
         })
         .get_async("/api/shop-settings", |_, ctx| async move {
-            Response::from_json(&shop_from_env(&ctx.env))
+            Response::from_json(&shop_merged(&ctx.env).await)
         })
         .get("/healthz", |_, _| {
             Response::from_json(&serde_json::json!({"ok": true}))
@@ -664,6 +769,9 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         })
         .post_async("/api/studio/categories", |req, ctx| async move {
             handle_category_create(req, ctx.env).await
+        })
+        .post_async("/api/studio/shop", |req, ctx| async move {
+            handle_shop_save(req, ctx.env).await
         })
         .get_async("/api/generations/:id", |_, ctx| async move {
             let key = api_key(&ctx.env)?;

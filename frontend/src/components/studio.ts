@@ -190,9 +190,13 @@ export function initStudio(product: Product): void {
       pushTimeline({ kind: "result", thumb: url, imageId: "", url, ts: nowSecs() });
       paintTimeline(selectEntry, url);
       el("st-dl").onclick = () => void (async () => {
-        const b = await (await fetch(url as string)).blob();
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(b); a.download = "tryon-result.jpg"; a.click();
+        try {
+          const b = await (await fetch(url as string)).blob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(b); a.download = "tryon-result.jpg"; a.click();
+        } catch {
+          window.open(url as string, "_blank", "noopener");
+        }
       })();
     } catch (e) { stopAnim(); show(el("st-prog"), false); fail(e instanceof Error ? e.message : String(e)); show(el("st-start"), true); }
   })());

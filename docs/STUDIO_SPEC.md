@@ -147,6 +147,17 @@ before/after is visible in one view.
 - [x] Usercard fullscreen fixed (button was buried under the photo in
   paint order; moved last + z-index). Hold-to-peek previous kept.
 
+## 11. Shop card (name + logo in navbar)
+
+- [x] Owner panel has a Shop box below Categories (name, logo file,
+  Save, current preview); saving paints the navbar brand instantly.
+- [x] Navbar brand renders the uploaded logo + set name on all pages;
+  Studio is an icon-only button (word removed for name space).
+- [x] Backend: harness `shop.json` overlay on `GET /api/shop-settings`
+  + `POST /api/studio/shop`; worker D1 `shop` single row + same routes
+  (ram-check clean). Harness forwards `GENLOOK_API_KEY` from process
+  env (warns when missing) so local try-on can run.
+
 ## 10. Product update (owner only, no duplicates)
 
 - [x] CTA row has an Update button next to Inquire / Try it on, shown

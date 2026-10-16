@@ -65,7 +65,12 @@ export const studio = stylex.create({
   catbox: {
     borderWidth: 1, borderStyle: "solid", borderColor: t.line,
     borderRadius: 12, backgroundColor: t.surface,
-    padding: 16, marginTop: 560, marginBottom: 16,
+    padding: 16, marginTop: 12, marginBottom: 16,
+  },
+  /* Only the first box after the bundle form needs clearance above the
+     desktop absolute field grid; boxes after each other sit tight. */
+  catboxFirst: {
+    marginTop: 440,
     "@media (max-width: 900px)": { marginTop: 12 },
   },
   catboxTitle: { marginTop: 0, marginBottom: 8, fontSize: 16, color: t.text },

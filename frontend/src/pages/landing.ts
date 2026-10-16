@@ -1,6 +1,6 @@
 /* pages/landing.ts - compose only: shop + inline search/filter + cards. */
 import { getShop, listProducts } from "../core/api";
-import { esc } from "../core/format";
+import { esc, brandHTML } from "../core/format";
 import { cardHTML, armAll } from "../components/product-card";
 import { skin } from "../skin";
 
@@ -15,7 +15,7 @@ export async function landing(): Promise<void> {
   const q = new URLSearchParams(location.search);
   const query = q.get("q") || "", category = q.get("category") || "";
   const brand = document.querySelector(".brand");
-  if (brand) brand.textContent = shop.shop_name;
+  if (brand) brand.innerHTML = brandHTML(shop);
   el<HTMLInputElement>("q").value = query;
   const all = await listProducts();
   const cats = [...new Set(all.map((p) => (p.category || "").trim()).filter(Boolean))].sort();

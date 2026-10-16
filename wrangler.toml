@@ -6,7 +6,7 @@ compatibility_date = "2026-01-01"
 SHOP_NAME = "TryOn Shop"
 R2_PUBLIC_BASE = ""
 
-# Secrets (set via `wrangler secret put`): GENLOOK_API_KEY, ADMIN_TOKEN, OWNER_WHATSAPP
+# Secrets (set via `wrangler secret put`): GENLOOK_API_KEY, OWNER_TOKEN, OWNER_WHATSAPP
 # R2_PUBLIC_BASE (vars): public base URL serving the bucket, e.g.
 # `https://pub-<hash>.r2.dev` or a custom domain (no trailing slash).
 # D1: create with `wrangler d1 create tryon-db`, then paste its id below.

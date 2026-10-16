@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Login body for `POST /api/owner/login`. Stateless: the browser keeps
-/// the token and sends it as `Bearer` on admin calls; logout just clears
+/// the token and sends it as `Bearer` on studio calls; logout just clears
 /// it client-side (`POST /api/owner/logout` is a no-op ack).
 #[derive(Deserialize)]
 pub struct LoginIn {
@@ -14,7 +14,7 @@ pub struct LoginOut {
 }
 
 /// Token check. Empty expected = open v1 backend (same rule as
-/// `admin::authorized`), so local dev works before secrets exist.
+/// `studio::authorized`), so local dev works before secrets exist.
 pub fn login_ok(provided: &str, expected: &str) -> bool {
     expected.is_empty() || provided == expected
 }

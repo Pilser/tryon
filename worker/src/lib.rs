@@ -136,8 +136,8 @@ async fn handle_tryon_sync(mut req: Request, env: Env) -> Result<Response> {
     .await
 }
 
-fn admin_token(env: &Env) -> String {
-    env.var("ADMIN_TOKEN")
+fn owner_token(env: &Env) -> String {
+    env.var("OWNER_TOKEN")
         .map(|v| v.to_string())
         .unwrap_or_default()
 }
@@ -147,7 +147,7 @@ async fn handle_owner_login(mut req: Request, env: Env) -> Result<Response> {
         .json()
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
-    if crate::routes::owner::login_ok(input.token.trim(), &admin_token(&env)) {
+    if crate::routes::owner::login_ok(input.token.trim(), &owner_token(&env)) {
         Response::from_json(&crate::routes::owner::LoginOut { ok: true })
     } else {
         Response::error("bad token", 401)
@@ -243,14 +243,14 @@ fn new_product_id() -> String {
 /// with content type), row into D1, full `Product` JSON back. Garment
 /// (`image0`) is required; model/styled may follow later (styled can even
 /// be generated from a try-on result in the studio).
-async fn handle_admin_create(mut req: Request, env: Env) -> Result<Response> {
-    let expected = admin_token(&env);
+async fn handle_studio_create(mut req: Request, env: Env) -> Result<Response> {
+    let expected = owner_token(&env);
     let auth = req
         .headers()
         .get("authorization")
         .map_err(|e| worker::Error::RustError(e.to_string()))?
         .unwrap_or_default();
-    if !crate::routes::admin::authorized(Some(&auth), &expected) {
+    if !crate::routes::studio::authorized(Some(&auth), &expected) {
         return Response::error("unauthorized", 401);
     }
     let bucket = env
@@ -270,7 +270,7 @@ async fn handle_admin_create(mut req: Request, env: Env) -> Result<Response> {
         .form_data()
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
-    let text = crate::routes::admin::parse_text(
+    let text = crate::routes::studio::parse_text(
         &form.get_field("title").unwrap_or_default(),
         &form.get_field("description").unwrap_or_default(),
         &form.get_field("price_cents").unwrap_or_default(),
@@ -299,7 +299,7 @@ async fn handle_admin_create(mut req: Request, env: Env) -> Result<Response> {
             }
             crate::routes::person::check_file_part(&f.type_(), bytes.len())
                 .map_err(|e| worker::Error::RustError(e.to_string()))?;
-            let key = crate::routes::admin::slot_key(&id, slot, &f.name());
+            let key = crate::routes::studio::slot_key(&id, slot, &f.name());
             bucket
                 .put(key.clone(), bytes)
                 .http_metadata(HttpMetadata {
@@ -312,7 +312,7 @@ async fn handle_admin_create(mut req: Request, env: Env) -> Result<Response> {
             if first_key.is_empty() {
                 first_key = key.clone();
             }
-            urls[i] = crate::routes::admin::public_url(&base, &key);
+            urls[i] = crate::routes::studio::public_url(&base, &key);
         }
     }
     if urls[0].is_empty() {
@@ -320,7 +320,7 @@ async fn handle_admin_create(mut req: Request, env: Env) -> Result<Response> {
     }
     let created = format!("{}", js_sys::Date::now() as u64);
     let sizes_csv = text.sizes.join(",");
-    db.exec(crate::routes::admin::PRODUCTS_DDL)
+    db.exec(crate::routes::studio::PRODUCTS_DDL)
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
     db.prepare(
@@ -374,7 +374,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let id = ctx.param("id").cloned().unwrap_or_default();
             moved(&format!("/app/product.html?id={id}"))
         })
-        .get("/admin", |_, _| moved("/app/studio.html?owner=1"))
+        .get("/studio", |_, _| moved("/app/studio.html?owner=1"))
         .get_async("/api/products", |req, ctx| async move {
             let q = req
                 .url()
@@ -453,8 +453,8 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .post_async("/api/owner/logout", |_, _| async move {
             handle_owner_logout().await
         })
-        .post_async("/api/admin/products", |req, ctx| async move {
-            handle_admin_create(req, ctx.env).await
+        .post_async("/api/studio/products", |req, ctx| async move {
+            handle_studio_create(req, ctx.env).await
         })
         .get_async("/api/generations/:id", |_, ctx| async move {
             let key = api_key(&ctx.env)?;

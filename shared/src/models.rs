@@ -68,9 +68,9 @@ pub struct GenerationStatus {
     pub result_image_url: Option<String>,
 }
 
-/// Payload the admin form posts (multipart handled in worker).
+/// Payload the studio owner form posts (multipart handled in worker).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AdminCreateProduct {
+pub struct StudioCreateProduct {
     pub title: String,
     pub description: String,
     pub price_cents: u32,

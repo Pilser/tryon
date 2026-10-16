@@ -44,7 +44,9 @@ Bun.serve({
       });
     }
     let rel = url.pathname === "/" ? "/index.html" : url.pathname;
-    if (rel.startsWith("/app/")) rel = rel.slice(4) || "/index.html";
+    if (rel === "/app" || rel === "/app/") rel = "/index.html";
+    else if (rel.startsWith("/app/")) rel = rel.slice(4);
+    if (rel === "/" || rel.endsWith("/")) rel += "index.html";
     const file = Bun.file(path.join(ROOT, rel));
     if (await file.exists()) {
       const ext = path.extname(rel);

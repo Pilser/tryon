@@ -9,7 +9,7 @@
 ## 1. Goal
 
 Premium e-commerce shop where:
-- Owner uploads products (photo + title + price + category + sizes) in `/admin`.
+- Owner uploads products (photo + title + price + category + sizes) in `/studio`.
 - Product images go to Cloudflare R2 (`tryon-products` bucket). Metadata goes to D1 (`products` table) with R2 key + public URL.
 - Shoppers land on `/`, see premium grid with search + category/size/price filters, click product for detail.
 - Each card has: `Try On` (Genlook) + `Inquire` (opens WhatsApp with owner number + product ref).
@@ -51,16 +51,16 @@ WhatsApp inquire URL (built client-side, no secret):
 
 - `GET /` -> SSR landing (grid, filters as static + hydrated).
 - `GET /product/:id` -> SSR detail.
-- `GET /admin` -> SSR admin shell (auth-gated later, open for v1).
+- `GET /studio` -> SSR studio shell (auth-gated later, open for v1).
 - `GET /api/products?q=&category=&size=&max_price=` -> JSON list from D1.
 - `GET /api/products/:id` -> JSON single.
-- `POST /api/admin/products` (multipart: image + fields) -> store to R2, insert D1, return Product.
+- `POST /api/studio/products` (multipart: image + fields) -> store to R2, insert D1, return Product.
 - `POST /api/try-on` -> validates product_id + person_image_id, calls Genlook `POST /try-on` with server key, returns generationId.
 - `GET /api/generations/:id` -> proxies Genlook poll.
 - `GET /api/shop-settings` -> public shop name + WhatsApp + currency.
 - `GET /healthz` -> ok.
 
-Secrets (wrangler): `GENLOOK_API_KEY`, `ADMIN_TOKEN` (v1: simple bearer for /api/admin/*).
+Secrets (wrangler): `GENLOOK_API_KEY`, `OWNER_TOKEN` (v1: simple bearer for /api/studio/*).
 Bindings: `R2 tryon-products`, `D1 tryon-db`.
 
 ## 6. Folder structure (attainable, no bloat)
@@ -80,12 +80,12 @@ tryon/
     filter.rs (apply_filter pure fn + tests)
   client/src/
     main.rs (mount only)
-    app.rs (router: / , /product/:id, /admin)
+    app.rs (router: / , /product/:id, /studio)
     pages/
       mod.rs
       landing/page.rs (hero + search + grid)
       product_detail/page.rs
-      admin/page.rs (upload + list)
+      studio/page.rs (upload + list)
     components/
       mod.rs
       layout/mod.rs (header, footer)
@@ -93,16 +93,16 @@ tryon/
       filters/mod.rs (search_bar, filters)
       tryon/mod.rs + studio.rs (persistent studio: pick/review/working/done, download)
       inquire/mod.rs (whatsapp_button, share_buttons)
-      admin/mod.rs (upload_form with WASM photo pipe + preview)
+      studio/mod.rs (upload_form with WASM photo pipe + preview)
     photo/pipe.rs (WASM validate + downscale + JPEG encode + preview URL)
     styles/main.css (premium theme)
   worker/src/
     lib.rs (re-export only)
     main.rs (fetch router only)
-    routes/mod.rs + products.rs + admin.rs + tryon.rs (sync body/parse) + person.rs (upload precheck) + shop.rs + health.rs
+    routes/mod.rs + products.rs + studio.rs + tryon.rs (sync body/parse) + person.rs (upload precheck) + shop.rs + health.rs
     store.rs (D1+R2 abstraction, testable without bindings)
     genlook.rs (REST client, key from env, testable with mock base_url)
-    ssr.rs (landing/detail/admin render helpers)
+    ssr.rs (landing/detail/studio render helpers)
 ```
 
 Rules: one domain per file, <=500 hard / <=300 target. `mod.rs` re-export only.
@@ -115,7 +115,7 @@ Rules: one domain per file, <=500 hard / <=300 target. `mod.rs` re-export only.
 - phase3: worker ssr + fetch router.
 - phase4: client layout + product + filters + landing page (premium CSS).
 - phase5: client tryon modal + inquire + product_detail.
-- phase6: client admin upload + list, wired to POST /api/admin/products.
+- phase6: client studio upload + list, wired to POST /api/studio/products.
 - phase7: R2+D1 wiring in wrangler + end-to-end `wrangler dev` manual test.
 - phase8 (integration, needs approval): full-workspace check/test + tag `v*` to trigger CI release build.
 
@@ -129,11 +129,11 @@ Each phase ends with: `cargo fmt`, `ram-check -p <crate>`, `ram-test -p <crate>`
 - Empty state + skeleton loaders. All client filtering is pure fn in shared/filter.rs so SSR and Wasm agree.
 - CSS: dark-premium, CSS variables, no framework dependency for v1.
 
-## 9. Admin requirements
+## 9. Studio owner requirements
 
-- `/admin`: shop settings display (WhatsApp number), upload form (file + title + price + category + sizes + description), client-side preview, progress state.
+- `/studio`: shop settings display (WhatsApp number), upload form (file + title + price + category + sizes + description), client-side preview, progress state.
 - Product table with thumbnail, delete (v2), copy image URL.
-- Upload flow: `POST /api/admin/products` multipart -> Worker streams to R2 `products/<uuid>.<ext>`, inserts D1 row, returns JSON. No direct R2 credentials in browser.
+- Upload flow: `POST /api/studio/products` multipart -> Worker streams to R2 `products/<uuid>.<ext>`, inserts D1 row, returns JSON. No direct R2 credentials in browser.
 
 ## 10. Genlook integration notes (verified against docs + example app)
 

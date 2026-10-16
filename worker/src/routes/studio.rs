@@ -1,4 +1,4 @@
-/// Admin helpers: R2 object key builder + bearer check. Pure + tested.
+/// Studio (owner) helpers: R2 object key builder + bearer check. Pure + tested.
 pub fn r2_key(product_id: &str, filename: &str) -> String {
     let ext = filename.rsplit('.').next().unwrap_or("jpg");
     format!("products/{product_id}.{ext}")
@@ -19,7 +19,7 @@ pub fn authorized(header: Option<&str>, expected: &str) -> bool {
 }
 
 /// Text fields of the owner bundle form, validated. Pure + tested.
-pub struct AdminText {
+pub struct StudioText {
     pub title: String,
     pub description: String,
     pub price_cents: u32,
@@ -33,11 +33,11 @@ pub fn parse_text(
     price_cents: &str,
     category: &str,
     sizes_csv: &str,
-) -> Result<AdminText, &'static str> {
+) -> Result<StudioText, &'static str> {
     if title.trim().is_empty() {
         return Err("title required");
     }
-    Ok(AdminText {
+    Ok(StudioText {
         title: title.trim().to_string(),
         description: description.trim().to_string(),
         price_cents: price_cents.trim().parse().unwrap_or(0),
@@ -59,7 +59,7 @@ pub fn public_url(base: &str, key: &str) -> String {
     format!("{}/{key}", base.trim_end_matches('/'))
 }
 
-/// v1 schema, applied idempotently (`IF NOT EXISTS`) on each admin write
+/// v1 schema, applied idempotently (`IF NOT EXISTS`) on each studio write
 /// so no separate migration step is needed before the first upload.
 pub const PRODUCTS_DDL: &str = "CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,

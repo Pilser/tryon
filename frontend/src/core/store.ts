@@ -1,4 +1,4 @@
-/* core/store.ts — the ONLY file that touches localStorage.
+/* core/store.ts - the ONLY file that touches localStorage.
    Person imageId persists ~6 days (Genlook TTL is 7). Timeline is
    newest-first, capped. Device id is a stable random id for this
    browser/device (the "fingerprint"): keys stay local, and the id lets a

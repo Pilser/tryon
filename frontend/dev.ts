@@ -1,4 +1,4 @@
-/* dev.ts — `bun run dev`: rebuild on save + serve frontend on :8811.
+/* dev.ts - `bun run dev`: rebuild on save + serve frontend on :8811.
    /api/* proxies to the worker harness (:8787). Requires the harness up:
    it owns PRODUCTS_JSON/R2 stubs and the Genlook key forwarding. */
 import { watch } from "node:fs";

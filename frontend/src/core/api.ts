@@ -1,4 +1,4 @@
-/* core/api.ts — the ONLY file that talks HTTP. All endpoints, one place. */
+/* core/api.ts - the ONLY file that talks HTTP. All endpoints, one place. */
 import type { Product, ShopSettings } from "./types";
 
 interface SyncBody {
@@ -75,7 +75,7 @@ export async function pollGeneration(id: string, onTick: (secs: number) => void)
     await new Promise((r) => setTimeout(r, 2000));
     const j = await generation(id);
     if (j.status === "COMPLETED" && j.resultImageUrl) return j.resultImageUrl;
-    if (j.status === "FAILED") throw new Error("Generation failed (credit refunded) — try another photo.");
+    if (j.status === "FAILED") throw new Error("Generation failed (credit refunded) - try another photo.");
   }
   throw new Error("Still running after ~90s. Reload and try again.");
 }

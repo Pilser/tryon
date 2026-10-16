@@ -1,4 +1,4 @@
-/* components/photo.ts — client photo gate. WASM (imgpipe crate, Rust)
+/* components/photo.ts - client photo gate. WASM (imgpipe crate, Rust)
    is the sanctioned processor; canvas is the fallback until the CI-built
    imgpipe glue is present at /imgpipe/. No other code processes pixels. */
 import { mb } from "../core/format";
@@ -55,7 +55,7 @@ function canvasPrep(file: File): Promise<Prepared> {
     img.onload = () => {
       URL.revokeObjectURL(url);
       const w = img.naturalWidth, h = img.naturalHeight;
-      if (w < MIN_DIM || h < MIN_DIM) return reject(new Error("Photo too small — use at least 256x256."));
+      if (w < MIN_DIM || h < MIN_DIM) return reject(new Error("Photo too small - use at least 256x256."));
       let tw = w, th = h;
       const m = Math.max(w, h);
       if (m > MAX_EDGE) { const s = MAX_EDGE / m; tw = Math.round(w * s); th = Math.round(h * s); }

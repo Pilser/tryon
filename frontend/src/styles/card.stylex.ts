@@ -68,13 +68,23 @@ export const card = stylex.create({
 export const gallery = stylex.create({
   root: { width: "100%" },
   frame: {
-    position: "relative", width: "100%", aspectRatio: "3 / 4",
+    position: "relative", width: "100%", maxWidth: "100%", aspectRatio: "3 / 4",
     borderRadius: 12, overflow: "hidden", backgroundColor: "#2c3319",
     borderWidth: 1, borderStyle: "solid", borderColor: "#2c3319",
+    ":fullscreen": {
+      width: "100%", height: "100%", aspectRatio: "auto",
+      borderRadius: 0, borderStyle: "none", backgroundColor: "#000",
+    },
+  },
+  fsBtn: {
+    position: "absolute", right: 10, top: 10, width: 36, height: 36,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    borderRadius: 8, borderStyle: "none", cursor: "pointer",
+    backgroundColor: "rgba(0,0,0,.55)", color: "#fff",
   },
   main: {
-    width: "100%", height: "100%", objectFit: "cover", display: "block",
-    userSelect: "none", touchAction: "pan-y",
+    width: "100%", maxWidth: "100%", height: "100%", objectFit: "cover", display: "block",
+    userSelect: "none", touchAction: "pan-y", cursor: "pointer",
   },
   inset: {
     position: "absolute", right: 14, bottom: 14, width: 88, height: 116,

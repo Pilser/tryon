@@ -1,4 +1,4 @@
-/* components/owner-form.ts — 3-slot bundle upload (owner section of
+/* components/owner-form.ts - 3-slot bundle upload (owner section of
    studio page). Slot tap picks that slot's photo; previews + validation
    inline; styled slot also accepts the latest try-on result; submit posts
    multipart with the saved owner token. */
@@ -41,10 +41,10 @@ export function initOwnerForm(): void {
     try {
       await ownerLogin(t);
       saveOwner(t); showPanel(true);
-      el("bd-ok").textContent = "Logged in — add products below.";
+      el("bd-ok").textContent = "Logged in - add products below.";
       show(el("bd-ok"), true);
       await loadList();
-    } catch { loginFail("Wrong token — try again."); }
+    } catch { loginFail("Wrong token - try again."); }
   })());
   document.getElementById("bd-logout")?.addEventListener("click", () => void (async () => {
     await ownerLogout();
@@ -56,7 +56,7 @@ export function initOwnerForm(): void {
   { // Styled slot from latest try-on result (fetched to a File on save).
     document.getElementById("bd-use-result")?.addEventListener("click", () => {
       const last = loadTimeline().find((e) => e.kind === "result" && e.url);
-      if (!last) { fail("No try-on result yet — run one above first."); return; }
+      if (!last) { fail("No try-on result yet - run one above first."); return; }
       const img = el("slot-img-2") as HTMLImageElement;
       img.src = last.url; show(img, true);
       img.dataset.genUrl = last.url;
@@ -97,7 +97,7 @@ export function initOwnerForm(): void {
         try {
           const b = await (await fetch(gen)).blob();
           fd.set("image2", new File([b], "styled.jpg", { type: b.type || "image/jpeg" }));
-        } catch { fail("Styled result expired — run try-on again, then save."); return; }
+        } catch { fail("Styled result expired - run try-on again, then save."); return; }
       }
       const btn = el("bd-submit") as HTMLButtonElement;
       btn.disabled = true; btn.textContent = "Uploading…";
@@ -105,7 +105,7 @@ export function initOwnerForm(): void {
         const j = await createProduct(fd, loadOwner());
         btn.disabled = false; btn.textContent = "Save bundle";
         const ok = el("bd-ok");
-        ok.innerHTML = `Saved: <a href="/app/product.html?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> — now on the landing grid.`;
+        ok.innerHTML = `Saved: <a href="/app/product.html?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> - now on the landing grid.`;
         show(ok, true);
         await loadList();
       } catch (e) { btn.disabled = false; btn.textContent = "Save bundle"; fail(e instanceof Error ? e.message : String(e)); }
@@ -116,7 +116,7 @@ export function initOwnerForm(): void {
       const list: Product[] = await listProducts();
       skin();
       el("studio-list").innerHTML = list.slice(0, 8).map((p) =>
-        `<p><a href="/app/product.html?id=${esc(p.id)}">${esc(p.title)}</a> — ${esc(money(p))}</p>`).join("");
+        `<p><a href="/app/product.html?id=${esc(p.id)}">${esc(p.title)}</a> - ${esc(money(p))}</p>`).join("");
     } catch { /* grid still works without list */ }
   }
   void refresh();

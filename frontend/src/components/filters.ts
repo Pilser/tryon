@@ -1,4 +1,4 @@
-/* components/filters.ts — category pills. Links drive filtering via
+/* components/filters.ts - category pills. Links drive filtering via
    query string; no state kept here. */
 import * as stylex from "@stylexjs/stylex";
 import { landing as s } from "../styles/landing.stylex";

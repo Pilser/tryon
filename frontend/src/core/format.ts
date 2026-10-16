@@ -1,4 +1,4 @@
-/* core/format.ts — pure formatting. No DOM, no network. */
+/* core/format.ts - pure formatting. No DOM, no network. */
 export const esc = (s: unknown): string =>
   String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 

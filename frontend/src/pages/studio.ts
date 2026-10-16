@@ -1,13 +1,13 @@
-/* pages/studio.ts — compose only: product context + studio + owner bundle.
+/* pages/studio.ts - compose only: product context + studio + owner bundle.
    Visitor: pick/take photo (instant timeline) + try-on + results on top.
    Owner (??owner=1 or saved token): bundle upload below; styled slot can
    be uploaded OR filled from the latest try-on result. */
 import { getProduct, getShop, listProducts } from "../core/api";
 import { esc, money } from "../core/format";
-import { galleryHTML, armAll } from "../components/product-card";
+import { duoHTML, armDuo } from "../components/duo";
 import { initStudio } from "../components/studio";
 import { initOwnerForm } from "../components/owner-form";
-import { loadOwner, shortDevice } from "../core/store";
+import { loadOwner } from "../core/store";
 import { skin } from "../skin";
 
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -28,17 +28,17 @@ export async function studio(): Promise<void> {
   const list = await listProducts();
   const target = id || list[0]?.id || "";
   if (!target) {
-    box.innerHTML = `<p class="error">No products yet — the owner adds them from this page.</p>`;
+    box.innerHTML = `<p class="error">No products yet - the owner adds them from this page.</p>`;
   } else {
     const p = id ? await getProduct(target) : list[0];
-    document.title = "Try on " + p.title + " — " + shop.shop_name;
-    box.innerHTML = `<div class="st-pick-row"><a class="back" href="/">← all products</a>
+    document.title = "Try on " + p.title + " - " + shop.shop_name;
+    box.innerHTML = `<div class="st-pick-row"><a class="back" href="/">&#8592; all products</a>
       <label class="hint" for="st-prod">Garment:</label>
-      <select id="st-prod" class="st-select">${list.map((x) => `<option value="${esc(x.id)}"${x.id === p.id ? " selected" : ""}>${esc(x.title)} — ${esc(money(x))}</option>`).join("")}</select></div>`
-      + galleryHTML(p);
-    armAll(box);
+      <select id="st-prod" class="st-select">${list.map((x) => `<option value="${esc(x.id)}"${x.id === p.id ? " selected" : ""}>${esc(x.title)} - ${esc(money(x))}</option>`).join("")}</select></div>`
+      + duoHTML(p);
+    armDuo(box);
     el<HTMLSelectElement>("st-prod").addEventListener("change", (ev) => {
-      location.href = "/studio?id=" + encodeURIComponent((ev.target as HTMLSelectElement).value) + (owner ? "&owner=1" : "");
+      location.href = "/app/studio.html?id=" + encodeURIComponent((ev.target as HTMLSelectElement).value) + (owner ? "&owner=1" : "");
     });
     initStudio(p);
   }
@@ -51,7 +51,5 @@ export async function studio(): Promise<void> {
       if (gate) gate.style.display = "none";
     } else own.style.display = "none";
   }
-  const dev = document.getElementById("st-device");
-  if (dev) dev.textContent = "Photos stay in this browser (device " + shortDevice() + ") — same timeline on your next visit.";
   skin();
 }

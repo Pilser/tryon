@@ -27,4 +27,7 @@ export interface TimelineEntry {
   imageId: string;
   url: string;
   ts: number;
+  /* Local-only IndexedDB key for the picked file (never sent to the API).
+     Lets ribbon photos survive reloads without uploading on pick. */
+  photoKey?: string;
 }

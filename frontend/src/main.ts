@@ -1,4 +1,4 @@
-/* main.ts — boot by page. Exactly one page module per HTML shell. */
+/* main.ts - boot by page. Exactly one page module per HTML shell. */
 import { landing } from "./pages/landing";
 import { product } from "./pages/product";
 import { studio } from "./pages/studio";

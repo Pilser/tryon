@@ -3,8 +3,9 @@
    maps them. Call after every innerHTML render. */
 import * as stylex from "@stylexjs/stylex";
 import { base } from "./styles/base.stylex";
+import { gallery } from "./styles/card.stylex";
 import { landing } from "./styles/landing.stylex";
-import { studio, timeline, owner, share } from "./styles/panels.stylex";
+import { studio, timeline, owner, share, compare, duo } from "./styles/panels.stylex";
 
 const MAP: Array<[string, any[]]> = [
   ["body", [base.body]],
@@ -44,10 +45,25 @@ const MAP: Array<[string, any[]]> = [
   [".owner-bar", [studio.ownerBar]],
   [".owner-gate", [studio.gate]],
   [".owner-gate a", [owner.listLink]],
+  [".cta", [base.btn, base.btnPrimary, studio.cta]],
   [".studio-preview", [studio.preview]],
   [".studio-result-img", [studio.resultImg]],
   [".tl-head", [timeline.head]],
   [".tl-row", [timeline.row]],
+  [".tl-add", [timeline.add]],
+  [".tl-take", [timeline.take]],
+  [".cmp-frame", [compare.frame]],
+  [".cmp-base", [compare.base]],
+  [".cmp-top", [compare.top]],
+  [".cmp-cap", [compare.cap]],
+  [".duo-track", [duo.track]],
+  [".duo-cell", [duo.cell]],
+  [".usercard", [duo.user]],
+  [".usercard-img", [duo.userImg]],
+  [".usercard-empty", [duo.userEmpty]],
+  [".duo-arrow", [duo.arrow]],
+  [".duo-fit", [duo.fit]],
+  [".fs-btn", [gallery.fsBtn]],
   [".share-row", [share.row]],
   [".share-link", [share.link]],
   [".bundle", [owner.page]],

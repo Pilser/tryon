@@ -1,4 +1,4 @@
-/* core/whatsapp.ts — wa.me link builders. Pure, no DOM. */
+/* core/whatsapp.ts - wa.me link builders. Pure, no DOM. */
 const digits = (s: string): string => String(s || "").replace(/\D/g, "");
 
 export const inquireUrl = (owner: string, shop: string, title: string, productId: string): string =>

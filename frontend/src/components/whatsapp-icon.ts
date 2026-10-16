@@ -1,4 +1,4 @@
-/* components/whatsapp-icon.ts — official WhatsApp glyph (simple-icons).
+/* components/whatsapp-icon.ts - official WhatsApp glyph (simple-icons).
    fill=currentColor so it inherits the button text color. Text stays. */
 import { esc } from "../core/format";
 

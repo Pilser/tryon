@@ -1,4 +1,4 @@
-/* components/product-card.ts — serious e-commerce card + shared gallery.
+/* components/product-card.ts - serious e-commerce card + shared gallery.
    3-image bundle: G=garment flat, S=model WEARING it, M=model WITHOUT.
    State machine (landing + detail share it):
    START: LARGE=G, SMALL=S · click SMALL -> LARGE=S, SMALL=G
@@ -11,6 +11,19 @@ import { esc, money } from "../core/format";
 import { inquireUrl } from "../core/whatsapp";
 import { waIcon } from "./whatsapp-icon";
 
+const FS_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`;
+
+/* Fullscreen toggle: shows ONLY the photo frame. Same nodes stay mounted,
+   so tap-swap and hold-peek keep working inside fullscreen. */
+export async function toggleFs(elm: HTMLElement): Promise<void> {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await elm.requestFullscreen();
+  } catch {
+    /* unsupported browser: stay inline */
+  }
+}
+
 const cx = (...ss: any[]): string =>
   (stylex.props(ss.filter(Boolean)) as { className?: string }).className ?? "";
 
@@ -21,8 +34,8 @@ export function bundleOf(p: Product): { g: string; m: string; s: string } {
   return { g: g0, m, s: s0 };
 }
 
-const CAP_G = "Garment — tap inset to see it worn";
-const CAP_S = "Worn — hold to compare without · tap inset for garment";
+const CAP_G = "Garment - tap inset to see it worn";
+const CAP_S = "Worn - hold to compare without · tap inset for garment";
 
 export function cardHTML(p: Product, shop: string, owner: string): string {
   const b = bundleOf(p);
@@ -44,6 +57,7 @@ export function galleryHTML(p: Product): string {
   const single = !(p.styled_image_url || p.model_image_url);
   return `<div class="${cx(g.root)} productcard" data-garment="${esc(b.g)}" data-model="${esc(b.m)}" data-styled="${esc(b.s)}">
     <div class="${cx(g.frame)}"><img class="${cx(g.main)} main" draggable="false" src="${esc(b.g)}" alt="${esc(p.title)}"/>
+    <button class="${cx(g.fsBtn)} fs-btn" type="button" aria-label="Fullscreen">${FS_SVG}</button>
     ${single ? "" : `<button class="${cx(g.inset)} model-inset" aria-label="see it worn"><img class="${cx(g.insetImg)} inset-img" draggable="false" src="${esc(b.s)}" alt="model wearing it"/></button>`}</div>
     ${single ? "" : `<p class="${cx(g.cap)} swap-cur">${CAP_G}</p><p class="${cx(g.hint)}">Tap inset to swap · hold worn photo to compare without</p>`}
   </div>`;
@@ -59,7 +73,7 @@ export function armSwap(root: Element): void {
   const gi = el.dataset.garment ?? "", mi = el.dataset.model ?? "", si = el.dataset.styled ?? "";
   if (!inset || !insetImg || (!si && !mi)) return;
   const cur = root.querySelector(".swap-cur");
-  let showing: "garment" | "worn" = "garment", timer: number | null = null, held = false;
+  let showing: "garment" | "worn" = "garment", timer: number | null = null, held = false, suppress = false;
   const paint = (large: string, small: string, label: string, btn: string): void => {
     main.src = large; insetImg.src = small;
     main.alt = showing === "garment" ? "garment" : "model wearing it";
@@ -69,22 +83,33 @@ export function armSwap(root: Element): void {
   const toWorn = (): void => { showing = "worn"; paint(si, gi, CAP_S, "back to garment"); };
   const toGarment = (): void => { showing = "garment"; paint(gi, si, CAP_G, "see it worn"); };
   for (const u of [gi, mi, si]) { if (u) { const im = new Image(); im.src = u; } }
+  const toggle = (): void => {
+    if (suppress) { suppress = false; return; }
+    if (showing === "garment") toWorn(); else toGarment();
+  };
   inset.addEventListener("click", (ev) => {
     ev.preventDefault(); ev.stopPropagation();
-    if (showing === "garment") toWorn(); else toGarment();
+    toggle();
   });
+  const fsb = root.querySelector(".fs-btn") as HTMLButtonElement | null;
+  if (fsb) {
+    fsb.addEventListener("click", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      void toggleFs((main.parentElement ?? root) as HTMLElement);
+    });
+  }
   const hold = (ev: Event): void => {
     if (showing !== "worn" || !mi || mi === si) return;
     ev.preventDefault();
     timer = window.setTimeout(() => {
-      held = true; main.src = mi; if (cur) cur.textContent = "Without it — release to compare";
+      held = true; main.src = mi; if (cur) cur.textContent = "Without it - release to compare";
       main.classList.add("holding");
     }, 350);
   };
   const release = (): void => {
     if (timer !== null) { clearTimeout(timer); timer = null; }
     if (held) {
-      held = false; main.src = si; main.classList.remove("holding");
+      held = false; suppress = true; main.src = si; main.classList.remove("holding");
       if (cur) cur.textContent = CAP_S;
     }
   };
@@ -92,6 +117,8 @@ export function armSwap(root: Element): void {
   main.addEventListener("pointerup", release);
   main.addEventListener("pointercancel", release);
   main.addEventListener("pointerleave", release);
+  // Tapping the large image itself swaps views, like the inset button.
+  main.addEventListener("click", toggle);
   main.addEventListener("contextmenu", (e) => { if (showing === "worn") e.preventDefault(); });
 }
 

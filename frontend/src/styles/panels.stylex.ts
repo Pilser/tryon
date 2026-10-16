@@ -3,10 +3,9 @@ import { tokens as t } from "./tokens.stylex";
 
 export const studio = stylex.create({
   root: {
-    maxWidth: 1100, marginTop: 22, marginBottom: 22, marginLeft: "auto", marginRight: "auto",
-    padding: 24, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
-    borderRadius: 16, backgroundColor: t.surface,
-    "@media (max-width: 720px)": { padding: 16, marginTop: 12, marginBottom: 12, borderRadius: 12 },
+    maxWidth: 1100, marginTop: 8, marginBottom: 8, marginLeft: "auto", marginRight: "auto",
+    padding: 12, backgroundColor: "transparent",
+    "@media (max-width: 720px)": { padding: 8 },
   },
   preview: { maxWidth: 280, borderRadius: 8 },
   resultImg: { maxWidth: "100%", borderRadius: 12 },
@@ -23,6 +22,7 @@ export const studio = stylex.create({
     flexGrow: 1, minWidth: 200, height: 48, borderRadius: 10,
     backgroundColor: t.surface, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
     color: t.text, fontSize: 15, paddingLeft: 14, paddingRight: 14, outlineStyle: "none",
+    "@media (max-width: 720px)": { minWidth: 0, width: "100%" },
   },
   token: {
     flexGrow: 1, minWidth: 200, height: 48, borderRadius: 10,
@@ -39,12 +39,44 @@ export const studio = stylex.create({
     display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between",
     flexWrap: "wrap", marginBottom: 4,
   },
+  cta: {
+    display: "flex", alignItems: "center", justifyContent: "center",
+    width: "100%", height: 50, borderRadius: 10,
+    backgroundColor: t.primary, color: t.primaryInk,
+    fontSize: 16, fontWeight: 800, borderStyle: "none", cursor: "pointer",
+    boxShadow: "0 6px 20px rgba(185,217,60,.25)",
+    ":active": { transform: "scale(.99)" },
+  },
   gate: { textAlign: "center", marginTop: 20, marginBottom: 8 },
 });
 
 export const timeline = stylex.create({
   head: { marginTop: 22, marginBottom: 8, fontSize: "1rem", color: t.muted },
-  row: { display: "flex", gap: 8, overflowX: "auto", paddingTop: 4, paddingBottom: 4 },
+  row: {
+    display: "flex", gap: 8, overflowX: "auto", paddingTop: 4, paddingBottom: 4,
+    alignItems: "center",
+    "@media (max-width: 720px)": {
+      position: "sticky", bottom: 10, zIndex: 5,
+      backgroundColor: t.surface,
+      borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+      borderRadius: 16, padding: 8,
+      boxShadow: "0 8px 28px rgba(0,0,0,.45)",
+    },
+  },
+  add: {
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    flexShrink: 0, width: 64, height: 64, borderRadius: 10,
+    backgroundColor: t.primary, color: t.primaryInk, cursor: "pointer",
+  },
+  addIcon: { fontSize: 24, fontWeight: 700, lineHeight: 1 },
+  addLabel: { fontSize: 10, fontWeight: 700 },
+  take: {
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    gap: 2, flexShrink: 0, width: 64, height: 64, borderRadius: 10,
+    backgroundColor: t.surface, color: t.text, cursor: "pointer",
+    borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+  },
+  takeIcon: { display: "flex", lineHeight: 1 },
   item: {
     borderWidth: 2, borderStyle: "solid", borderColor: "transparent",
     borderRadius: 8, padding: 0, backgroundColor: "transparent",
@@ -52,6 +84,82 @@ export const timeline = stylex.create({
   },
   itemImg: { width: 64, height: 64, objectFit: "cover", borderRadius: 6, display: "block" },
   itemOn: { borderColor: t.primary },
+});
+
+/* Product + user-photo duo: two cards side by side on desktop, swipeable
+   track on mobile (second card peeks + arrow hints the swipe). */
+export const duo = stylex.create({
+  track: {
+    position: "relative", display: "grid",
+    gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start",
+    "@media (max-width: 720px)": {
+      display: "flex", overflowX: "auto", gap: 12,
+      scrollSnapType: "x mandatory", paddingBottom: 4,
+      scrollbarWidth: "none",
+      "::-webkit-scrollbar": { display: "none" },
+    },
+  },
+  cell: {
+    minWidth: 0, maxWidth: "100%", overflow: "hidden",
+    "@media (max-width: 720px)": { minWidth: "100%", maxWidth: "100%", flexShrink: 0, scrollSnapAlign: "start" },
+  },
+  user: {
+    position: "relative", width: "100%", maxWidth: "min(100%, 52vh)",
+    marginLeft: "auto", marginRight: "auto", aspectRatio: "3 / 4",
+    borderRadius: 12, overflow: "hidden", backgroundColor: t.line,
+    "@media (max-width: 720px)": { maxWidth: "none" },
+    ":fullscreen": {
+      width: "100%", height: "100%", maxWidth: "none",
+      borderRadius: 0, backgroundColor: "#000", aspectRatio: "auto",
+    },
+  },
+  userImg: {
+    position: "absolute", left: 0, top: 0, width: "100%", maxWidth: "100%", height: "100%",
+    objectFit: "cover", display: "block",
+  },
+  userEmpty: {
+    position: "absolute", left: 0, top: 0, width: "100%", height: "100%",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    textAlign: "center", margin: 0, padding: 20, boxSizing: "border-box",
+    color: t.muted, fontSize: 14,
+  },
+  arrow: {
+    display: "none",
+    "@media (max-width: 720px)": {
+      display: "flex", alignItems: "center", justifyContent: "center",
+      position: "absolute", right: 8, top: "40%", width: 40, height: 40,
+      borderRadius: 10, borderStyle: "none", cursor: "pointer",
+      backgroundColor: t.primary, color: t.primaryInk,
+      fontSize: 22, fontWeight: 700,
+      boxShadow: "0 4px 14px rgba(0,0,0,.45)",
+    },
+  },
+  /* Caps the product gallery inside the duo so the whole card fits the
+     viewport height instead of over-expanding past full view.
+     Full-bleed on mobile so no dark gaps show at the sides. */
+  fit: {
+    width: "100%", maxWidth: "min(100%, 52vh)",
+    marginLeft: "auto", marginRight: "auto",
+    "@media (max-width: 720px)": { maxWidth: "none" },
+  },
+});
+export const compare = stylex.create({
+  frame: {
+    position: "relative", width: "100%", maxWidth: 440,
+    aspectRatio: "3 / 4", borderRadius: 12, overflow: "hidden",
+    backgroundColor: t.line, marginTop: 10,
+    userSelect: "none", touchAction: "pan-y",
+  },
+  base: {
+    position: "absolute", left: 0, top: 0, width: "100%", height: "100%",
+    objectFit: "cover", display: "block",
+  },
+  top: {
+    position: "absolute", left: 0, top: 0, width: "100%", height: "100%",
+    objectFit: "cover", display: "block", cursor: "pointer",
+    transitionProperty: "opacity", transitionDuration: ".15s",
+  },
+  cap: { marginTop: 8, marginBottom: 0, fontSize: 13, color: t.muted },
 });
 
 export const owner = stylex.create({
@@ -107,7 +215,10 @@ export const owner = stylex.create({
   },
   note: {
     "@media (max-width: 900px)": { position: "static", marginTop: 12 }, position: "absolute", left: 760, top: 474, color: t.muted, fontSize: 13, margin: 0 },
-  list: { marginTop: 560, paddingLeft: 24, paddingRight: 24, paddingBottom: 40 },
+  list: {
+    marginTop: 560, paddingLeft: 24, paddingRight: 24, paddingBottom: 40,
+    "@media (max-width: 900px)": { marginTop: 16, paddingLeft: 12, paddingRight: 12 },
+  },
   listLink: { color: t.complement },
   slot0: { left: 24 },
   slot1: { left: 264 },

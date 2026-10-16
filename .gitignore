@@ -38,3 +38,5 @@ frontend/.astro/**
 # local generated wasm glue copies
 frontend/public/imgpipe/
 frontend/public/imgpipe/**
+frontend/imgpipe/
+frontend/imgpipe/**

@@ -1,4 +1,4 @@
-/* pages/landing.ts — compose only: shop + filters + cards. */
+/* pages/landing.ts - compose only: shop + filters + cards. */
 import { getShop, listProducts } from "../core/api";
 import { pillsHTML } from "../components/filters";
 import { cardHTML, armAll } from "../components/product-card";

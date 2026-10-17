@@ -49,16 +49,40 @@ WhatsApp inquire URL (built client-side, no secret):
 
 ## 5. Worker API surface
 
-- `GET /` -> SSR landing (grid, filters as static + hydrated).
-- `GET /product/:id` -> SSR detail.
-- `GET /studio` -> SSR studio shell (auth-gated later, open for v1).
-- `GET /api/products?q=&category=&size=&max_price=` -> JSON list from D1.
-- `GET /api/products/:id` -> JSON single.
-- `POST /api/studio/products` (multipart: image + fields) -> store to R2, insert D1, return Product.
-- `POST /api/try-on` -> validates product_id + person_image_id, calls Genlook `POST /try-on` with server key, returns generationId.
-- `GET /api/generations/:id` -> proxies Genlook poll.
-- `GET /api/shop-settings` -> public shop name + WhatsApp + currency.
-- `GET /healthz` -> ok.
+The worker renders nothing: every page lives in `frontend/` (static), and the
+worker either redirects to it or answers JSON.
+
+Pages (302 to the frontend):
+- `GET /` -> `/app/`, `GET /product/:id` -> `/app/product.html?id=…`,
+  `GET /studio` -> `/app/studio.html?owner=1`.
+
+Public JSON:
+- `GET /api/products?q=&category=&size=&max_price=` -> D1 rows, `PRODUCTS_JSON` seed fallback (local dev).
+- `GET /api/products/:id` -> single product.
+- `GET /api/categories` -> owner-managed categories (id, title, icon url).
+- `GET /api/shop-settings` -> shop name + WhatsApp + currency + logo.
+- `GET /healthz` -> `{"ok":true}`.
+
+Try-on (worker is the only caller of Genlook; key never reaches the browser):
+- `POST /api/person-upload` -> precheck (multipart, <=10 MB, image mime), then the
+  raw body is forwarded to Genlook `POST /images/upload` -> `{imageId}`.
+- `POST /api/try-on/sync` and `POST /api/try-on` -> build the Genlook body
+  (`products[0]` + `person.image.source.id`), forwarded to `POST /try-on[/sync]`.
+  200 = COMPLETED + temporary `resultImageUrl`, 202 = PENDING (poll).
+- `GET /api/generations/:id` -> proxies the Genlook poll.
+
+Owner-only (Bearer `OWNER_TOKEN`; empty token = open local backend):
+- `POST /api/owner/login` / `POST /api/owner/logout`.
+- `POST /api/studio/products` (multipart bundle: image0 garment, image1 model, image2 styled) -> R2 + D1 upsert.
+- `POST /api/studio/categories` (multipart: title + icon) -> R2 + D1 upsert.
+- `POST /api/studio/shop` (multipart: shop_name + logo) -> R2 + D1 upsert.
+- `GET /api/owner/…` none yet: reads are public, writes are gated.
+
+Errors: every failure answers Genlook's shape `{code,message,status}` with the
+matching HTTP status — client mistakes are `400`/`401`, never a bare `500`
+(`routes/errors.rs`). The frontend has exactly one parser (`core/api.ts`).
+Upstream Genlook errors keep their own `code` (e.g. `INSUFFICIENT_CREDITS`,
+`IMAGE_NOT_FOUND`) so the studio can show the real reason.
 
 Secrets (wrangler): `GENLOOK_API_KEY`, `OWNER_TOKEN` (v1: simple bearer for /api/studio/*).
 Bindings: `R2 tryon-products`, `D1 tryon-db`.
@@ -147,6 +171,16 @@ Each phase ends with: `cargo fmt`, `ram-check -p <crate>`, `ram-test -p <crate>`
 - Try-on: `POST /try-on/sync` (same body as async) waits up to 90 s: 200 = COMPLETED + temporary `resultImageUrl` (download at once or refetch generation for fresh URL), 202 = poll `GET /generations/:id`. Products 1–4 per call; inline shape `{externalId,title,description,images}` cached 15 days, reference `{externalId}` reuses analysis (faster), one-shot 7 days. First try-on of a product is slower (analysis); `POST /products` pre-register is v2.
 - Example app pattern mirrored: upload once -> try-on sync with `externalId` + `imageId`; browser talks only to our Worker routes; mock-engine toggle is v2.
 - Costs 1 credit/try-on, refunded on failure. Poll every 2 s, cap ~90 s.
+- Base URL is `GENLOOK_BASE`-overridable (`routes/genlook_api.rs`), default
+  production: local dev points it at `mock-genlook/` (stdlib Python, returns the
+  person photo unchanged after a configurable delay). See `mock-genlook/README.md`
+  for the endpoint table, failure drills (`PRODUCT_NOT_FOUND`,
+  `INSUFFICIENT_CREDITS`, `FAILED`) and the two wiring options.
+- What the mock + vendored example changed in our plan: error bodies keep
+  Genlook's `{code,message,status}` (we now emit the same shape — see §5); the
+  example's poll loop is unbounded `while(true)` while ours stops at 90 s;
+  optional v2 win is their reference-first `{externalId}` payload with an inline
+  fallback on `PRODUCT_NOT_FOUND` (one call today, always correct).
 
 ## 11. Try-on studio (solid, persistent)
 

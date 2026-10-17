@@ -23,9 +23,12 @@ cd frontend && bun run dev   # :8811 — proxies /api/* -> :8787
 For a fully-functional API (products / try-on / studio upload) use the pre-released WASM in `.local-rig`:
 
 ```bash
-cp /tmp/opencode/worker/tryon_worker.wasm ./.local-rig/tryon_worker.wasm
+# the rig runs the released wasm; refresh it from a CI artifact (§3)
 PORT=8787 bun ./local-rig/harness.cjs   # binds to :8787
 ```
+
+For a credits-free try-on loop, start it against the mock (§6) instead:
+`GENLOOK_API_KEY=test GENLOOK_BASE=http://127.0.0.1:8899/tryon/v1 bun .local-rig/harness.cjs`.
 
 The harness does not use Rust at runtime; it loads the pre-compiled worker script (`glue-node/tryon_worker.js`) and
 routes `GET /api/*`, `POST /api/*`, `GET /uploads/*` and `/app/*` (serving `frontend/pages` static files mostly).
@@ -64,9 +67,11 @@ accepts any token (e.g. `admin123`). Persist now via `core/store.ts → saveOwne
      -o /tmp/opencode/worker.zip && unzip -o /tmp/opencode/worker.zip -d /tmp/opencode/worker
    ```
 
-6. Replace the rig binary (zero Rust compilation):
+6. Drop it into the rig (zero Rust compilation; the artifact ships the node
+   glue too, so no local `wasm-bindgen` run is needed):
    ```bash
-   cp /tmp/opencode/worker/tryon_worker.wasm ./local-rig/tryon_worker.wasm
+   cp /tmp/opencode/worker/tryon_worker_bg.wasm ./.local-rig/glue-node/tryon_worker_bg.wasm
+   cp /tmp/opencode/worker/tryon_worker.js      ./.local-rig/glue-node/tryon_worker.js
    ```
    Restart the harness `bun ./local-rig/harness.cjs`; products still seed from `seed.json`.
 
@@ -102,6 +107,10 @@ GENLOOK_API_KEY=test GENLOOK_BASE=http://127.0.0.1:8899/tryon/v1 \
   bun .local-rig/harness.cjs                                 # :8787
 cd frontend && bun run dev                                   # :8811
 ```
+
+If the rig's worker predates `GENLOOK_BASE`, run `mock-genlook/bridge.py`
+(:8888) and start dev with `API_UPSTREAM=http://127.0.0.1:8888 bun dev.ts` —
+same flow, no worker rebuild. See `mock-genlook/README.md`.
 
 Failure drills: `?fail=credits` → `402 INSUFFICIENT_CREDITS`; a `title`/`externalId`
 containing `fail` → `FAILED`; an unknown `{externalId}` reference → `404 PRODUCT_NOT_FOUND`.

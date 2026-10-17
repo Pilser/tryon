@@ -24,12 +24,22 @@ jobs:
           shared-key: tryon-release
       - name: build worker wasm (capped for small runner)
         run: cargo build --release --target wasm32-unknown-unknown -p tryon-worker --jobs 2
+      - name: wasm-bindgen glue for the local rig (prebuilt CLI, no compile)
+        run: |
+          curl -sL -o /tmp/wbg.tar.gz https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl.tar.gz
+          tar xzf /tmp/wbg.tar.gz -C /tmp
+          /tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen \
+            target/wasm32-unknown-unknown/release/tryon_worker.wasm \
+            --out-dir .local-rig/glue-node --target node --out-name tryon_worker
       - name: upload wasm artifact
         uses: actions/upload-artifact@v4
         with:
           name: tryon-worker-${{ github.ref_name }}
           path: |
             target/wasm32-unknown-unknown/release/*.wasm
+            .local-rig/glue-node/tryon_worker.js
+            .local-rig/glue-node/tryon_worker_bg.wasm
+            .local-rig/glue-node/tryon_worker.d.ts
           if-no-files-found: error
 
   imgpipe:
@@ -79,7 +89,8 @@ jobs:
         with:
           name: tryon-frontend-${{ github.ref_name }}
           path: |
-            frontend/dist/bundle.js
+            frontend/dist/*.js
+            frontend/dist/*.js.map
             frontend/dist/stylex.css
             frontend/*.html
           if-no-files-found: error

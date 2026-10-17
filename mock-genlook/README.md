@@ -1,21 +1,42 @@
 # mock-genlook — local stand-in for the Genlook Try-On API
 
 Develop the whole try-on flow with **zero credits, offline-friendly**.
-The worker is the only thing that talks to Genlook; point it here:
+The worker is the only thing that talks to Genlook, so one of these wires it up.
+
+## A) Worker built with `GENLOOK_BASE` support (once CI ships it)
 
 ```bash
 # terminal 1: the mock (default 8 s generation time, like production median)
-GENLOOK_BASE=http://127.0.0.1:8899/tryon/v1 python3 mock-genlook/server.py
+python3 mock-genlook/server.py
 
-# terminal 2: the harness, with any key (mock ignores it, worker requires one)
+# terminal 2: the harness, with any key (mock ignores it, worker needs one)
 GENLOOK_API_KEY=test GENLOOK_BASE=http://127.0.0.1:8899/tryon/v1 bun .local-rig/harness.cjs
 
 # terminal 3: frontend as usual
 cd frontend && bun run dev
 ```
 
+## B) Today's prebuilt worker (no waiting for CI) — use the bridge
+
+The released WASM in `.local-rig/glue-node/` predates `GENLOOK_BASE`, so it
+still calls the real API. `bridge.py` implements the three try-on endpoints
+itself and proxies everything else to the harness:
+
+```bash
+bun .local-rig/harness.cjs                                   # :8787 as usual
+python3 mock-genlook/bridge.py                               # :8888 try-on-aware front
+cd frontend && API_UPSTREAM=http://127.0.0.1:8888 bun dev.ts # :8811
+```
+
+The bridge translates the shop's request into the Genlook contract
+(`product_id/title/description/image_url/person_image_id` →
+`products[0] + person.image.source.id`), so the payload shape you test is the
+payload production sends. Drop the bridge once the worker honours
+`GENLOOK_BASE`.
+
 Flags: `--port 8899`, `--delay 8` (seconds PENDING before COMPLETED;
-`--delay 1` for fast iteration).
+`--delay 1` for fast iteration). Bridge: `--port 8888 --upstream <harness>
+--genlook <mock base>`.
 
 ## What it implements (shapes mirror the public docs + the vendored example)
 
@@ -51,6 +72,10 @@ Failure drills (same shapes as production):
 - One optimization they have and we don't: send `{externalId}` reference
   first, fall back to inline on `PRODUCT_NOT_FOUND`. Ours always sends
   inline (1 call, always correct, re-analysis every ~15 days). Optional v2.
+- Timing: production's median sync result is ~8 s, which is why the studio
+  says "about 10 seconds" and only polls when Genlook answers 202. `--delay`
+  models that, so the progress copy and the 90 s poll cap can be tuned
+  (and proven) locally without spending a cent.
 
 ## Limits
 

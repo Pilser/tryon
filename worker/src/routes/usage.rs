@@ -26,6 +26,11 @@ pub struct DeviceStat {
     pub bonus_until_ms: i64,
     #[serde(default)]
     pub blocked: i64,
+    /// Backup storage this device is taking (photos + bytes).
+    #[serde(default)]
+    pub photo_count: i64,
+    #[serde(default)]
+    pub photo_bytes: i64,
     #[serde(default)]
     pub first_seen_ms: i64,
     #[serde(default)]
@@ -62,6 +67,9 @@ pub struct UsageOut {
     pub devices: Vec<DeviceStat>,
     pub tokens: Vec<TokenStat>,
     pub owner_whatsapp: String,
+    /// Storage across every device (the object-storage bill, in one number).
+    pub photos_total: i64,
+    pub photos_bytes: i64,
 }
 
 /// `GET /api/studio/usage` - dashboard overview: devices, tries, tokens.
@@ -70,11 +78,14 @@ pub async fn handle_usage(req: Request, env: Env) -> worker::Result<Response> {
         return errors::unauthorized();
     }
     device::ensure_ddl(&env).await?;
+    crate::routes::photos::ensure_ddl(&env).await?;
     let db = device::db(&env)?;
     let devices: Vec<DeviceStat> = db
         .prepare(
             "SELECT id,name,whatsapp,fingerprint,bonus,bonus_until_ms,blocked,first_seen_ms,last_seen_ms,\
-             (SELECT COUNT(*) FROM tryons t WHERE t.device_id=d.id) AS used \
+             (SELECT COUNT(*) FROM tryons t WHERE t.device_id=d.id) AS used, \
+             (SELECT COUNT(*) FROM device_photos p WHERE p.device_id=d.id) AS photo_count, \
+             (SELECT COALESCE(SUM(bytes),0) FROM device_photos p WHERE p.device_id=d.id) AS photo_bytes \
              FROM devices d ORDER BY last_seen_ms DESC LIMIT 200",
         )
         .all()
@@ -102,6 +113,18 @@ pub async fn handle_usage(req: Request, env: Env) -> worker::Result<Response> {
         .first(None)
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    #[derive(Deserialize, Default)]
+    struct Storage {
+        #[serde(default)]
+        n: i64,
+        #[serde(default)]
+        bytes: i64,
+    }
+    let storage: Option<Storage> = db
+        .prepare("SELECT COUNT(*) AS n, COALESCE(SUM(bytes),0) AS bytes FROM device_photos")
+        .first(None)
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
     let shop = crate::routes::shop::merged(&env).await;
     Response::from_json(&UsageOut {
         free_tries: crate::routes::quota::free_tries(&env).await,
@@ -112,6 +135,8 @@ pub async fn handle_usage(req: Request, env: Env) -> worker::Result<Response> {
         devices,
         tokens,
         owner_whatsapp: shop.owner_whatsapp,
+        photos_total: storage.as_ref().map(|s| s.n).unwrap_or(0),
+        photos_bytes: storage.as_ref().map(|s| s.bytes).unwrap_or(0),
     })
 }
 
@@ -203,6 +228,8 @@ mod tests {
                 ..Default::default()
             }],
             owner_whatsapp: "256772000000".into(),
+            photos_total: 2,
+            photos_bytes: 4096,
         };
         let v = serde_json::to_value(&out).unwrap();
         assert_eq!(v["devices"].as_array().unwrap().len(), 2);

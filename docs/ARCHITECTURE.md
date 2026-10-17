@@ -119,6 +119,19 @@ Owner dashboard (`routes/usage.rs`, `routes/tokens.rs`, `routes/quota.rs`):
   (`{creditBalance}`). Generation responses carry no per-call cost field:
   a try-on is a flat 1 credit, refunded when it fails, so the balance
   endpoint is the only spend signal the API offers.
+- `POST /api/device/photos` -> back up one picked photo (raw image body +
+  `x-device-id`). Object key `people/<device>/<ms>-<rand>.<ext>` in the
+  `PRODUCTS` R2 bucket, one D1 row per object (`device_photos`), oldest
+  pruned past 60 per device so one device cannot fill the bucket.
+- `GET /api/studio/photos?device_id=..` -> one device's folder (count,
+  bytes, newest first); omit the id for every device. `GET
+  /api/studio/photo?key=..` streams one photo (owner-only: shopper photos
+  are never public). `POST /api/studio/photos/delete`
+  `{device_id?, filter:"all"|"old", days?}` = folder-style cleanup, so
+  deletion is a filter on the dashboard, never a per-file button.
+- `GET /api/studio/usage` also carries `photos_total`/`photos_bytes` and,
+  per device, `photo_count`/`photo_bytes` - what each device costs in
+  storage and the total.
 - Owner-only (Bearer `OWNER_TOKEN`; empty token = open local backend):
 - `POST /api/owner/login` / `POST /api/owner/logout`.
 - `POST /api/studio/products` (multipart bundle: image0 garment, image1 model, image2 styled) -> R2 + D1 upsert.

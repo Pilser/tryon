@@ -63,6 +63,19 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .post_async("/api/device/redeem", |req, ctx| async move {
             routes::tokens::handle_redeem(req, ctx.env).await
         })
+        // Per-device photo backup (object storage) + owner storage view
+        .post_async("/api/device/photos", |req, ctx| async move {
+            routes::photos::handle_backup(req, ctx.env).await
+        })
+        .get_async("/api/studio/photos", |req, ctx| async move {
+            routes::photos::handle_list(req, ctx.env).await
+        })
+        .get_async("/api/studio/photo", |req, ctx| async move {
+            routes::photos::handle_get(req, ctx.env).await
+        })
+        .post_async("/api/studio/photos/delete", |req, ctx| async move {
+            routes::photos::handle_delete(req, ctx.env).await
+        })
         .post_async("/api/try-on/sync", |req, ctx| async move {
             routes::tryon::handle_sync(req, ctx.env).await
         })

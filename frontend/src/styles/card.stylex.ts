@@ -71,8 +71,9 @@ export const gallery = stylex.create({
     position: "relative", width: "100%", maxWidth: "100%", aspectRatio: "3 / 4",
     borderRadius: 12, overflow: "hidden", backgroundColor: "#2c3319",
     borderWidth: 1, borderStyle: "solid", borderColor: "#2c3319",
+    "@media (max-width: 720px)": { maxHeight: "max(min(52vh, calc(100dvh - 420px)), 220px)" },
     ":fullscreen": {
-      width: "100%", height: "100%", aspectRatio: "auto",
+      width: "100%", height: "100%", aspectRatio: "auto", maxHeight: "none",
       borderRadius: 0, borderStyle: "none", backgroundColor: "#000",
     },
   },

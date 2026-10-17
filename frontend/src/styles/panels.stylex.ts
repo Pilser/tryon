@@ -12,7 +12,7 @@ export const studio = stylex.create({
   page: {
     maxWidth: 1100, marginLeft: "auto", marginRight: "auto",
     paddingTop: 66, paddingLeft: 22, paddingRight: 22, paddingBottom: 22,
-    "@media (max-width: 720px)": { paddingTop: 62, paddingLeft: 12, paddingRight: 12 },
+    "@media (max-width: 720px)": { paddingTop: 62, paddingLeft: 12, paddingRight: 12, paddingBottom: 12 },
   },
   pickRow: {
     display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap",
@@ -101,6 +101,7 @@ export const timeline = stylex.create({
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
     flexShrink: 0, width: 64, height: 64, borderRadius: 10,
     backgroundColor: t.primary, color: t.primaryInk, cursor: "pointer",
+    "@media (max-width: 720px)": { width: 54, height: 54 },
   },
   addIcon: { fontSize: 24, fontWeight: 700, lineHeight: 1 },
   addLabel: { fontSize: 10, fontWeight: 700 },
@@ -109,6 +110,7 @@ export const timeline = stylex.create({
     gap: 2, flexShrink: 0, width: 64, height: 64, borderRadius: 10,
     backgroundColor: t.surface, color: t.text, cursor: "pointer",
     borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    "@media (max-width: 720px)": { width: 54, height: 54 },
   },
   takeIcon: { display: "flex", lineHeight: 1 },
   item: {
@@ -116,7 +118,10 @@ export const timeline = stylex.create({
     borderRadius: 8, padding: 0, backgroundColor: "transparent",
     cursor: "pointer", flexShrink: 0,
   },
-  itemImg: { width: 64, height: 64, objectFit: "cover", borderRadius: 6, display: "block" },
+  itemImg: {
+    width: 64, height: 64, objectFit: "cover", borderRadius: 6, display: "block",
+    "@media (max-width: 720px)": { width: 54, height: 54 },
+  },
   itemOn: { borderColor: t.primary },
 });
 
@@ -141,9 +146,11 @@ export const duo = stylex.create({
     position: "relative", width: "100%", maxWidth: "min(100%, 52vh)",
     marginLeft: "auto", marginRight: "auto", aspectRatio: "3 / 4",
     borderRadius: 12, overflow: "hidden", backgroundColor: t.line,
-    "@media (max-width: 720px)": { maxWidth: "none" },
+    /* Full-bleed on mobile, but height-capped so the whole studio page
+       (ribbon + card + timeline + CTA) fits one phone viewport. */
+    "@media (max-width: 720px)": { maxWidth: "none", maxHeight: "max(min(52vh, calc(100dvh - 420px)), 220px)" },
     ":fullscreen": {
-      width: "100%", height: "100%", maxWidth: "none",
+      width: "100%", height: "100%", maxWidth: "none", maxHeight: "none",
       borderRadius: 0, backgroundColor: "#000", aspectRatio: "auto",
     },
   },
@@ -183,7 +190,12 @@ export const duo = stylex.create({
   fit: {
     width: "100%", maxWidth: "min(100%, 52vh)",
     marginLeft: "auto", marginRight: "auto",
-    "@media (max-width: 720px)": { maxWidth: "none" },
+    "@media (max-width: 720px)": {
+      maxWidth: "none",
+      /* Shrink only as much as needed: the other studio blocks take
+         ~420px, so cap the frame to what is left of the viewport. */
+      maxHeight: "max(min(52vh, calc(100dvh - 420px)), 220px)",
+    },
   },
   /* Small attached title on top of each duo box, every viewport. */
   boxTitle: {
@@ -216,17 +228,20 @@ export const cats = stylex.create({
     display: "flex", gap: 10, overflowX: "auto", paddingTop: 8, paddingBottom: 8,
     scrollbarWidth: "none",
     "::-webkit-scrollbar": { display: "none" },
+    "@media (max-width: 720px)": { gap: 8, paddingTop: 4, paddingBottom: 4 },
   },
   item: {
     display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
     flexShrink: 0, width: 72, padding: 6, borderRadius: 10, cursor: "pointer",
     backgroundColor: "transparent",
     borderWidth: 2, borderStyle: "solid", borderColor: "transparent",
+    "@media (max-width: 720px)": { width: 60, gap: 2, padding: 4 },
   },
   itemOn: { borderColor: t.primary },
   img: {
     width: 56, height: 56, objectFit: "cover", borderRadius: 10, display: "block",
     backgroundColor: t.line,
+    "@media (max-width: 720px)": { width: 42, height: 42, borderRadius: 8 },
   },
   imgBlank: {
     display: "flex", alignItems: "center", justifyContent: "center",

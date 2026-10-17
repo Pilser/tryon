@@ -13,6 +13,8 @@ export interface Allowance {
   /** -1 = unlimited (a time token window is open). */
   remaining: number;
   owner_whatsapp: string;
+  /** 1 = the owner blocked this device (no more try-ons). */
+  blocked?: number;
 }
 
 const ID_KEY = "tryon.device.v1";
@@ -63,9 +65,10 @@ export const rememberDeviceId = (id: string): void => {
   }
 };
 
-/** True when this device has nothing left to spend. */
+/** True when this device has nothing left to spend (or is blocked). */
 export const isSpent = (a: Allowance): boolean =>
-  a.remaining === 0 && a.bonus <= 0 && a.bonus_until_ms <= Date.now();
+  !!a.blocked ||
+  (a.remaining === 0 && a.bonus <= 0 && a.bonus_until_ms <= Date.now());
 
 /** "6 try-ons" / "unlimited for 2 h" / "used up", for the dashboard + banner. */
 export const allowanceLabel = (a: Allowance): string => {

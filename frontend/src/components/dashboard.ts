@@ -1,9 +1,18 @@
-/* components/dashboard.ts - owner-only usage dashboard: overview, devices
-   (users), unlock tokens and settings. One `/api/studio/usage` read feeds
-   every tab, so switching tabs is instant; token CSV + printable document
-   are built client-side from the same data. */
+/* components/dashboard.ts - owner usage dashboard rendered full-page
+   (dashboard.html): overview, devices (users), unlock tokens and settings.
+   One `/api/studio/usage` read feeds every tab, so switching tabs is
+   instant; token CSV + printable documents are built client-side from the
+   same data. Per-device actions: give a token, block / unblock. */
 import * as stylex from "@stylexjs/stylex";
-import { deleteToken, mintTokens, saveSettings, studioUsage, type UsageOut } from "../core/api";
+import {
+  deleteToken,
+  deviceBlock,
+  mintTokens,
+  saveSettings,
+  studioCredits,
+  studioUsage,
+  type UsageOut,
+} from "../core/api";
 import { loadOwner } from "../core/store";
 import { esc } from "../core/format";
 import { skin } from "../skin";
@@ -24,6 +33,9 @@ const TABS: Array<[Tab, string]> = [
 let active: Tab = "overview";
 let data: UsageOut | null = null;
 let minted: string[] = [];
+let credits: number | null = null;
+/** Host the dashboard paints into (dashboard.html owns the page frame). */
+let host: HTMLElement | null = null;
 
 const el = (id: string): HTMLElement | null => document.getElementById(id);
 const n = (v: number): string => String(v ?? 0);
@@ -66,7 +78,7 @@ export function tokensDoc(title: string, rows: UsageOut["tokens"], shop: string)
       <p class="meta">${r.redeemed_by ? "Used " + esc(when(r.redeemed_ms)) : "Unused"}${
         r.note ? " · " + esc(r.note) : ""
       }</p>
-      <p class="hint">Enter this code in the try-on studio (Your photo card → Unlock try-ons). One use only.</p>
+      <p class="hint">Enter this code in the studio banner (Free try-ons → Details → Unlock try-ons). One use only.</p>
     </section>`,
     )
     .join("");
@@ -95,14 +107,21 @@ async function reload(): Promise<void> {
   try {
     data = await studioUsage(ownerToken());
     paint();
+    // Balance is nice-to-have: a missing key or a provider hiccup must not
+    // blank the dashboard, so it lands after the main paint.
+    try {
+      credits = (await studioCredits(ownerToken())).creditBalance;
+      paint();
+    } catch {
+      credits = null;
+    }
   } catch (e) {
     paintError(e instanceof Error ? e.message : String(e));
   }
 }
 
 function paintError(msg: string): void {
-  const box = el("dash");
-  if (box) box.innerHTML = `<p class="${cx(s.empty)}">${esc(msg)}</p>`;
+  if (host) host.innerHTML = `<p class="${cx(s.empty)}">${esc(msg)}</p>`;
 }
 
 function download(name: string, text: string, mime: string): void {
@@ -120,20 +139,26 @@ function tile(value: string, name: string): string {
 
 function deviceRow(d: UsageOut["devices"][number], free: number): string {
   const window_ = d.bonus_until_ms > Date.now();
-  const used = d.used >= free && !window_ && d.bonus <= 0;
+  const spent = d.used >= free && !window_ && d.bonus <= 0;
+  const blocked = !!d.blocked;
   const who = d.name || d.whatsapp || "Guest " + short(d.id);
   const chips = [
-    `<span class="${cx(s.chip, used ? s.chipUsed : s.chipFree)}">${n(d.used)} tries</span>`,
+    `<span class="${cx(s.chip, spent ? s.chipUsed : s.chipFree)}">${n(d.used)} tries</span>`,
     d.bonus > 0 ? `<span class="${cx(s.chip, s.chipPaid)}">+${n(d.bonus)} paid</span>` : "",
     window_ ? `<span class="${cx(s.chip, s.chipPaid)}">unlimited</span>` : "",
   ].join("");
   const wa = d.whatsapp
     ? `<a class="${cx(s.chip)}" href="https://wa.me/${esc(d.whatsapp)}" target="_blank" rel="noopener">+${esc(d.whatsapp)}</a>`
     : `<span class="${cx(s.chipUsed)}">no number yet</span>`;
+  const guard = blocked ? `<span class="${cx(s.chip, s.chipUsed)}">blocked</span>` : "";
   return `<div class="${cx(s.row)}">
     <div><p class="${cx(s.who)}">${esc(who)}</p>
     <p class="${cx(s.sub)}">seen ${esc(when(d.last_seen_ms))} · device ${esc(short(d.id))}</p></div>
-    <div class="${cx(s.chips)}">${chips}${wa}</div>
+    <div class="${cx(s.chips)}">${guard}${chips}${wa}</div>
+    <div class="${cx(s.actions)}">
+      <button class="btn secondary" type="button" data-give="${esc(d.id)}" title="Mint one code for this user">Give token</button>
+      <button class="btn" type="button" data-block="${esc(d.id)}" data-on="${blocked ? "1" : "0"}">${blocked ? "Unblock" : "Block"}</button>
+    </div>
   </div>`;
 }
 
@@ -153,8 +178,8 @@ function tokenRow(t: UsageOut["tokens"][number]): string {
 }
 
 function paint(): void {
-  const box = el("dash");
-  if (!box || !data) return;
+  if (!host || !data) return;
+  const box = host;
   const d = data;
   const tabs = TABS.map(
     ([id, name]) =>
@@ -170,6 +195,7 @@ function paint(): void {
         ${tile(n(d.tryons_total), "try-ons")}
         ${tile(n(d.tokens_redeemed), "codes used")}
         ${tile(n(Math.max(0, d.tokens_total - d.tokens_redeemed)), "codes unused")}
+        ${tile(credits === null ? "-" : n(credits), "genlook credits")}
       </div>
       <p class="${cx(s.sectionTitle)}">Latest users</p>
       <div class="${cx(s.list)}">${
@@ -182,10 +208,21 @@ function paint(): void {
         ${tile(n(d.free_tries), "free each")}
         ${tile(n(d.tryons_total), "try-ons")}
       </div>
+      <p class="${cx(s.sectionTitle)}">Give a token to one user</p>
+      <p class="${cx(s.sub)}">Pick the value, tap Give token on their row, then send the code to their
+        WhatsApp. The code is one-use: they type it in the studio banner and it lands on their device.</p>
+      <div class="${cx(s.form)}">
+        <input class="${cx(s.num)}" id="dash-give-val" type="number" min="1" max="10000" value="3" aria-label="try-ons per given token"/>
+        <span class="${cx(s.sub)}">try-ons per code</span>
+      </div>
+      <p class="${cx(s.sub)}" id="dash-given" style="display:none"></p>
       <div class="${cx(s.list)}">${
         d.devices.map((x) => deviceRow(x, d.free_tries)).join("") ||
         `<p class="${cx(s.empty)}">No devices yet.</p>`
-      }</div>`;
+      }</div>
+      <p class="${cx(s.sectionTitle)}">Blocked devices</p>
+      <p class="${cx(s.sub)}">Blocked = try-ons pause on that device until you tap Unblock. Give a token
+        or unblock after you have talked to the user on WhatsApp.</p>`;
   } else if (active === "tokens") {
     const unused = d.tokens.filter((x) => !x.redeemed_by);
     const used = d.tokens.filter((x) => !!x.redeemed_by);
@@ -225,6 +262,10 @@ function paint(): void {
         <input class="${cx(s.num)}" id="dash-free" type="number" min="0" max="1000" value="${n(d.free_tries)}" aria-label="free try-ons"/>
         <button class="btn primary" id="dash-save" type="button">Save allowance</button>
       </div>
+      <p class="${cx(s.sectionTitle)}">Genlook credits</p>
+      <p class="${cx(s.body)}">Balance: <b>${credits === null ? "not available" : n(credits)}</b> (each try-on costs 1,
+        failed ones are refunded). Genlook does not put a cost field in generation responses; this reads
+        their account/credits endpoint.</p>
       <p class="${cx(s.sectionTitle)}">Shop contact used by the banner</p>
       <p class="${cx(s.sub)}">WhatsApp: <b>${d.owner_whatsapp ? "+" + esc(d.owner_whatsapp) : "not set"}</b>
         - edit it in the Shop card above (name, number, currency).</p>
@@ -240,13 +281,13 @@ function paint(): void {
 }
 
 function wire(): void {
-  el("dash")?.querySelectorAll("[data-tab]").forEach((b) =>
+  host?.querySelectorAll("[data-tab]").forEach((b) =>
     b.addEventListener("click", () => {
       active = (b as HTMLElement).dataset.tab as Tab;
       paint();
     }),
   );
-  el("dash")?.querySelectorAll("[data-copy]").forEach((b) =>
+  host?.querySelectorAll("[data-copy]").forEach((b) =>
     b.addEventListener("click", () => void (async () => {
       const code = (b as HTMLElement).dataset.copy || "";
       try {
@@ -257,11 +298,44 @@ function wire(): void {
       }
     })()),
   );
-  el("dash")?.querySelectorAll("[data-del]").forEach((b) =>
+  host?.querySelectorAll("[data-del]").forEach((b) =>
     b.addEventListener("click", () => void (async () => {
       try {
         await deleteToken(ownerToken(), (b as HTMLElement).dataset.del || "");
         await reload();
+      } catch (e) {
+        paintError(e instanceof Error ? e.message : String(e));
+      }
+    })()),
+  );
+  host?.querySelectorAll("[data-block]").forEach((b) =>
+    b.addEventListener("click", () => void (async () => {
+      const btn = b as HTMLElement;
+      try {
+        await deviceBlock(ownerToken(), btn.dataset.block || "", btn.dataset.on !== "1");
+        await reload();
+      } catch (e) {
+        paintError(e instanceof Error ? e.message : String(e));
+      }
+    })()),
+  );
+  host?.querySelectorAll("[data-give]").forEach((b) =>
+    b.addEventListener("click", () => void (async () => {
+      const btn = b as HTMLElement;
+      const id = btn.dataset.give || "";
+      const value = Number((el("dash-give-val") as HTMLInputElement | null)?.value || 3);
+      const target = data?.devices.find((x) => x.id === id);
+      const note = target ? `given to ${target.name || target.whatsapp || id}` : "given from dashboard";
+      try {
+        const res = await mintTokens(ownerToken(), { kind: "count", value, count: 1, note });
+        minted = res.codes;
+        await reload();
+        // The given code is the whole point: surface it right here.
+        const said = el("dash-given");
+        if (said) {
+          said.innerHTML = `Code for ${esc(short(id))}: <span class="${cx(s.code)}">${esc(res.codes.join(", "))}</span>`;
+          said.style.display = "";
+        }
       } catch (e) {
         paintError(e instanceof Error ? e.message : String(e));
       }
@@ -318,17 +392,12 @@ function wire(): void {
     data && openDoc(data.tokens.filter((t) => !t.redeemed_by), "Unused unlock codes"));
 }
 
-/** Owner-only Settings button: opens the dashboard and loads it (once). */
-export function initDashboard(): void {
-  const button = document.getElementById("dash-toggle");
-  const box = document.getElementById("dash");
-  if (!button || !box) return;
-  button.addEventListener("click", () => void (async () => {
-    const open = box.style.display === "none" || !box.style.display;
-    box.style.display = open ? "" : "none";
-    button.textContent = open ? "Hide" : "Settings";
-    if (!open) return;
-    if (!data) await reload();
-    else paint();
-  })());
+/**
+ * Full-page dashboard: the page owns the frame (login card + container);
+ * this loads the data and paints the tabs. Owner token required.
+ */
+export async function renderDashboard(box: HTMLElement): Promise<void> {
+  host = box;
+  if (!data) await reload();
+  else paint();
 }

@@ -72,7 +72,7 @@ export async function product(): Promise<void> {
   // Inquire sits left in the CTA row; Start appears right of it on photo.
   const inq = document.getElementById("st-inquire") as HTMLAnchorElement | null;
   if (inq) {
-    inq.href = inquireUrl(shop.owner_whatsapp, shop.shop_name, p.title, p.id);
+    inq.href = inquireUrl(shop.owner_whatsapp, shop.shop_name, p.title, link);
     inq.innerHTML = waIcon() + "<span>Inquire</span>";
     (inq as HTMLElement).style.display = "";
   }

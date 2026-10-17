@@ -30,20 +30,31 @@ export function paintQuota(a: Allowance | null, exceeded = false, open = false):
   const render = (): void => {
     const shop = (document.querySelector(".brand")?.textContent || "the shop").trim();
     const owner = a.owner_whatsapp || "";
+    const blocked = !!a.blocked;
     const waText = encodeURIComponent(
-      `Hi ${shop}! I used all my free try-ons. My number is ${a.whatsapp || "..."}${a.name ? " (" + a.name + ")" : ""}. Please send me an unlock code.`,
+      blocked
+        ? `Hi ${shop}! My device was blocked from try-ons. My number is ${a.whatsapp || "..."}. Please help me.`
+        : `Hi ${shop}! I used all my free try-ons. My number is ${a.whatsapp || "..."}${a.name ? " (" + a.name + ")" : ""}. Please send me an unlock code.`,
     );
     const waHref = "https://wa.me/" + owner + "?text=" + waText;
     const done = !!a.whatsapp;
     box.innerHTML = `
       <div class="${cx(s.head)}">
-        <p class="${cx(s.title)}">${exceeded
-          ? "Free try-ons used up"
-          : "Free try-ons: " + esc(allowanceLabel(a))}</p>
-        <button class="btn secondary" id="st-q-toggle" type="button">${expanded ? "Hide" : "Unlock more"}</button>
+        <p class="${cx(s.title)}">${blocked
+          ? "Blocked by the shop"
+          : exceeded
+            ? "Free try-ons used up"
+            : "Free try-ons: " + esc(allowanceLabel(a))}</p>
+        <button class="btn secondary" id="st-q-toggle" type="button">${expanded ? "Hide" : "Details"}</button>
       </div>
       <div id="st-q-body" class="${cx(s.panel)}" style="${expanded ? "" : "display:none"}">
-        <p class="${cx(s.body)}">You get <span class="${cx(s.strong)}">${a.free_tries}</span> free try-ons on this
+        ${
+          blocked
+            ? `<p class="${cx(s.body)}">This device was <span class="${cx(s.strong)}">blocked by the shop</span>, so try-ons are paused here. If you think this is a mistake, message the shop${
+                owner ? ` at <span class="${cx(s.strong)}">+${esc(owner)}</span>` : ""
+              }.</p>
+        <div class="${cx(s.form)}">${done && owner ? `<a class="${cx(s.wa)}" href="${waHref}" target="_blank" rel="noopener">${waIcon(17)} Message the shop</a>` : ""}</div>`
+            : `<p class="${cx(s.body)}">You get <span class="${cx(s.strong)}">${a.free_tries}</span> free try-ons on this
           device and you have used <span class="${cx(s.strong)}">${a.used}</span>.
           ${owner
             ? `Send your number to the shop (WhatsApp <span class="${cx(s.strong)}">+${esc(owner)}</span>) and they will send you a 4-character unlock code.`
@@ -58,7 +69,8 @@ export function paintQuota(a: Allowance | null, exceeded = false, open = false):
           <input class="${cx(s.codeInput)}" id="st-q-code" maxlength="4" placeholder="CODE" autocapitalize="characters" autocomplete="off"/>
           <button class="btn primary" id="st-q-redeem" type="button">Unlock try-ons</button>
           <p class="${cx(s.sub)}">Have a code from the shop? Type it and unlock instantly.</p>
-        </div>
+        </div>`
+        }
         <p class="${cx(s.ok)}" id="st-q-ok" style="display:none"></p>
         <p class="${cx(s.err)}" id="st-q-err" style="display:none"></p>
       </div>`;

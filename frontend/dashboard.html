@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Usage dashboard - TryOn &amp; Shop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap"/></noscript>
+<link rel="stylesheet" href="/app/dist/stylex.css"/>
+</head>
+<body data-page="dashboard">
+<header class="topbar"><a class="nav-back" href="/app/studio.html?owner=1" aria-label="Back">&#8249;</a><a class="brand" href="/app/">TryOn &amp; Shop</a></header>
+<main class="studio-page">
+  <section class="studio" id="dashpage">
+    <h2 class="dash-title">Usage &amp; unlock codes</h2>
+    <div class="login-card" id="dash-login" style="display:none">
+      <p class="hint">Owner only. Enter your token to open the dashboard.</p>
+      <div class="row">
+        <input class="owner-token" id="db-token" type="password" placeholder="Owner token" autocomplete="off"/>
+        <button class="btn primary" id="db-login" type="button">Log in</button>
+      </div>
+      <p class="error" id="db-login-err" style="display:none"></p>
+    </div>
+    <div id="dash" style="display:none"></div>
+  </section>
+</main>
+<script type="module" src="/app/dist/main.js"></script>
+</body>
+</html>

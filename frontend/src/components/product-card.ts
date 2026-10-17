@@ -8,7 +8,7 @@ import * as stylex from "@stylexjs/stylex";
 import { card as s, gallery as g } from "../styles/card.stylex";
 import type { Product } from "../core/types";
 import { esc, money } from "../core/format";
-import { inquireUrl } from "../core/whatsapp";
+import { inquireUrl, waShareUrl, shareUrl } from "../core/whatsapp";
 import { waIcon } from "./whatsapp-icon";
 
 const FS_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`;
@@ -57,7 +57,7 @@ export function cardHTML(p: Product, shop: string, owner: string): string {
     <p class="${cx(s.caption)} swap-cur">${CAP_G}</p>`}
     <p class="${cx(s.title)}">${esc(p.title)}</p><p class="${cx(s.price)}">${esc(money(p))}</p>
     <a class="${cx(s.tryon)}" href="/app/studio.html?id=${esc(p.id)}"><span class="${cx(s.tryonLabel)}">Try On</span></a>
-    <a class="${cx(s.inquire)}" target="_blank" rel="noopener" href="${esc(inquireUrl(owner, shop, p.title, p.id))}"><span class="${cx(s.inquireLabel)}">${waIcon()} Inquire</span></a>
+    <a class="${cx(s.inquire)}" target="_blank" rel="noopener" href="${esc(inquireUrl(owner, shop, p.title, shareUrl(location.origin, p.id)))}"><span class="${cx(s.inquireLabel)}">${waIcon()} Inquire</span></a>
   </article>`;
 }
 

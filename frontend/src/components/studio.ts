@@ -35,10 +35,12 @@ export function initStudio(product: Product): void {
     if (!a) return;
     rememberDeviceId(a.device_id);
     spent = isSpent(a);
-    // Expanded when the shopper just hit the wall, collapsed otherwise so
-    // the studio keeps fitting the phone screen.
-    paintQuota(spent ? a : null, spent, open);
-    if (spent) { const s = document.getElementById("st-start"); if (s) show(s, false); }
+    // Blocked devices always get the banner (try-ons are paused); spent
+    // ones get it collapsed unless they just hit the wall.
+    const blocked = !!a.blocked;
+    paintQuota(blocked || spent ? a : null, spent, open || blocked);
+    const st = document.getElementById("st-start");
+    if (st) show(st, !(spent || blocked));
   };
   const refreshAllowance = async (): Promise<void> => {
     try {
@@ -57,8 +59,7 @@ export function initStudio(product: Product): void {
     m.textContent = d.note;
     window.setTimeout(() => { if (m.textContent === d.note) m.textContent = ""; }, 5000);
   });
-  const ready = (src: string, key: string, scroll = true): void => {
-    if (activeFull.startsWith("blob:")) {
+  const ready = (src: string, key: string, scroll = true): void => {    if (activeFull.startsWith("blob:")) {
       try { URL.revokeObjectURL(activeFull); } catch { /* already gone */ }
     }
     activeThumb = src;

@@ -4,7 +4,7 @@ Single shared page (`/app/studio.html?id=<productId>&owner=1`): the shopper
 try-on flow and the owner login + bundle upload live in the same place.
 Feed "Try On" lands here with the product already selected.
 Served by `bun run dev` (:8811, dev.ts) with `/api` proxied to :8787.
-(Astro was removed in phase9; `src/*.astro` are dead files, do not edit.)
+(Astro removed in phase9: the `.astro` pages, `astro.config.mjs` and `.astro/` types were deleted.)
 
 ## 1. Entry
 

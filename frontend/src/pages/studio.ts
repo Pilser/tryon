@@ -3,12 +3,11 @@
    Owner (??owner=1 or saved token): bundle upload below; styled slot can
    be uploaded OR filled from the latest try-on result. */
 import { getProduct, getShop, listProducts, listCategories } from "../core/api";
-import { inquireUrl } from "../core/whatsapp";
+import { inquireUrl, shareUrl } from "../core/whatsapp";
 import { waIcon } from "../components/whatsapp-icon";
 import { duoHTML, armDuo } from "../components/duo";
 import { ribbonCats, catRibbonHTML, armCatRibbon } from "../components/cat-ribbon";
 import { initStudio } from "../components/studio";
-import { initDashboard } from "../components/dashboard";
 import { initOwnerForm } from "../components/owner-form";
 import { brandHTML } from "../core/format";
 import { loadOwner } from "../core/store";
@@ -56,7 +55,7 @@ export async function studio(): Promise<void> {
     // Inquire sits left in the CTA row; Start appears right of it on photo.
     const inq = document.getElementById("st-inquire") as HTMLAnchorElement | null;
     if (inq) {
-      inq.href = inquireUrl(shop.owner_whatsapp, shop.shop_name, p.title, p.id);
+      inq.href = inquireUrl(shop.owner_whatsapp, shop.shop_name, p.title, shareUrl(location.origin, p.id));
       inq.innerHTML = waIcon() + "<span>Inquire</span>";
       (inq as HTMLElement).style.display = "";
     }
@@ -88,7 +87,7 @@ export async function studio(): Promise<void> {
   const gate = document.getElementById("owner-gate");
   if (own) {
     if (owner) {
-      own.style.display = ""; initOwnerForm(); initDashboard();
+      own.style.display = ""; initOwnerForm();
       if (gate) gate.style.display = "none";
     } else own.style.display = "none";
   }

@@ -123,6 +123,7 @@ export interface UsageOut {
     used: number;
     bonus: number;
     bonus_until_ms: number;
+    blocked: number;
     first_seen_ms: number;
     last_seen_ms: number;
   }>;
@@ -160,6 +161,15 @@ export const deleteToken = (token: string, code: string): Promise<{ ok: boolean 
 
 export const saveSettings = (token: string, freeTries: number): Promise<{ free_tries: number }> =>
   ownerPost("/api/studio/settings", { free_tries: freeTries }, token);
+
+export const deviceBlock = (token: string, deviceId: string, blocked: boolean): Promise<unknown> =>
+  ownerPost("/api/studio/devices/block", { device_id: deviceId, blocked }, token);
+
+/** Owner's remaining Genlook credits (each try-on costs 1). */
+export const studioCredits = (token: string): Promise<{ creditBalance: number }> =>
+  api<{ creditBalance: number }>("/api/studio/credits", {
+    ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),
+  });
 
 export async function pollGeneration(id: string, onTick: (secs: number) => void): Promise<string> {
   for (let n = 0; n < 45; n++) {

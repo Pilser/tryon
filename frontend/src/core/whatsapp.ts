@@ -1,9 +1,15 @@
 /* core/whatsapp.ts - wa.me link builders. Pure, no DOM. */
 const digits = (s: string): string => String(s || "").replace(/\D/g, "");
 
-export const inquireUrl = (owner: string, shop: string, title: string, productId: string): string =>
+/**
+ * Inquire carries the FULL product URL, not just its id: the owner taps
+ * the message and lands on the product page directly.
+ */
+export const inquireUrl = (owner: string, shop: string, title: string, productUrl: string): string =>
   "https://wa.me/" + digits(owner) + "?text=" +
-  encodeURIComponent(`Hi ${shop}! I like ${title} (${productId}). Is it available?`);
+  encodeURIComponent(
+    `Hi ${shop}! I like ${title}. ${productUrl || "(link unavailable)"} Is it available?`,
+  );
 
 export const shareUrl = (origin: string, productId: string): string =>
   origin.replace(/\/$/, "") + "/app/product.html?id=" + encodeURIComponent(productId);

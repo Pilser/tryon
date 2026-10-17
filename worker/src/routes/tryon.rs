@@ -84,7 +84,8 @@ pub fn parse_sync_response(status: u16, body: &Value) -> Result<SyncOutcome, Str
 }
 
 /// Client sends the product snapshot (already validated against D1 in
-/// phase7) + the person `imageId` from `/api/person-upload`.
+/// phase7) + the person `imageId` from `/api/person-upload`, plus the
+/// device id the shopper's browser keeps (quota + usage tracking).
 #[derive(Deserialize)]
 pub struct SyncIn {
     pub product_id: String,
@@ -92,12 +93,16 @@ pub struct SyncIn {
     pub description: String,
     pub image_url: String,
     pub person_image_id: String,
+    #[serde(default)]
+    pub device_id: String,
 }
 
-/// `POST /api/try-on` and `POST /api/try-on/sync` — same work: validate,
-/// then wait upstream. `/try-on/sync` holds the connection up to 90 s and
-/// answers 200 (COMPLETED + temporary `resultImageUrl`) or 202 (PENDING,
-/// poll `/api/generations/:id`).
+/// `POST /api/try-on` and `POST /api/try-on/sync` — same work: check the
+/// device allowance, validate, then wait upstream. `/try-on/sync` holds the
+/// connection up to 90 s and answers 200 (COMPLETED + temporary
+/// `resultImageUrl`) or 202 (PENDING, poll `/api/generations/:id`). A spent
+/// allowance answers 402 `QUOTA_EXCEEDED` before Genlook is called, so no
+/// credit is ever wasted on a blocked device.
 pub async fn handle_sync(mut req: Request, env: Env) -> worker::Result<Response> {
     let key = gl::api_key(&env)?;
     let input: SyncIn = req
@@ -110,6 +115,9 @@ pub async fn handle_sync(mut req: Request, env: Env) -> worker::Result<Response>
     }) {
         return crate::routes::errors::bad_request("INVALID_REQUEST", e);
     }
+    if let Some(blocked) = crate::routes::quota::gate(&env, &input.device_id).await? {
+        return Ok(blocked);
+    }
     let body = build_sync_body(
         &input.product_id,
         &input.title,
@@ -118,14 +126,21 @@ pub async fn handle_sync(mut req: Request, env: Env) -> worker::Result<Response>
         &input.person_image_id,
     );
     let bytes = serde_json::to_vec(&body).map_err(|e| worker::Error::RustError(e.to_string()))?;
-    gl::forward(
+    let resp = gl::forward(
         &key,
         Method::Post,
         &format!("{}/try-on/sync", gl::base(&env)),
         Some("application/json"),
         Some(bytes),
     )
-    .await
+    .await?;
+    // Only a generation that Genlook accepted may consume an allowance.
+    // (The body is passed through untouched, so the gid is not logged here.)
+    let status = resp.status_code();
+    if status == 200 || status == 202 {
+        crate::routes::quota::record(&env, &input.device_id, &input.product_id, "").await;
+    }
+    Ok(resp)
 }
 
 /// `GET /api/generations/:id` — poll a PENDING try-on.

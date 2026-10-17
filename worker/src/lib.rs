@@ -53,6 +53,16 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .post_async("/api/person-upload", |req, ctx| async move {
             routes::person::handle_upload(req, ctx.env).await
         })
+        // Device registry, free-try-on quota and unlock codes
+        .post_async("/api/device", |req, ctx| async move {
+            routes::device::handle_register(req, ctx.env).await
+        })
+        .post_async("/api/device/contact", |req, ctx| async move {
+            routes::device::handle_contact(req, ctx.env).await
+        })
+        .post_async("/api/device/redeem", |req, ctx| async move {
+            routes::tokens::handle_redeem(req, ctx.env).await
+        })
         .post_async("/api/try-on/sync", |req, ctx| async move {
             routes::tryon::handle_sync(req, ctx.env).await
         })
@@ -78,6 +88,19 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         })
         .post_async("/api/studio/shop", |req, ctx| async move {
             routes::shop::handle_save(req, ctx.env).await
+        })
+        // Owner dashboard: usage stats, unlock codes, free-try-on allowance
+        .get_async("/api/studio/usage", |req, ctx| async move {
+            routes::usage::handle_usage(req, ctx.env).await
+        })
+        .post_async("/api/studio/tokens", |req, ctx| async move {
+            routes::tokens::handle_mint(req, ctx.env).await
+        })
+        .post_async("/api/studio/tokens/delete", |req, ctx| async move {
+            routes::tokens::handle_delete(req, ctx.env).await
+        })
+        .post_async("/api/studio/settings", |req, ctx| async move {
+            routes::quota::handle_settings(req, ctx.env).await
         })
         .run(req, env)
         .await

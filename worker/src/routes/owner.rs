@@ -35,6 +35,19 @@ pub fn env_token(env: &Env) -> String {
         .unwrap_or_default()
 }
 
+/// Owner gate for the dashboard routes: the `Authorization: Bearer …`
+/// header must match, or the deployment must have no token (local rig).
+pub fn authorized(req: &Request, env: &Env) -> bool {
+    let expected = env_token(env);
+    let provided = req
+        .headers()
+        .get("authorization")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    crate::routes::studio::authorized(Some(&provided), &expected)
+}
+
 /// `POST /api/owner/login` — verify the submitted token.
 pub async fn handle_login(mut req: Request, env: Env) -> Result<Response> {
     let input: LoginIn = req

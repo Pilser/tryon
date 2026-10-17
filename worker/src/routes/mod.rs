@@ -1,4 +1,5 @@
 pub mod categories;
+pub mod device;
 pub mod errors;
 pub mod genlook_api;
 pub mod health;
@@ -6,6 +7,9 @@ pub mod ids;
 pub mod owner;
 pub mod person;
 pub mod products;
+pub mod quota;
 pub mod shop;
 pub mod studio;
+pub mod tokens;
 pub mod tryon;
+pub mod usage;

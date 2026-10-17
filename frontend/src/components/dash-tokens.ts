@@ -7,7 +7,8 @@ import * as stylex from "@stylexjs/stylex";
 import { cancelToken, deleteToken, mintTokens, purgeTokens, type UsageOut } from "../core/api";
 import { esc } from "../core/format";
 import { dash as s } from "../styles/dash.stylex";
-import { cx, label, n, short, tokenState, when, type Token } from "./dash-util";
+import { ui as u } from "../styles/ui.stylex";
+import { cx, label, n, ownerOf, tokenState, when, type Device, type Token } from "./dash-util";
 
 export type CodeFilter = "all" | "unused" | "used" | "canceled";
 
@@ -28,6 +29,18 @@ const FILTERS: Array<[CodeFilter, string]> = [
   ["canceled", "Canceled"],
 ];
 
+/** A code's holder line: "for Amina", never "for for Amina" and never the
+    old machine-y note the dashboard used to write. */
+const holderLabel = (raw: string): string => {
+  const t = (raw || "").trim();
+  if (!t) return "";
+  if (/^for\b/i.test(t)) return t;
+  if (/^given from dashboard to\b/i.test(t)) {
+    return "for " + t.replace(/^given from dashboard to\s*/i, "");
+  }
+  return "for " + t;
+};
+
 export const visible = (tokens: Token[], f: CodeFilter): Token[] =>
   f === "all" ? tokens : tokens.filter((t) => tokenState(t) === f);
 
@@ -37,21 +50,27 @@ function chipFor(t: Token): string {
   return `<span class="${cx(style)}">${state}</span>`;
 }
 
-function tokenRow(t: Token): string {
+function tokenRow(t: Token, devices: Device[]): string {
   const state = tokenState(t);
+  // Whose code this is, in the owner's words: the redeemer's name/number
+  // when we know it, otherwise the note they wrote when giving it out.
+  const holder = state === "used" ? ownerOf(t.redeemed_by, devices) : t.note;
   const detail =
     state === "used"
-      ? `used ${when(t.redeemed_ms)} by ${short(t.redeemed_by)}`
+      ? `used ${when(t.redeemed_ms)}${holder ? " by " + holder : ""}`
       : `${state}, made ${when(t.created_ms)}`;
-  return `<div class="${cx(s.row)}">
-    <div><p class="${cx(s.code)}">${esc(t.code)}</p>
-    <p class="${cx(s.sub)}">${esc(label(t.kind, t.value))}${t.note ? " · " + esc(t.note) : ""}<br/>${esc(detail)}</p></div>
-    <div class="${cx(s.chips)}">
+  return `<div class="${cx(u.row)}">
+    <div class="${cx(u.rowMain)}">
+      <p class="${cx(s.code)}">${esc(t.code)}</p>
+      ${holder && state !== "used" ? `<p class="${cx(u.inlineNote)}">${esc(holderLabel(holder))}</p>` : ""}
+      <p class="${cx(u.rowSub)}">${esc(label(t.kind, t.value))}<br/>${esc(detail)}</p>
+    </div>
+    <div class="${cx(u.btnRow)} ${cx(u.btnGrow)}">
       ${chipFor(t)}
-      <button class="btn secondary" type="button" data-copy="${esc(t.code)}">Copy</button>
+      <button class="btn secondary ${cx(u.btnGrow)}" type="button" data-copy="${esc(t.code)}">Copy</button>
       ${state === "unused"
-        ? `<button class="btn danger" type="button" data-cancel="${esc(t.code)}" title="Stop this code from working">Cancel</button>`
-        : `<button class="btn danger" type="button" data-del="${esc(t.code)}" title="Remove this code for good">Delete</button>`}
+        ? `<button class="btn danger ${cx(u.btnGrow)}" type="button" data-cancel="${esc(t.code)}" title="Stop this code from working">Cancel</button>`
+        : `<button class="btn danger ${cx(u.btnGrow)}" type="button" data-del="${esc(t.code)}" title="Remove this code for good">Delete</button>`}
     </div>
   </div>`;
 }
@@ -71,9 +90,9 @@ export function tokensTab(d: UsageOut, minted: string[]): string {
   const isCount = st.kind === "count";
   const kindWord = isCount ? "try-ons" : "hours";
   return `
-  <div class="${cx(s.step, s.stepNow)}">
+  <div class="${cx(u.card)}">
     <div class="${cx(s.stepHead)}"><span class="${cx(s.stepNum)}">1</span>
-      <p class="${cx(s.stepTitle)}">Pick what the code gives</p></div>
+      <p class="${cx(u.cardTitle)}">Pick what the code gives</p></div>
     <div class="${cx(s.choice)}">
       <button class="${cx(s.choiceBtn, isCount && s.choiceOn)}" type="button" data-kind="count">
         Extra try-ons
@@ -92,13 +111,13 @@ export function tokensTab(d: UsageOut, minted: string[]): string {
       <input class="${cx(s.note)}" id="dash-note" placeholder="Note for you (name, amount paid)" value="${esc(st.note)}"/>
     </div>
     <div class="${cx(s.actions)}">
-      <button class="btn primary" id="dash-mint" type="button">2 · Create ${esc(st.count)} code${st.count === "1" ? "" : "s"}</button>
+      <button class="btn primary ${cx(u.btnGrow)}" id="dash-mint" type="button">2 · Create ${esc(st.count)} code${st.count === "1" ? "" : "s"}</button>
     </div>
   </div>
 
-  <div class="${cx(s.step, s.stepNow)}">
+  <div class="${cx(u.card)}">
     <div class="${cx(s.stepHead)}"><span class="${cx(s.stepNum)}">2</span>
-      <p class="${cx(s.stepTitle)}">Send the new code to the buyer</p></div>
+      <p class="${cx(u.cardTitle)}">Send the new code to the buyer</p></div>
     ${minted.length
       ? `<div class="${cx(s.minted)}">
           <p class="${cx(s.sub)}">Just made - send it on WhatsApp or read it out:</p>
@@ -108,13 +127,13 @@ export function tokensTab(d: UsageOut, minted: string[]): string {
             <button class="btn secondary" type="button" id="dash-print-new">Print these</button>
           </div>
         </div>`
-      : `<p class="${cx(s.sub)}">Codes you create show up here, ready to copy or send.</p>`}
+      : `<p class="${cx(u.rowSub)}">Codes you create show up here, ready to copy or send.</p>`}
   </div>
 
-  <div class="${cx(s.step)}">
+  <div class="${cx(u.card)}">
     <div class="${cx(s.stepHead)}"><span class="${cx(s.stepNum, s.stepNumOff)}">3</span>
-      <p class="${cx(s.stepTitle)}">Keep track and clean up</p></div>
-    <p class="${cx(s.sub)}"><b>Unused</b> codes still work. <b>Used</b> codes paid for try-ons.
+      <p class="${cx(u.cardTitle)}">Keep track and clean up</p></div>
+    <p class="${cx(u.rowSub)}"><b>Unused</b> codes still work. <b>Used</b> codes paid for try-ons.
       <b>Canceled</b> codes were pulled by you and no longer work. Delete acts on the list you are
       showing, so filter first.</p>
     <div class="${cx(s.filters)}">
@@ -124,8 +143,8 @@ export function tokensTab(d: UsageOut, minted: string[]): string {
     </div>
     <div class="${cx(s.actions)}">
       ${st.filter === "unused"
-        ? `<button class="btn danger" type="button" data-cancel-all="1">Cancel all shown (${n(rows.length)})</button>`
-        : `<button class="btn danger" type="button" data-purge="${st.filter}">
+        ? `<button class="btn danger ${cx(u.btnGrow)}" type="button" data-cancel-all="1">Cancel all shown (${n(rows.length)})</button>`
+        : `<button class="btn danger ${cx(u.btnGrow)}" type="button" data-purge="${st.filter}">
             ${st.filter === "all"
               ? `Delete used + canceled (${n(counts.used + counts.canceled)})`
               : `Delete ${esc(st.filter)} (${n(rows.length)})`}
@@ -134,8 +153,16 @@ export function tokensTab(d: UsageOut, minted: string[]): string {
       <button class="btn secondary" type="button" id="dash-print">Print shown</button>
       <button class="btn secondary" type="button" id="dash-print-paper">Print unused only</button>
     </div>
-    <div class="${cx(s.list)}">${
-      rows.map(tokenRow).join("") || `<p class="${cx(s.empty)}">Nothing here yet.</p>`
+  </div>
+
+  <div class="${cx(u.cardFlush)}">
+    <div class="${cx(u.cardHead)}"><p class="${cx(u.cardTitle)}">Codes (${n(rows.length)})</p>
+      <span class="${cx(u.meta)}">${st.filter === "all" ? "everything" : "showing " + esc(st.filter)}</span></div>
+    <hr class="${cx(u.hairline)}"/>
+    <div class="${cx(u.rows)}">${
+      rows.length
+        ? rows.map((t, i) => (i ? `<hr class="${cx(u.hairline)}"/>` : "") + tokenRow(t, d.devices)).join("")
+        : `<p class="${cx(u.empty)}">No codes in this list yet - create one above.</p>`
     }</div>
   </div>`;
 }

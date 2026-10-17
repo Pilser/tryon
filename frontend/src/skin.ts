@@ -7,6 +7,7 @@ import { gallery } from "./styles/card.stylex";
 import { landing } from "./styles/landing.stylex";
 import { studio, timeline, owner, share, compare, duo } from "./styles/panels.stylex";
 import { dash, quota } from "./styles/dash.stylex";
+import { ui } from "./styles/ui.stylex";
 
 const MAP: Array<[string, any[]]> = [
   ["body", [base.body]],
@@ -59,6 +60,21 @@ const MAP: Array<[string, any[]]> = [
   [".cat-in", [studio.token]],
   [".cat-sel", [studio.select]],
   [".dash-head", [dash.head]],
+  [".dash-page", [ui.page]],
+  [".dash-header", [ui.header]],
+  [".dash-h1", [ui.h1]],
+  [".dash-lead", [ui.lead]],
+  [".dash-card", [ui.card]],
+  [".dash-card-title", [ui.cardTitle]],
+  [".dash-lead-row", [ui.rowSub]],
+  [".dash-hairline", [ui.hairline]],
+  [".dash-rows", [ui.rows]],
+  [".dash-row2", [ui.row]],
+  [".dash-row-main", [ui.rowMain]],
+  [".dash-row-title", [ui.rowTitle]],
+  [".dash-row-sub", [ui.rowSub]],
+  [".dash-btnrow", [ui.btnRow]],
+  [".dash-empty", [ui.empty]],
   [".quota", [quota.box]],
   [".cat-list", [studio.catList]],
   [".cat-chip", [studio.catChip]],

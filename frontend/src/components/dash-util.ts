@@ -15,6 +15,18 @@ export const n = (v: number): string => String(v ?? 0);
 export const when = (ms: number): string => (ms > 0 ? new Date(ms).toLocaleString() : "-");
 export const short = (v: string): string => (v.length > 10 ? v.slice(0, 8) + "…" : v || "-");
 
+/** Who a device is, in the owner's words: the name or number they gave,
+    falling back to the short device id for a guest who never signed in. */
+export const who = (id: string, name = "", whatsapp = ""): string =>
+  (name || "").trim() || (whatsapp ? "+" + whatsapp.replace(/^\+/, "") : "") || "Guest " + short(id);
+
+/** Device lookup for a redeemed code: "Amina" / "+2567…" / the device id. */
+export const ownerOf = (deviceId: string, devices: Device[]): string => {
+  if (!deviceId) return "";
+  const d = devices.find((x) => x.id === deviceId);
+  return d ? who(d.id, d.name, d.whatsapp) : short(deviceId);
+};
+
 /** What a code gives, in plain words. */
 export const label = (kind: string, value: number): string =>
   kind === "time" ? `${value} h unlimited` : `${value} try-on${value === 1 ? "" : "s"}`;

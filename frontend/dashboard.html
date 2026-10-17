@@ -12,9 +12,13 @@
 </head>
 <body data-page="dashboard">
 <header class="topbar"><a class="nav-back" href="/app/studio.html?owner=1" aria-label="Back">&#8249;</a><a class="brand" href="/app/">TryOn &amp; Shop</a></header>
-<main class="studio-page">
-  <section class="studio" id="dashpage">
-    <h2 class="dash-title">Usage &amp; unlock codes</h2>
+<main class="dash-page">
+  <header class="dash-header">
+    <div>
+      <h1 class="dash-h1">Usage &amp; unlock codes</h1>
+      <p class="dash-lead">One page for every number: who tried on what, what they are storing, and the codes you hand out.</p>
+    </div>
+  </header>
     <div class="login-card" id="dash-login" style="display:none">
       <p class="hint">Owner only. Enter your token to open the dashboard.</p>
       <div class="row">
@@ -23,8 +27,7 @@
       </div>
       <p class="error" id="db-login-err" style="display:none"></p>
     </div>
-    <div id="dash" style="display:none"></div>
-  </section>
+  <div id="dash" style="display:none"></div>
 </main>
 <script type="module" src="/app/dist/main.js"></script>
 </body>

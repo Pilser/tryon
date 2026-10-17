@@ -24,6 +24,17 @@ Premium e-commerce shop where:
 - Delivery: one Worker + Workers static assets (`[assets]` in `wrangler.toml`). `/app/*` is served from the edge via `frontend/_redirects` (200 proxy) and never invokes the Worker; `/`, `/product/:id`, `/studio`, `/healthz`, `/api/*` are `run_worker_first`. Cache policy + deploy steps: `docs/DEPLOY.md`.
 - Build: local = `ram-check.sh` + `ram-test.sh` + `check-bloat.sh` only. Binaries = CI `release.yml` only.
 
+### UI kit (one language across pages)
+
+`frontend/src/styles/ui.stylex.ts` is the shared surface language: a dark
+page with a max width, cards defined by a hairline border + whitespace (no
+nested fills), stat cards (muted label, big value, hairline rule), flush
+list cards with hairline-separated rows, button rows that never touch
+(full width on phones), and a centred empty state. `skin.ts` maps the
+literal shell classes (`.dash-page`, `.dash-card`, `.dash-row2`, …) onto
+it so HTML shells and JS-rendered content look the same. Destructive
+actions are always `.btn.danger`.
+
 ## 3. SSR in Workers (what it is)
 
 1. Request `GET /` or `/product/:id` hits Worker.

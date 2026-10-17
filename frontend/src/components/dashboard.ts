@@ -14,9 +14,10 @@ import { esc, size } from "../core/format";
 import { loadOwner } from "../core/store";
 import { skin } from "../skin";
 import { dash as s } from "../styles/dash.stylex";
+import { ui as u } from "../styles/ui.stylex";
 import { armTokens, tokensTab } from "./dash-tokens";
-import { armUsers, closeFolder, usersTab } from "./dash-users";
-import { cx, n, short, tokenState, tokensCsv, tokensDoc, when, type Token } from "./dash-util";
+import { armUsers, resetFolder, usersTab } from "./dash-users";
+import { cx, n, tokenState, tokensCsv, tokensDoc, when, who, type Token } from "./dash-util";
 
 type Tab = "overview" | "users" | "tokens" | "settings";
 const TABS: Array<[Tab, string]> = [
@@ -77,20 +78,23 @@ const refresh = async (): Promise<void> => {
 
 /* ------------------------------------------------------------- render --- */
 
-/** One stat tile. With `go` it is a button that lands on that tab. */
+/** One stat card: muted label on top, big value, hairline rule (the kit's
+    chart placeholder). With `go` it is a button that lands on that tab. */
 function tile(value: string, name: string, go?: Tab, hint?: string): string {
-  const inner = `<p class="${cx(s.tileN)}">${esc(value)}</p><p class="${cx(s.tileL)}">${esc(name)}</p>${
-    go ? `<span class="${cx(s.tileFoot)}">${esc(hint || "Open")} <span aria-hidden="true">›</span></span>` : ""
-  }`;
+  const inner = `<p class="${cx(u.statLabel)}">${esc(name)}</p>
+    <p class="${cx(u.statValue)}">${esc(value)}</p>
+    <hr class="${cx(u.statRule)}"/>${
+      go ? `<span class="${cx(u.statFoot)}">${esc(hint || "Open")} <span aria-hidden="true">›</span></span>` : ""
+    }`;
   return go
-    ? `<button class="${cx(s.tile, s.tileGo)}" type="button" data-go="${go}">${inner}</button>`
-    : `<div class="${cx(s.tile)}">${inner}</div>`;
+    ? `<button class="${cx(u.stat, u.statGo)}" type="button" data-go="${go}">${inner}</button>`
+    : `<div class="${cx(u.stat)}">${inner}</div>`;
 }
 
 function overviewTab(d: UsageOut): string {
   const unused = d.tokens.filter((t) => tokenState(t) === "unused").length;
   const used = d.tokens.filter((t) => tokenState(t) === "used").length;
-  return `<div class="${cx(s.tiles)}">
+  return `<div class="${cx(u.statGrid)}">
       ${tile(n(d.devices_total), "users", "users", "See who")}
       ${tile(n(d.tryons_total), "try-ons", "users", "See who")}
       ${tile(n(used), "codes used", "tokens", "See codes")}
@@ -99,21 +103,29 @@ function overviewTab(d: UsageOut): string {
       ${tile(size(d.photos_bytes), "storage used", "users", "Clean up")}
       ${tile(credits === null ? "-" : n(credits), "credits", "settings", "Balance")}
     </div>
-    <p class="${cx(s.sectionTitle)}">Latest users</p>
-    <div class="${cx(s.list)}">${
-      d.devices.slice(0, 6).map((x) => deviceSummary(x, d.free_tries)).join("") ||
-      `<p class="${cx(s.empty)}">No try-ons yet.</p>`
-    }</div>`;
+    <div class="${cx(u.cardFlush)}">
+      <div class="${cx(u.cardHead)}"><p class="${cx(u.cardTitle)}">Latest users</p>
+        <button class="btn secondary" type="button" data-go="users">See all ${n(d.devices_total)}</button></div>
+      <hr class="${cx(u.hairline)}"/>
+      <div class="${cx(u.rows)}">${
+        d.devices.length
+          ? d.devices.slice(0, 5)
+              .map((x, i) => (i ? `<hr class="${cx(u.hairline)}"/>` : "") + deviceSummary(x, d.free_tries))
+              .join("")
+          : `<p class="${cx(u.empty)}">No try-ons yet - a device shows up here the first time someone opens the studio.</p>`
+      }</div>
+    </div>`;
 }
 
 /** Read-only row for the Overview (actions live in the Users tab). */
 function deviceSummary(d: UsageOut["devices"][number], free: number): string {
   const window_ = d.bonus_until_ms > Date.now();
   const spent = d.used >= free && !window_ && d.bonus <= 0;
-  const who = d.name || d.whatsapp || "Guest " + short(d.id);
-  return `<div class="${cx(s.row)}">
-    <div><p class="${cx(s.who)}">${esc(who)}</p>
-    <p class="${cx(s.sub)}">${esc(when(d.last_seen_ms))}</p></div>
+  return `<div class="${cx(u.row)}">
+    <div class="${cx(u.rowMain)}">
+      <p class="${cx(u.rowTitle)}">${esc(who(d.id, d.name, d.whatsapp))}</p>
+      <p class="${cx(u.rowSub)}">last seen ${esc(when(d.last_seen_ms))}</p>
+    </div>
     <div class="${cx(s.chips)}">
       <span class="${cx(spent ? s.chipUsed : s.chipFree)}">${n(d.used)} tries</span>
       ${d.blocked ? `<span class="${cx(s.chipBad)}">blocked</span>` : ""}
@@ -123,8 +135,8 @@ function deviceSummary(d: UsageOut["devices"][number], free: number): string {
 }
 
 function settingsTab(d: UsageOut): string {
-  return `<div class="${cx(s.step)}">
-      <p class="${cx(s.stepTitle)}">Free try-ons per device</p>
+  return `<div class="${cx(u.card)}">
+      <p class="${cx(u.cardTitle)}">Free try-ons per device</p>
       <p class="${cx(s.body)}">Every new device gets <b>${n(d.free_tries)}</b> free try-ons before the unlock
         banner asks for a WhatsApp number. Devices already past the new number keep their limit - nobody is
         charged retroactively.</p>
@@ -133,15 +145,15 @@ function settingsTab(d: UsageOut): string {
         <button class="btn primary" id="dash-save" type="button">Save allowance</button>
       </div>
     </div>
-    <div class="${cx(s.step)}">
-      <p class="${cx(s.stepTitle)}">Try-on credits</p>
+    <div class="${cx(u.card)}">
+      <p class="${cx(u.cardTitle)}">Try-on credits</p>
       <p class="${cx(s.body)}">Balance: <b>${credits === null ? "not available" : n(credits)}</b>. Each try-on
         costs 1 credit and failed ones are refunded, so this number only moves down when a shopper really
         gets a photo.</p>
     </div>
-    <div class="${cx(s.step)}">
-      <p class="${cx(s.stepTitle)}">Shop details</p>
-      <p class="${cx(s.body)}">Shop name, WhatsApp number, logo and catalog live in the
+    <div class="${cx(u.card)}">
+      <p class="${cx(u.cardTitle)}">Shop details</p>
+      <p class="${cx(u.rowSub)}">Shop name, WhatsApp number, logo and catalog live in the
         <a class="btn secondary" href="/app/studio.html?owner=1">Studio</a>.</p>
     </div>`;
 }
@@ -196,7 +208,7 @@ function wire(box: HTMLElement): void {
   box.querySelectorAll("[data-tab]").forEach((b) =>
     b.addEventListener("click", () => {
       active = (b as HTMLElement).dataset.tab as Tab;
-      if (active !== "users") closeFolder(opts());
+      if (active !== "users") resetFolder();
       paint();
     }),
   );
@@ -238,7 +250,6 @@ function wire(box: HTMLElement): void {
       after: refresh,
       fail,
       note,
-      shop: () => (document.querySelector(".brand")?.textContent || "the shop").trim(),
     });
     // Remember the chosen "code value" so repaints keep it.
     box.querySelector("#dash-give-val")?.addEventListener("input", (ev) => {
@@ -246,16 +257,6 @@ function wire(box: HTMLElement): void {
     });
   }
 }
-
-const opts = (): Parameters<typeof armUsers>[0] => ({
-  scope: () => host as HTMLElement,
-  token: ownerToken,
-  repaint: paint,
-  after: refresh,
-  fail,
-  note,
-  shop: () => "the shop",
-});
 
 /**
  * Full-page dashboard: the page owns the frame (login card + container);

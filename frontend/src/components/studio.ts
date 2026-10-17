@@ -2,7 +2,7 @@
    Photo is uploaded EAGERLY on pick so the timeline entry is reusable
    at once (imageId patched in when upload lands); Start reuses it.
    Result prepends to timeline top. Pixels via components/photo.ts. */
-import { tryOnSync, pollGeneration, uploadPerson, registerDevice } from "../core/api";
+import { tryOnSync, pollGeneration, uploadPerson, registerDevice, backupPhoto } from "../core/api";
 import { capturePhoto } from "./capture";
 import { nowSecs, savePerson, pushTimeline, updateTimelineEntry, loadPerson, loadTimeline, personUsable } from "../core/store";
 import { savePhoto, loadPhoto, prunePhotos } from "../core/photo-store";
@@ -59,13 +59,32 @@ export function initStudio(product: Product): void {
     m.textContent = d.note;
     window.setTimeout(() => { if (m.textContent === d.note) m.textContent = ""; }, 5000);
   });
-  const ready = (src: string, key: string, scroll = true): void => {    if (activeFull.startsWith("blob:")) {
+  /* Full-quality display source per timeline entry. Ribbon thumbs are
+     128px icons (cheap for localStorage); the card must never show one,
+     so person photos reload their stored file and results use their URL. */
+  const fullByThumb = new Map<string, string>();
+  const fullSrc = async (e: TimelineEntry): Promise<string> => {
+    const cached = e.thumb ? fullByThumb.get(e.thumb) : undefined;
+    if (cached) return cached;
+    if (e.photoKey) {
+      const blob = await loadPhoto(e.photoKey);
+      if (blob) {
+        const u = previewURL(blob);
+        if (e.thumb) fullByThumb.set(e.thumb, u);
+        return u;
+      }
+    }
+    return e.kind === "result" ? e.url || e.thumb : e.thumb;
+  };
+  /* display = full-quality pixels in the card; thumb = the ribbon icon. */
+  const ready = (display: string, thumb = display, scroll = true): void => {
+    if (activeFull.startsWith("blob:")) {
       try { URL.revokeObjectURL(activeFull); } catch { /* already gone */ }
     }
-    activeThumb = src;
-    activeFull = src;
-    activeKey = key;
-    (el("st-prev") as HTMLImageElement).src = src; show(el("st-prev"), true);
+    activeThumb = thumb;
+    activeFull = display;
+    activeKey = thumb;
+    (el("st-prev") as HTMLImageElement).src = display; show(el("st-prev"), true);
     const ue = document.getElementById("st-userempty");
     if (ue) show(ue, false);
     const us = document.getElementById("st-usertl");
@@ -100,6 +119,10 @@ export function initStudio(product: Product): void {
         show(el("st-res"), false); hideCompare();
         ready(u, t);
         pushTimeline({ kind: "person", thumb: t, imageId: "", url: "", ts: nowSecs(), photoKey: key });
+        // Back the picked file up to object storage under this device, so
+        // the owner can see (and prune) what each device keeps. Best
+        // effort: a failed backup never blocks the try-on flow.
+        void backupPhoto(deviceId(), r.blob).catch(() => undefined);
         paintTimeline(selectEntry, t);
       })();
       im.src = u;
@@ -186,7 +209,9 @@ export function initStudio(product: Product): void {
         activeImageId = e.imageId; file = null;
         savePerson(e.imageId, e.thumb);
         show(el("st-res"), false); hideCompare(); stopAnim();
-        ready(e.thumb, e.thumb);
+        // Full-quality pixels: the stored file when we still have it, the
+        // 128px ribbon icon only as a last resort.
+        ready(await fullSrc(e), e.thumb);
         paintTimeline(selectEntry, e.thumb);
         return;
       }
@@ -194,7 +219,9 @@ export function initStudio(product: Product): void {
       if (!blob) { fail("That photo is no longer stored - add it again."); return; }
       file = { blob, mime: blob.type || "image/jpeg" }; activeImageId = null;
       show(el("st-res"), false); hideCompare(); stopAnim();
-      ready(previewURL(blob), e.thumb);
+      const full = previewURL(blob);
+      if (e.thumb) fullByThumb.set(e.thumb, full);
+      ready(full, e.thumb);
       paintTimeline(selectEntry, e.thumb);
     } else if (e.url) {
       // Results feed the user card too: no second card opens below.
@@ -279,7 +306,9 @@ export function initStudio(product: Product): void {
       peekTimer = window.setTimeout(() => {
         const cand = loadTimeline().find((x) =>
           x.thumb && x.thumb !== activeKey && (x.kind === "person" ? x.thumb : x.url));
-        const src = cand ? (cand.kind === "person" ? cand.thumb : cand.url) : "";
+        if (!cand) return;
+        // Prefer the full-quality cached pixels over the ribbon icon.
+        const src = fullByThumb.get(cand.thumb) || (cand.kind === "person" ? cand.thumb : cand.url);
         if (!src) return;
         peeking = true; heldFace = true; savedSrc = face.src; face.src = src;
         el("st-meta").textContent = "Previous photo - release to return.";
@@ -309,7 +338,13 @@ export function initStudio(product: Product): void {
   const saved = loadPerson();
   if (personUsable(saved) && document.getElementById("st-prev")) {
     activeImageId = (saved as { imageId: string }).imageId;
-    ready(((saved as { thumb?: string }).thumb || ""), ((saved as { thumb?: string }).thumb || ""), false);
+    const thumb = (saved as { thumb?: string }).thumb || "";
+    const entry = loadTimeline().find((x) => (x.imageId && x.imageId === activeImageId) || (thumb && x.thumb === thumb));
+    // Restore at full quality (the stored file), not the ribbon icon.
+    void (async () => {
+      const src = entry ? await fullSrc(entry) : thumb;
+      ready(src, thumb || src, false);
+    })();
   } else {
     // No photo yet: reveal the in-card duplicate ribbon.
     const us = document.getElementById("st-usertl");

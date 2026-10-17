@@ -28,6 +28,14 @@ function group(value: number, decimals: number): string {
 
 export const mb = (bytes: number): string => (bytes / 1048576).toFixed(1) + " MB";
 
+/* Human size for storage chips and totals: 742 B / 84 KB / 1.2 MB. */
+export const size = (bytes: number): string => {
+  const b = Math.max(0, Math.round(bytes || 0));
+  if (b < 1024) return b + " B";
+  if (b < 1048576) return Math.round(b / 1024) + " KB";
+  return (b / 1048576).toFixed(1) + " MB";
+};
+
 /* Navbar brand: logo (when the owner uploaded one) + shop name. */
 export const brandHTML = (shop: { shop_name: string; logo_url: string }): string =>
   (shop.logo_url

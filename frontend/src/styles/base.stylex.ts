@@ -47,6 +47,15 @@ export const base = stylex.create({
     ":hover": { borderColor: t.primary },
   },
   btnDisabled: { opacity: 0.5, cursor: "not-allowed" },
+  /* Destructive actions stay visually loud: red border + red text, red
+     fill on hover, so "cancel / delete" never looks like a safe button. */
+  btnDanger: {
+    backgroundColor: "transparent",
+    borderColor: t.danger,
+    color: t.danger,
+    ":hover": { backgroundColor: t.danger, color: t.primaryInk, borderColor: t.danger },
+    ":active": { transform: "scale(.98)" },
+  },
   iconBtn: {
     width: 44,
     height: 44,

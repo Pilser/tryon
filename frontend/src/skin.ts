@@ -30,6 +30,7 @@ const MAP: Array<[string, any[]]> = [
   [".btn.primary", [base.btn, base.btnPrimary]],
   [".btn.wa", [base.btn, base.btnWa]],
   [".btn.secondary", [base.btn, base.btnSecondary]],
+  [".btn.danger", [base.btn, base.btnDanger]],
   [".btn", [base.btn]],
   [".icon-btn", [base.iconBtn]],
   [".price", [base.price]],

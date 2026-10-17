@@ -115,6 +115,8 @@ export interface UsageOut {
   tokens_total: number;
   tokens_redeemed: number;
   owner_whatsapp: string;
+  photos_total: number;
+  photos_bytes: number;
   devices: Array<{
     id: string;
     name: string;
@@ -124,6 +126,8 @@ export interface UsageOut {
     bonus: number;
     bonus_until_ms: number;
     blocked: number;
+    photo_count: number;
+    photo_bytes: number;
     first_seen_ms: number;
     last_seen_ms: number;
   }>;
@@ -163,6 +167,55 @@ export const deleteToken = (token: string, code: string): Promise<{ ok: boolean 
 /** Pull an unused code so it can no longer be redeemed (row stays, audit). */
 export const cancelToken = (token: string, code: string): Promise<{ ok: boolean }> =>
   ownerPost("/api/studio/tokens/cancel", { code }, token);
+
+/* ---- device photo backup (object storage, owner-visible) ---- */
+
+/** Back up one picked photo for this device (best effort, raw image body). */
+export const backupPhoto = (deviceId: string, blob: Blob): Promise<{ ok: boolean; key: string }> =>
+  api<{ ok: boolean; key: string }>("/api/device/photos", {
+    method: "POST",
+    headers: { "Content-Type": blob.type || "image/jpeg", "x-device-id": deviceId },
+    body: blob,
+  });
+
+export interface StoredPhoto {
+  key: string;
+  bytes: number;
+  mime: string;
+  created_ms: number;
+}
+
+/** One device's backup folder (omit the id for every device). */
+export const devicePhotos = (token: string, deviceId: string): Promise<{
+  device_id: string;
+  count: number;
+  bytes: number;
+  photos: StoredPhoto[];
+}> =>
+  api<{ device_id: string; count: number; bytes: number; photos: StoredPhoto[] }>(
+    "/api/studio/photos" + (deviceId ? "?device_id=" + encodeURIComponent(deviceId) : ""),
+    { ...(token ? { headers: { Authorization: "Bearer " + token } } : {}) },
+  );
+
+/** Fetch one stored photo (owner-only route, so it needs the header). */
+export const photoBlob = async (token: string, key: string): Promise<string | null> => {
+  try {
+    const r = await fetch("/api/studio/photo?key=" + encodeURIComponent(key), {
+      headers: token ? { Authorization: "Bearer " + token } : {},
+    });
+    if (!r.ok) return null;
+    return URL.createObjectURL(await r.blob());
+  } catch {
+    return null;
+  }
+};
+
+/** Folder cleanup: all photos in scope, or only those older than N days. */
+export const deletePhotos = (
+  token: string,
+  body: { device_id?: string; filter: "all" | "old"; days?: number },
+): Promise<{ ok: boolean; deleted: number; freed: number }> =>
+  ownerPost("/api/studio/photos/delete", body, token);
 
 /** Bulk-delete spent codes: used, canceled, or both. */
 export const purgeTokens = (

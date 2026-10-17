@@ -8,6 +8,7 @@ import { waIcon } from "../components/whatsapp-icon";
 import { duoHTML, armDuo } from "../components/duo";
 import { ribbonCats, catRibbonHTML, armCatRibbon } from "../components/cat-ribbon";
 import { initStudio } from "../components/studio";
+import { initDashboard } from "../components/dashboard";
 import { initOwnerForm } from "../components/owner-form";
 import { brandHTML } from "../core/format";
 import { loadOwner } from "../core/store";
@@ -87,7 +88,7 @@ export async function studio(): Promise<void> {
   const gate = document.getElementById("owner-gate");
   if (own) {
     if (owner) {
-      own.style.display = ""; initOwnerForm();
+      own.style.display = ""; initOwnerForm(); initDashboard();
       if (gate) gate.style.display = "none";
     } else own.style.display = "none";
   }

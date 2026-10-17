@@ -81,14 +81,46 @@ Try-on (worker is the only caller of Genlook; key never reaches the browser):
 - `POST /api/try-on/sync` and `POST /api/try-on` -> build the Genlook body
   (`products[0]` + `person.image.source.id`), forwarded to `POST /try-on[/sync]`.
   200 = COMPLETED + temporary `resultImageUrl`, 202 = PENDING (poll).
+  The body also carries `device_id`: the allowance is checked first
+  (`routes/quota.rs::gate`), and only a generation Genlook accepted is
+  recorded (`record`), so a blocked device never spends a credit.
 - `GET /api/generations/:id` -> proxies the Genlook poll.
 
-Owner-only (Bearer `OWNER_TOKEN`; empty token = open local backend):
+Devices / free try-ons / unlock codes:
+- `POST /api/device` -> register this browser (`{id, fingerprint}`) or restore
+  the id already known for that fingerprint; answers the allowance snapshot.
+- `POST /api/device/contact` -> `{device_id, name, whatsapp}` from the quota
+  banner (the durable identity: survives any browser change).
+- `POST /api/device/redeem` -> `{device_id, code}` where `code` is a
+  4-character unlock code; a code pays once (`TOKEN_USED` 409 for another
+  device), re-redeeming on the same device is a no-op.
+- Counters live in D1 only (`routes/device.rs` DDL): `used` = `COUNT(*)` of
+  the `tryons` log, `bonus` = unused redeemed try-ons, `bonus_until_ms` = end
+  of a time token's unlimited window. Nothing the browser can edit raises the
+  quota. With no D1 binding (local rig) the gate stays permissive.
+
+Owner dashboard (`routes/usage.rs`, `routes/tokens.rs`, `routes/quota.rs`):
+- `GET /api/studio/usage` -> one payload for the whole dashboard: totals +
+  `devices[]` (name, WhatsApp, tries, first/last seen) + `tokens[]`.
+- `POST /api/studio/tokens` -> `{kind:"count"|"time", value, count, note}`
+  mints 1..50 codes (alphabet without look-alikes, e.g. `BKWY`).
+- `POST /api/studio/tokens/delete` -> `{code}` (used or not).
+- `POST /api/studio/settings` -> `{free_tries}` for every new device.
+- Owner-only (Bearer `OWNER_TOKEN`; empty token = open local backend):
 - `POST /api/owner/login` / `POST /api/owner/logout`.
 - `POST /api/studio/products` (multipart bundle: image0 garment, image1 model, image2 styled) -> R2 + D1 upsert.
 - `POST /api/studio/categories` (multipart: title + icon) -> R2 + D1 upsert.
 - `POST /api/studio/shop` (multipart: shop_name + logo) -> R2 + D1 upsert.
 - `GET /api/owner/…` none yet: reads are public, writes are gated.
+
+Frontend side of the allowance (`frontend/src/core/device.ts`,
+`components/quota.ts`, `components/dashboard.ts`): the browser keeps a device
+id in `localStorage` and sends it on `/api/device` and every try-on. A spend
+(`remaining === 0`) shows the studio banner: a one-line bar that expands to
+collect the number and take the code, so the studio still fits the phone
+screen. The owner opens the same data with the dashboard (Overview / Users /
+Unlock codes / Settings): tiles, per-device rows, minted codes with copy +
+delete for used ones, CSV export and a printable code sheet.
 
 Errors: every failure answers Genlook's shape `{code,message,status}` with the
 matching HTTP status — client mistakes are `400`/`401`, never a bare `500`

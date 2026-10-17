@@ -6,6 +6,7 @@ import { base } from "./styles/base.stylex";
 import { gallery } from "./styles/card.stylex";
 import { landing } from "./styles/landing.stylex";
 import { studio, timeline, owner, share, compare, duo } from "./styles/panels.stylex";
+import { dash, quota } from "./styles/dash.stylex";
 
 const MAP: Array<[string, any[]]> = [
   ["body", [base.body]],
@@ -56,6 +57,8 @@ const MAP: Array<[string, any[]]> = [
   [".catbox-title", [studio.catboxTitle]],
   [".cat-in", [studio.token]],
   [".cat-sel", [studio.select]],
+  [".dash-head", [dash.head]],
+  [".quota", [quota.box]],
   [".cat-list", [studio.catList]],
   [".cat-chip", [studio.catChip]],
   [".cat-chip-img", [studio.catChipImg]],

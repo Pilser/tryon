@@ -1,5 +1,6 @@
 /* core/api.ts - the ONLY file that talks HTTP. All endpoints, one place. */
 import type { Category, Product, ShopSettings } from "./types";
+import type { Allowance } from "./device";
 import { DEFAULT_CURRENCY } from "./currencies";
 
 interface SyncBody {
@@ -8,6 +9,7 @@ interface SyncBody {
   description: string;
   image_url: string;
   person_image_id: string;
+  device_id: string;
 }
 
 interface SyncResult {
@@ -17,7 +19,8 @@ interface SyncResult {
     resultImageUrl?: string;
     message?: string;
     status?: string;
-  };
+    code?: string;
+  } & Partial<Allowance>;
 }
 
 export async function api<T = unknown>(path: string, opts?: RequestInit): Promise<T> {
@@ -86,6 +89,77 @@ export const ownerLogin = (token: string): Promise<{ ok: boolean }> =>
 
 export const ownerLogout = (): Promise<{ ok: boolean }> =>
   api<{ ok: boolean }>("/api/owner/logout", { method: "POST" }).catch(() => ({ ok: true }));
+
+/* Shopper identity: register the device, give a contact, redeem a code. */
+const jsonPost = <T>(path: string, body: unknown): Promise<T> =>
+  api<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+export const registerDevice = (id: string, fingerprint: string): Promise<Allowance> =>
+  jsonPost<Allowance>("/api/device", { id, fingerprint });
+
+export const saveContact = (device_id: string, name: string, whatsapp: string): Promise<Allowance> =>
+  jsonPost<Allowance>("/api/device/contact", { device_id, name, whatsapp });
+
+export const redeemToken = (device_id: string, code: string): Promise<Allowance> =>
+  jsonPost<Allowance>("/api/device/redeem", { device_id, code });
+
+/* Owner dashboard (Bearer token). */
+export interface UsageOut {
+  free_tries: number;
+  devices_total: number;
+  tryons_total: number;
+  tokens_total: number;
+  tokens_redeemed: number;
+  owner_whatsapp: string;
+  devices: Array<{
+    id: string;
+    name: string;
+    whatsapp: string;
+    fingerprint: string;
+    used: number;
+    bonus: number;
+    bonus_until_ms: number;
+    first_seen_ms: number;
+    last_seen_ms: number;
+  }>;
+  tokens: Array<{
+    code: string;
+    kind: string;
+    value: number;
+    note: string;
+    created_ms: number;
+    redeemed_by: string;
+    redeemed_ms: number;
+  }>;
+}
+
+const ownerPost = <T>(path: string, body: unknown, token: string): Promise<T> =>
+  api<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+    body: JSON.stringify(body),
+  });
+
+export const studioUsage = (token: string): Promise<UsageOut> =>
+  api<UsageOut>("/api/studio/usage", {
+    ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),
+  });
+
+export const mintTokens = (
+  token: string,
+  body: { kind: string; value: number; count: number; note: string },
+): Promise<{ kind: string; value: number; codes: string[] }> =>
+  ownerPost("/api/studio/tokens", body, token);
+
+export const deleteToken = (token: string, code: string): Promise<{ ok: boolean }> =>
+  ownerPost("/api/studio/tokens/delete", { code }, token);
+
+export const saveSettings = (token: string, freeTries: number): Promise<{ free_tries: number }> =>
+  ownerPost("/api/studio/settings", { free_tries: freeTries }, token);
 
 export async function pollGeneration(id: string, onTick: (secs: number) => void): Promise<string> {
   for (let n = 0; n < 45; n++) {

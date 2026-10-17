@@ -2,13 +2,15 @@
    Photo is uploaded EAGERLY on pick so the timeline entry is reusable
    at once (imageId patched in when upload lands); Start reuses it.
    Result prepends to timeline top. Pixels via components/photo.ts. */
-import { tryOnSync, pollGeneration, uploadPerson } from "../core/api";
+import { tryOnSync, pollGeneration, uploadPerson, registerDevice } from "../core/api";
 import { capturePhoto } from "./capture";
 import { nowSecs, savePerson, pushTimeline, updateTimelineEntry, loadPerson, loadTimeline, personUsable } from "../core/store";
 import { savePhoto, loadPhoto, prunePhotos } from "../core/photo-store";
 import type { Product, TimelineEntry } from "../core/types";
 import { prepFile, thumbOf, previewURL } from "./photo";
 import { paintTimeline } from "./timeline";
+import { deviceId, fingerprintParts, isSpent, rememberDeviceId, type Allowance } from "../core/device";
+import { paintQuota } from "./quota";
 
 function el(id: string): HTMLElement {
   const n = document.getElementById(id);
@@ -26,6 +28,35 @@ export function initStudio(product: Product): void {
   let animTimer: number | null = null;
   const fail = (m: string): void => { const e = el("st-err"); e.textContent = m; show(e, true); };
   const clear = (): void => { const e = el("st-err"); e.textContent = ""; show(e, false); };
+  /* Allowance: server-owned; the banner only appears when nothing is left,
+     and the Try-it-on button hides with it (the server would 402 anyway). */
+  let spent = false;
+  const applyAllowance = (a: Allowance | null, open = false): void => {
+    if (!a) return;
+    rememberDeviceId(a.device_id);
+    spent = isSpent(a);
+    // Expanded when the shopper just hit the wall, collapsed otherwise so
+    // the studio keeps fitting the phone screen.
+    paintQuota(spent ? a : null, spent, open);
+    if (spent) { const s = document.getElementById("st-start"); if (s) show(s, false); }
+  };
+  const refreshAllowance = async (): Promise<void> => {
+    try {
+      applyAllowance(await registerDevice(deviceId(), fingerprintParts()));
+    } catch { /* offline / no D1: try-on still answers with its own error */ }
+  };
+  void refreshAllowance();
+  // The banner reports unlocks/contacts back here so the button and the
+  // banner follow one state: the server's allowance.
+  document.addEventListener("quota-changed", (ev) => {
+    const d = (ev as CustomEvent<{ allowance: Allowance; note?: string }>).detail;
+    if (!d?.allowance) return;
+    applyAllowance(d.allowance);
+    if (!d.note) return;
+    const m = el("st-meta");
+    m.textContent = d.note;
+    window.setTimeout(() => { if (m.textContent === d.note) m.textContent = ""; }, 5000);
+  });
   const ready = (src: string, key: string, scroll = true): void => {
     if (activeFull.startsWith("blob:")) {
       try { URL.revokeObjectURL(activeFull); } catch { /* already gone */ }
@@ -39,7 +70,7 @@ export function initStudio(product: Product): void {
     const us = document.getElementById("st-usertl");
     if (us) show(us, false);
     el("st-meta").textContent = "";
-    show(el("st-start"), true);
+    if (!spent) show(el("st-start"), true);
     // Bring the user card into view after a fresh pick/tap (never on
     // restore: the page must land on the product card, fully in view).
     if (scroll) {
@@ -200,7 +231,16 @@ export function initStudio(product: Product): void {
       const { status, body } = await tryOnSync({
         product_id: product.id, title: product.title, description: product.description,
         image_url: product.image_url, person_image_id: imageId as string,
+        device_id: deviceId(),
       });
+      if (status === 402) {
+        // Free tries spent: surface the unlock banner instead of an error
+        // line (the body carries the allowance snapshot from the server).
+        stopAnim(); show(el("st-prog"), false);
+        applyAllowance(body as unknown as Allowance, true);
+        fail(body.message || "Free try-ons used up - unlock more below.");
+        return;
+      }
       let url: string | null = null;
       if (status === 200 && body.resultImageUrl) url = body.resultImageUrl;
       else if (status === 202 && body.generationId) {
@@ -213,6 +253,9 @@ export function initStudio(product: Product): void {
       paintCompare(activeFull, url);
       pushTimeline({ kind: "result", thumb: url, imageId: "", url, ts: nowSecs() });
       paintTimeline(selectEntry, url);
+      // One try-on is gone server-side; refresh so the banner shows on the
+      // last free try and the button hides when nothing is left.
+      void refreshAllowance();
       el("st-dl").onclick = () => void (async () => {
         try {
           const b = await (await fetch(url as string)).blob();
@@ -222,9 +265,16 @@ export function initStudio(product: Product): void {
           window.open(url as string, "_blank", "noopener");
         }
       })();
-    } catch (e) { stopAnim(); show(el("st-prog"), false); fail(e instanceof Error ? e.message : String(e)); show(el("st-start"), true); }
+    } catch (e) {
+      stopAnim(); show(el("st-prog"), false);
+      fail(e instanceof Error ? e.message : String(e));
+      if (!spent) show(el("st-start"), true);
+    }
   })());
-  el("st-retry").addEventListener("click", () => { show(el("st-res"), false); hideCompare(); show(el("st-start"), true); clear(); });
+  el("st-retry").addEventListener("click", () => {
+    show(el("st-res"), false); hideCompare(); clear();
+    if (!spent) show(el("st-start"), true);
+  });
 
   // User-photo card gestures: tap toggles full (uncropped) view, hold peeks
   // the previous ribbon photo, release returns. Mirrors the product card.

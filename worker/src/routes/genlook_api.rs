@@ -35,6 +35,20 @@ pub fn api_key(env: &Env) -> Result<String> {
     Ok(k)
 }
 
+/// Keep Genlook's JSON error body (`{code,message,status}`) when there is
+/// one: the shop reads `message` (and can act on `code`), so a refund or a
+/// top-up prompt survives instead of collapsing into plain text. Anything
+/// that is not a JSON object is trimmed to 300 chars, as before.
+pub fn error_response(status: u16, body: &str) -> Result<Response> {
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(body) {
+        if v.is_object() {
+            return Response::from_json(&v).map(|r| r.with_status(status));
+        }
+    }
+    let short: String = body.chars().take(300).collect();
+    Response::error(short, status)
+}
+
 /// Forward a call to Genlook, passing the JSON body through so the client
 /// sees the real `generationId` / `resultImageUrl` / error `code`.
 pub async fn forward(
@@ -64,8 +78,7 @@ pub async fn forward(
             serde_json::from_str(&text).map_err(|e| worker::Error::RustError(e.to_string()))?;
         Response::from_json(&v)
     } else {
-        let short: String = text.chars().take(300).collect();
-        Response::error(short, status)
+        error_response(status, &text)
     }
 }
 
@@ -85,6 +98,24 @@ mod tests {
         assert_eq!(
             resolve_base(Some(" http://127.0.0.1:8899/tryon/v1 ".into())),
             "http://127.0.0.1:8899/tryon/v1"
+        );
+    }
+
+    #[test]
+    fn error_json_is_recognised() {
+        // The mock (and production) answer errors as {code,message,status};
+        // those must survive as JSON, not collapse to text.
+        let v: serde_json::Value = serde_json::from_str(
+            r#"{"code":"INSUFFICIENT_CREDITS","message":"Top up","status":402}"#,
+        )
+        .unwrap();
+        assert!(v.is_object());
+        assert_eq!(v["code"], "INSUFFICIENT_CREDITS");
+        // Anything else falls back to trimmed text.
+        assert!(
+            !serde_json::from_str::<serde_json::Value>("Internal Server Error")
+                .map(|x| x.is_object())
+                .unwrap_or(false)
         );
     }
 }

@@ -1,5 +1,6 @@
 /* core/api.ts - the ONLY file that talks HTTP. All endpoints, one place. */
 import type { Category, Product, ShopSettings } from "./types";
+import { DEFAULT_CURRENCY } from "./currencies";
 
 interface SyncBody {
   product_id: string;
@@ -27,7 +28,7 @@ export async function api<T = unknown>(path: string, opts?: RequestInit): Promis
 }
 
 export const getShop = (): Promise<ShopSettings> =>
-  api<ShopSettings>("/api/shop-settings").catch(() => ({ shop_name: "Shop", owner_whatsapp: "", currency: "USD", logo_url: "" }));
+  api<ShopSettings>("/api/shop-settings").catch(() => ({ shop_name: "Shop", owner_whatsapp: "", currency: DEFAULT_CURRENCY, logo_url: "" }));
 
 export const listProducts = (params: Record<string, string> = {}): Promise<Product[]> =>
   api<Product[]>("/api/products?" + new URLSearchParams(params).toString()).catch(() => []);

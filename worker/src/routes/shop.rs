@@ -14,7 +14,12 @@ pub fn from_env(env: &Env) -> ShopSettings {
             .var("OWNER_WHATSAPP")
             .map(|v| v.to_string())
             .unwrap_or_default(),
-        currency: "USD".into(),
+        currency: tryon_shared::currency::normalize(
+            &env.var("SHOP_CURRENCY")
+                .map(|v| v.to_string())
+                .unwrap_or_default(),
+            tryon_shared::currency::DEFAULT,
+        ),
         logo_url: String::new(),
     }
 }
@@ -29,9 +34,13 @@ pub async fn merged(env: &Env) -> ShopSettings {
             shop_name: String,
             #[serde(default)]
             logo_url: String,
+            #[serde(default)]
+            currency: String,
+            #[serde(default)]
+            owner_whatsapp: String,
         }
         if let Ok(res) = db
-            .prepare("SELECT shop_name,logo_url FROM shop WHERE id=1")
+            .prepare("SELECT shop_name,logo_url,currency,owner_whatsapp FROM shop WHERE id=1")
             .all()
             .await
         {
@@ -42,6 +51,12 @@ pub async fn merged(env: &Env) -> ShopSettings {
                     }
                     if !row.logo_url.is_empty() {
                         shop.logo_url = row.logo_url;
+                    }
+                    if tryon_shared::currency::is_supported(&row.currency) {
+                        shop.currency = tryon_shared::currency::clean(&row.currency);
+                    }
+                    if !row.owner_whatsapp.is_empty() {
+                        shop.owner_whatsapp = row.owner_whatsapp;
                     }
                 }
             }
@@ -93,6 +108,20 @@ pub async fn handle_save(mut req: Request, env: Env) -> Result<Response> {
     if !name.is_empty() {
         shop.shop_name = name;
     }
+    let wa = form
+        .get_field("owner_whatsapp")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if !wa.is_empty() || form.get_field("owner_whatsapp").is_some() {
+        // An explicit (even empty) field means "set it"; digits only, like
+        // the env var (`254712345678`, no `+`).
+        shop.owner_whatsapp = wa.chars().filter(|c| c.is_ascii_digit()).collect();
+    }
+    let cur = form.get_field("currency").unwrap_or_default();
+    if tryon_shared::currency::is_supported(&cur) {
+        shop.currency = tryon_shared::currency::clean(&cur);
+    }
     if let Some(FormEntry::File(f)) = form.get("logo") {
         let bytes = f
             .bytes()
@@ -117,14 +146,21 @@ pub async fn handle_save(mut req: Request, env: Env) -> Result<Response> {
     db.exec(SHOP_DDL)
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    // Older rows predate currency/WhatsApp: add the columns in place.
+    for sql in SHOP_MIGRATIONS {
+        let _ = db.exec(sql).await;
+    }
     db.prepare(
-        "INSERT INTO shop (id,shop_name,logo_url) VALUES (1,?,?) \
-         ON CONFLICT(id) DO UPDATE SET shop_name=excluded.shop_name,\
-         logo_url=excluded.logo_url",
+        "INSERT INTO shop (id,shop_name,logo_url,currency,owner_whatsapp) \
+         VALUES (1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET \
+         shop_name=excluded.shop_name,logo_url=excluded.logo_url,\
+         currency=excluded.currency,owner_whatsapp=excluded.owner_whatsapp",
     )
     .bind(&[
         JsValue::from(shop.shop_name.clone()),
         JsValue::from(shop.logo_url.clone()),
+        JsValue::from(shop.currency.clone()),
+        JsValue::from(shop.owner_whatsapp.clone()),
     ])
     .map_err(|e| worker::Error::RustError(e.to_string()))?
     .run()
@@ -134,9 +170,19 @@ pub async fn handle_save(mut req: Request, env: Env) -> Result<Response> {
 }
 
 /// Owner-edited shop name + logo. Single row (id = 1); env vars stay the
-/// fallback for fresh deploys.
+/// fallback for fresh deploys. `currency` (shop default, UGX) and
+/// `owner_whatsapp` (Inquire + unlock contact) live on the same row.
 pub const SHOP_DDL: &str = "CREATE TABLE IF NOT EXISTS shop (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     shop_name TEXT NOT NULL DEFAULT '',
-    logo_url TEXT NOT NULL DEFAULT ''
+    logo_url TEXT NOT NULL DEFAULT '',
+    currency TEXT NOT NULL DEFAULT '',
+    owner_whatsapp TEXT NOT NULL DEFAULT ''
 )";
+
+/// `CREATE TABLE IF NOT EXISTS` cannot add columns to an existing table,
+/// so older deploys get them here (errors are ignored: already present).
+pub const SHOP_MIGRATIONS: [&str; 2] = [
+    "ALTER TABLE shop ADD COLUMN currency TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE shop ADD COLUMN owner_whatsapp TEXT NOT NULL DEFAULT ''",
+];

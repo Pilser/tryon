@@ -4,7 +4,8 @@
    multipart with the saved owner token. */
 import { createProduct, listProducts, ownerLogin, ownerLogout, listCategories, createCategory, getShop, saveShop } from "../core/api";
 import { capturePhoto } from "./capture";
-import { esc, brandHTML } from "../core/format";
+import { esc, brandHTML, toMinor, toMajor } from "../core/format";
+import { currencyOptions, currencyInfo, DEFAULT_CURRENCY } from "../core/currencies";
 import { loadOwner, saveOwner, loadTimeline } from "../core/store";
 import type { Product } from "../core/types";
 import { skin } from "../skin";
@@ -140,7 +141,8 @@ export function initOwnerForm(): void {
     })());
     void loadCats();
   }
-  { // Shop card: name + logo shown in the navbar brand.
+  { // Shop card: name + logo shown in the navbar brand; currency is the
+    // shop default for every new bundle; owner WhatsApp feeds Inquire.
     const paintCur = (name: string, logo: string): void => {
       const box = document.getElementById("bd-shop-cur");
       if (!box) return;
@@ -149,11 +151,29 @@ export function initOwnerForm(): void {
         : `<p class="hint">No logo yet - name only.</p>`;
       skin(box);
     };
+    const priceBox = () => document.getElementById("bd-price") as HTMLInputElement | null;
+    const paintPriceHint = (code: string): void => {
+      const p = priceBox();
+      if (p) p.placeholder = `Price (${currencyInfo(code).code}) *`;
+    };
+    const fillCurrency = (code: string): void => {
+      const bundle = document.getElementById("bd-currency") as HTMLSelectElement | null;
+      if (bundle) bundle.innerHTML = currencyOptions(code);
+      const shopSel = document.getElementById("bd-shop-currency") as HTMLSelectElement | null;
+      if (shopSel) shopSel.innerHTML = currencyOptions(code);
+      paintPriceHint(code);
+    };
+    fillCurrency(DEFAULT_CURRENCY);
+    document.getElementById("bd-currency")?.addEventListener("change", (ev) =>
+      paintPriceHint((ev.target as HTMLSelectElement).value));
     void (async () => {
       try {
         const s = await getShop();
         const name = document.getElementById("bd-shop-name") as HTMLInputElement | null;
         if (name && !name.value) name.value = s.shop_name || "";
+        const wa = document.getElementById("bd-shop-wa") as HTMLInputElement | null;
+        if (wa && !wa.value) wa.value = s.owner_whatsapp || "";
+        fillCurrency(s.currency || DEFAULT_CURRENCY);
         paintCur(s.shop_name || "", s.logo_url || "");
       } catch { /* shop optional here */ }
     })();
@@ -167,14 +187,19 @@ export function initOwnerForm(): void {
     });
     document.getElementById("bd-shop-save")?.addEventListener("click", () => void (async () => {
       const name = ((document.getElementById("bd-shop-name") as HTMLInputElement | null)?.value || "").trim();
+      const wa = ((document.getElementById("bd-shop-wa") as HTMLInputElement | null)?.value || "").trim();
+      const cur = (document.getElementById("bd-shop-currency") as HTMLSelectElement | null)?.value || DEFAULT_CURRENCY;
       const file = (document.getElementById("bd-shop-logo") as HTMLInputElement | null)?.files?.[0];
       if (!name && !file) { fail("Enter a shop name or pick a logo."); return; }
       const fd = new FormData();
       if (name) fd.set("shop_name", name);
+      fd.set("owner_whatsapp", wa);
+      fd.set("currency", cur);
       if (file) fd.set("logo", file);
       try {
         const s = await saveShop(fd, loadOwner());
         paintCur(s.shop_name, s.logo_url || "");
+        fillCurrency(s.currency || DEFAULT_CURRENCY);
         const brand = document.querySelector(".brand");
         if (brand) brand.innerHTML = brandHTML(s);
         el("bd-ok").textContent = "Shop saved - navbar updated.";
@@ -283,8 +308,16 @@ export function initOwnerForm(): void {
     editingId = p.id;
     setField("[name=title]", p.title);
     setField("[name=description]", p.description || "");
-    setField("[name=price_cents]", String(p.price_cents || 0));
+    setField("[name=price_cents]", toMajor(p.price_cents));
     setField("[name=sizes]", (p.sizes || []).join(","));
+    const cur = document.getElementById("bd-currency") as HTMLSelectElement | null;
+    if (cur) {
+      const code = (p.currency || DEFAULT_CURRENCY).toUpperCase();
+      if (![...cur.options].some((o) => o.value === code)) cur.add(new Option(code, code));
+      cur.value = code;
+      const price = el("bd-price") as HTMLInputElement;
+      price.placeholder = `Price (${currencyInfo(code).code}) *`;
+    }
     const sel = document.getElementById("bd-cat") as HTMLSelectElement | null;
     if (sel) {
       if (p.category && ![...sel.options].some((o) => o.value === p.category)) {
@@ -310,6 +343,8 @@ export function initOwnerForm(): void {
       const fd = new FormData(ev.target as HTMLFormElement);
       if (editingId) fd.set("id", editingId);
       if (!String(fd.get("title") || "").trim()) { fail("Title is required."); return; }
+      // Owner types major units (12000 UGX / 19.99 USD); store minor.
+      fd.set("price_cents", String(toMinor(String(fd.get("price_cents") ?? "0"))));
       // Slots without a new file keep their current photo: fetch it back
       // so the save carries identical bytes (no duplicates, nothing lost).
       for (let i = 0; i < 3; i++) {

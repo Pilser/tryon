@@ -24,7 +24,7 @@ pub struct Product {
 
 impl Product {
     pub fn price_display(&self) -> String {
-        format!("{:.2} {}", self.price_cents as f64 / 100.0, self.currency)
+        crate::currency::price_display(self.price_cents, &self.currency)
     }
 }
 

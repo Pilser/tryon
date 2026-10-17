@@ -33,14 +33,18 @@ pub struct StudioText {
     pub title: String,
     pub description: String,
     pub price_cents: u32,
+    /// ISO 4217 code from the currency dropdown, shop default when absent.
+    pub currency: String,
     pub category: String,
     pub sizes: Vec<String>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn parse_text(
     title: &str,
     description: &str,
     price_cents: &str,
+    currency: &str,
     category: &str,
     sizes_csv: &str,
 ) -> Result<StudioText, &'static str> {
@@ -51,6 +55,7 @@ pub fn parse_text(
         title: title.trim().to_string(),
         description: description.trim().to_string(),
         price_cents: price_cents.trim().parse().unwrap_or(0),
+        currency: tryon_shared::currency::normalize(currency, tryon_shared::currency::DEFAULT),
         category: category.trim().to_string(),
         sizes: parse_sizes(sizes_csv),
     })
@@ -109,6 +114,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         &form.get_field("title").unwrap_or_default(),
         &form.get_field("description").unwrap_or_default(),
         &form.get_field("price_cents").unwrap_or_default(),
+        &form.get_field("currency").unwrap_or_default(),
         &form.get_field("category").unwrap_or_default(),
         &form.get_field("sizes").unwrap_or_default(),
     )
@@ -223,7 +229,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         JsValue::from(text.title.clone()),
         JsValue::from(text.description.clone()),
         JsValue::from(text.price_cents),
-        JsValue::from("USD".to_string()),
+        JsValue::from(text.currency.clone()),
         JsValue::from(urls[0].clone()),
         JsValue::from(urls[1].clone()),
         JsValue::from(urls[2].clone()),
@@ -241,7 +247,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         title: text.title,
         description: text.description,
         price_cents: text.price_cents,
-        currency: "USD".into(),
+        currency: text.currency.clone(),
         image_url: urls[0].clone(),
         model_image_url: urls[1].clone(),
         styled_image_url: urls[2].clone(),
@@ -311,13 +317,25 @@ mod tests {
 
     #[test]
     fn parses_bundle_text() {
-        let t = parse_text(" Tee ", "Cotton", "1999", "Tops", "S, M,,L ").unwrap();
+        let t = parse_text(" Tee ", "Cotton", "1999", "ugx", "Tops", "S, M,,L ").unwrap();
         assert_eq!(t.title, "Tee");
         assert_eq!(t.price_cents, 1999);
+        assert_eq!(t.currency, "UGX");
         assert_eq!(t.sizes, vec!["S", "M", "L"]);
-        assert!(parse_text("  ", "x", "1", "", "").is_err());
+        assert!(parse_text("  ", "x", "1", "USD", "", "").is_err());
+        // Unknown/absent currency falls back to the shop default (UGX).
         assert_eq!(
-            parse_text("T", "", "not-a-number", "", "")
+            parse_text("T", "", "1", "dollarydoos", "", "")
+                .unwrap()
+                .currency,
+            "UGX"
+        );
+        assert_eq!(
+            parse_text("T", "", "1", "", "", "").unwrap().currency,
+            "UGX"
+        );
+        assert_eq!(
+            parse_text("T", "", "not-a-number", "aed", "", "")
                 .unwrap()
                 .price_cents,
             0

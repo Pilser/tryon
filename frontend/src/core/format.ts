@@ -1,9 +1,30 @@
 /* core/format.ts - pure formatting. No DOM, no network. */
+import { currencyInfo } from "./currencies";
+
 export const esc = (s: unknown): string =>
   String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 
+/* `12,000 UGX` / `19.99 USD`: grouping + the currency's own decimals. */
 export const money = (p: { price_cents: number; currency: string }): string =>
-  (p.price_cents / 100).toFixed(2) + " " + p.currency;
+  group((p.price_cents || 0) / 100, currencyInfo(p.currency).decimals) + " " + p.currency;
+
+/* Owner form takes major units (`12000` UGX / `19.99` USD); storage is
+   always minor units, so every save multiplies by 100 once, here. */
+export const toMinor = (major: string | number): number => {
+  const n = Number(String(major ?? "").replace(/[^0-9.-]/g, ""));
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n * 100);
+};
+
+export const toMajor = (cents: number): string =>
+  String(Number(((cents || 0) / 100).toFixed(2)));
+
+function group(value: number, decimals: number): string {
+  const fixed = Math.abs(value).toFixed(Math.max(0, Math.min(2, decimals)));
+  const [int, frac] = fixed.split(".");
+  const withSep = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return frac ? withSep + "." + frac : withSep;
+}
 
 export const mb = (bytes: number): string => (bytes / 1048576).toFixed(1) + " MB";
 

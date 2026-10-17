@@ -1,9 +1,11 @@
+pub mod currency;
 pub mod filter;
 pub mod models;
 pub mod photo;
 pub mod timeline;
 pub mod whatsapp;
 
+pub use currency::{decimals as currency_decimals, normalize as normalize_currency};
 pub use filter::apply_filter;
 pub use models::{StudioCreateProduct, GenerationStatus, Product, ProductFilter, ShopSettings, TryOnRequest, TryOnResponse};
 pub use photo::{share_url, target_dimensions};

@@ -4,9 +4,12 @@ compatibility_date = "2026-01-01"
 
 [vars]
 SHOP_NAME = "TryOn & Shop"
+SHOP_CURRENCY = "UGX"
 R2_PUBLIC_BASE = ""
 
 # Secrets (set via `wrangler secret put`): GENLOOK_API_KEY, OWNER_TOKEN, OWNER_WHATSAPP
+# SHOP_CURRENCY is the shop default for new bundles (dropdown in the studio);
+# any code from shared/src/currency.rs, UGX when unset.
 # R2_PUBLIC_BASE (vars): public base URL serving the bucket, e.g.
 # `https://pub-<hash>.r2.dev` or a custom domain (no trailing slash).
 # D1: create with `wrangler d1 create tryon-db`, then paste its id below.

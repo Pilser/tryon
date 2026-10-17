@@ -63,6 +63,17 @@ Public JSON:
 - `GET /api/shop-settings` -> shop name + WhatsApp + currency + logo.
 - `GET /healthz` -> `{"ok":true}`.
 
+Prices / currency:
+- `price_cents` is always 1/100 of the major unit, for every currency, so
+  the wire format never changes. The owner form shows/accepts major units
+  (`12000`, `19.99`) and `frontend/src/core/format.ts::toMinor` converts once.
+- Supported codes + display decimals live in `shared/src/currency.rs`
+  (mirrored in `frontend/src/core/currencies.ts`, same order). Unknown
+  codes normalize to the shop currency. UGX is the default and first.
+- Shop currency comes from `SHOP_CURRENCY` (default `UGX`), overridden by
+  the owner shop card (`POST /api/studio/shop` field `currency`); each
+  bundle carries its own `currency` field, defaulted to the shop one.
+
 Try-on (worker is the only caller of Genlook; key never reaches the browser):
 - `POST /api/person-upload` -> precheck (multipart, <=10 MB, image mime), then the
   raw body is forwarded to Genlook `POST /images/upload` -> `{imageId}`.

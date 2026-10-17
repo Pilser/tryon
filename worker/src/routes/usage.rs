@@ -2,7 +2,8 @@
 times, and the state of the unlock codes. One request feeds the whole
 dashboard so the tabs switch without extra round trips. */
 use serde::{Deserialize, Serialize};
-use worker::{Env, Request, Response};
+use wasm_bindgen::JsValue;
+use worker::{Env, Method, Request, Response};
 
 use crate::routes::device;
 use crate::routes::errors;
@@ -23,6 +24,8 @@ pub struct DeviceStat {
     pub bonus: i64,
     #[serde(default)]
     pub bonus_until_ms: i64,
+    #[serde(default)]
+    pub blocked: i64,
     #[serde(default)]
     pub first_seen_ms: i64,
     #[serde(default)]
@@ -68,7 +71,7 @@ pub async fn handle_usage(req: Request, env: Env) -> worker::Result<Response> {
     let db = device::db(&env)?;
     let devices: Vec<DeviceStat> = db
         .prepare(
-            "SELECT id,name,whatsapp,fingerprint,bonus,bonus_until_ms,first_seen_ms,last_seen_ms,\
+            "SELECT id,name,whatsapp,fingerprint,bonus,bonus_until_ms,blocked,first_seen_ms,last_seen_ms,\
              (SELECT COUNT(*) FROM tryons t WHERE t.device_id=d.id) AS used \
              FROM devices d ORDER BY last_seen_ms DESC LIMIT 200",
         )
@@ -108,6 +111,65 @@ pub async fn handle_usage(req: Request, env: Env) -> worker::Result<Response> {
         tokens,
         owner_whatsapp: shop.owner_whatsapp,
     })
+}
+
+#[derive(Deserialize)]
+pub struct BlockIn {
+    pub device_id: String,
+    /// true = block, false = unblock.
+    pub blocked: bool,
+}
+
+/// `POST /api/studio/devices/block` - owner blocks a device (wrong number,
+/// burned try-ons nobody paid for) or unblocks it after they talk.
+pub async fn handle_device_block(mut req: Request, env: Env) -> worker::Result<Response> {
+    if !crate::routes::owner::authorized(&req, &env) {
+        return errors::unauthorized();
+    }
+    let input: BlockIn = req
+        .json()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let Some(id) = device::clean_device_id(&input.device_id) else {
+        return errors::bad_request("INVALID_REQUEST", "device_id required");
+    };
+    device::ensure_ddl(&env).await?;
+    let db = device::db(&env)?;
+    db.prepare("UPDATE devices SET blocked=? WHERE id=?")
+        .bind(&[
+            JsValue::from(i64::from(input.blocked)),
+            JsValue::from(id.clone()),
+        ])
+        .map_err(|e| worker::Error::RustError(e.to_string()))?
+        .run()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    Response::from_json(&device::snapshot(&env, &id).await)
+}
+
+/// `GET /api/studio/credits` - the owner's remaining Genlook credits
+/// (each try-on costs 1; the balance endpoint is the only way to read it,
+/// generation responses carry no cost field).
+pub async fn handle_credits(req: Request, env: Env) -> worker::Result<Response> {
+    if !crate::routes::owner::authorized(&req, &env) {
+        return errors::unauthorized();
+    }
+    let key = crate::routes::genlook_api::api_key(&env)?;
+    let mut resp = crate::routes::genlook_api::forward(
+        &key,
+        Method::Get,
+        &format!("{}/account/credits", crate::routes::genlook_api::base(&env)),
+        None,
+        None,
+    )
+    .await?;
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    Response::from_json(&serde_json::json!({
+        "creditBalance": body.get("creditBalance").cloned().unwrap_or(serde_json::json!(0)),
+    }))
 }
 
 #[cfg(test)]

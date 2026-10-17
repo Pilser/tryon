@@ -21,6 +21,7 @@ pub const USAGE_DDL: [&str; 4] = [
         whatsapp TEXT NOT NULL DEFAULT '',
         bonus INTEGER NOT NULL DEFAULT 0,
         bonus_until_ms INTEGER NOT NULL DEFAULT 0,
+        blocked INTEGER NOT NULL DEFAULT 0,
         first_seen_ms INTEGER NOT NULL DEFAULT 0,
         last_seen_ms INTEGER NOT NULL DEFAULT 0
     )",
@@ -46,6 +47,12 @@ pub const USAGE_DDL: [&str; 4] = [
         value TEXT NOT NULL DEFAULT ''
     )",
 ];
+
+/// Columns added after the first release. Existing deployments run these
+/// once; a duplicate-column error simply means the column already exists,
+/// so migration failures are tolerated in `ensure_ddl`.
+pub const USAGE_MIGRATIONS: [&str; 1] =
+    ["ALTER TABLE devices ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0"];
 
 /* ------------------------------------------------------------- pure ----- */
 
@@ -101,6 +108,8 @@ pub struct DeviceRow {
     pub bonus: i64,
     #[serde(default)]
     pub bonus_until_ms: i64,
+    #[serde(default)]
+    pub blocked: i64,
 }
 
 #[derive(Deserialize, Default)]
@@ -127,12 +136,15 @@ pub async fn ensure_ddl(env: &Env) -> worker::Result<()> {
             .await
             .map_err(|e| worker::Error::RustError(e.to_string()))?;
     }
+    for sql in USAGE_MIGRATIONS {
+        let _ = db.exec(sql).await; // duplicate column = already migrated
+    }
     Ok(())
 }
 
 pub async fn device_row(env: &Env, id: &str) -> Option<DeviceRow> {
     let db = db(env).ok()?;
-    db.prepare("SELECT name,whatsapp,bonus,bonus_until_ms FROM devices WHERE id=?")
+    db.prepare("SELECT name,whatsapp,bonus,bonus_until_ms,blocked FROM devices WHERE id=?")
         .bind(&[JsValue::from(id.to_string())])
         .ok()?
         .first(None)
@@ -218,6 +230,8 @@ pub struct DeviceSnapshot {
     /// -1 = unlimited (a time token window is open).
     pub remaining: i64,
     pub owner_whatsapp: String,
+    /// 1 when the owner blocked this device (no more try-ons).
+    pub blocked: i64,
 }
 
 pub async fn snapshot(env: &Env, id: &str) -> DeviceSnapshot {
@@ -234,6 +248,7 @@ pub async fn snapshot(env: &Env, id: &str) -> DeviceSnapshot {
         bonus_until_ms: q.bonus_until_ms,
         remaining: crate::routes::quota::remaining(&q, now_ms()),
         owner_whatsapp: owner,
+        blocked: row.as_ref().map(|r| r.blocked).unwrap_or(0),
     }
 }
 

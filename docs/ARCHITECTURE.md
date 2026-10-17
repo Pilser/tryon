@@ -106,6 +106,13 @@ Owner dashboard (`routes/usage.rs`, `routes/tokens.rs`, `routes/quota.rs`):
   mints 1..50 codes (alphabet without look-alikes, e.g. `BKWY`).
 - `POST /api/studio/tokens/delete` -> `{code}` (used or not).
 - `POST /api/studio/settings` -> `{free_tries}` for every new device.
+- `POST /api/studio/devices/block` -> `{device_id, blocked}` blocks a device
+  (wrong number, unpaid usage) or unblocks it; the try-on gate answers
+  `403 BLOCKED` for a blocked device before anything else.
+- `GET /api/studio/credits` -> forwards Genlook `GET /account/credits`
+  (`{creditBalance}`). Generation responses carry no per-call cost field:
+  a try-on is a flat 1 credit, refunded when it fails, so the balance
+  endpoint is the only spend signal the API offers.
 - Owner-only (Bearer `OWNER_TOKEN`; empty token = open local backend):
 - `POST /api/owner/login` / `POST /api/owner/logout`.
 - `POST /api/studio/products` (multipart bundle: image0 garment, image1 model, image2 styled) -> R2 + D1 upsert.

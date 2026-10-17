@@ -122,6 +122,22 @@ pub async fn gate(env: &Env, device_id: &str) -> worker::Result<Option<Response>
     if env.d1("DB").is_err() {
         return Ok(None); // no D1 wired (local rig): stay permissive
     }
+    let row = device::device_row(env, &id).await;
+    if row.as_ref().map(|r| r.blocked).unwrap_or(0) > 0 {
+        // The owner blocked this device. Same error shape, no unlock path.
+        let snap = device::snapshot(env, &id).await;
+        let mut body =
+            serde_json::to_value(&snap).map_err(|e| worker::Error::RustError(e.to_string()))?;
+        if let Some(map) = body.as_object_mut() {
+            map.insert("code".into(), serde_json::json!("BLOCKED"));
+            map.insert(
+                "message".into(),
+                serde_json::json!("this device was blocked by the shop - contact them on WhatsApp"),
+            );
+            map.insert("status".into(), serde_json::json!(403));
+        }
+        return Ok(Some(Response::from_json(&body)?.with_status(403)));
+    }
     let q = quota(env, &id).await;
     if verdict(&q, device::now_ms()) != Verdict::Exhausted {
         return Ok(None);

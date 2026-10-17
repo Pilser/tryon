@@ -1,4 +1,5 @@
 pub mod categories;
+pub mod errors;
 pub mod genlook_api;
 pub mod health;
 pub mod ids;

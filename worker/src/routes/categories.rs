@@ -63,7 +63,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         .map_err(|e| worker::Error::RustError(e.to_string()))?
         .unwrap_or_default();
     if !crate::routes::studio::authorized(Some(&auth), &expected) {
-        return Response::error("unauthorized", 401);
+        return crate::routes::errors::unauthorized();
     }
     let bucket = env
         .bucket("PRODUCTS")
@@ -76,7 +76,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         .map(|v| v.to_string())
         .unwrap_or_default();
     if base.is_empty() {
-        return Response::error("R2_PUBLIC_BASE not configured", 500);
+        return crate::routes::errors::not_configured("R2_PUBLIC_BASE missing");
     }
     let form = req
         .form_data()
@@ -88,7 +88,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         .trim()
         .to_string();
     if title.is_empty() {
-        return Response::error("title required", 400);
+        return crate::routes::errors::bad_request("TITLE_REQUIRED", "title required");
     }
     // Update path: keep the existing image unless a new file arrives.
     let mut id = form.get_field("id").unwrap_or_default().trim().to_string();

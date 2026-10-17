@@ -129,7 +129,7 @@ pub async fn handle_get(id: &str, env: &Env) -> Result<Response> {
     };
     match store.get(id) {
         Some(p) => Response::from_json(&p),
-        None => Response::error("not found", 404),
+        None => crate::routes::errors::json_error(404, "NOT_FOUND", "product not found"),
     }
 }
 

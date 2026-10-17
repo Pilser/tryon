@@ -104,11 +104,12 @@ pub async fn handle_sync(mut req: Request, env: Env) -> worker::Result<Response>
         .json()
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
-    validate(&TryOnRequest {
+    if let Err(e) = validate(&TryOnRequest {
         product_id: input.product_id.clone(),
         person_image_id: input.person_image_id.clone(),
-    })
-    .map_err(|e| worker::Error::RustError(e.into()))?;
+    }) {
+        return crate::routes::errors::bad_request("INVALID_REQUEST", e);
+    }
     let body = build_sync_body(
         &input.product_id,
         &input.title,

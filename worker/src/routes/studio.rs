@@ -86,7 +86,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         .map_err(|e| worker::Error::RustError(e.to_string()))?
         .unwrap_or_default();
     if !authorized(Some(&auth), &expected) {
-        return Response::error("unauthorized", 401);
+        return crate::routes::errors::unauthorized();
     }
     let bucket = env
         .bucket("PRODUCTS")
@@ -99,7 +99,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         .map(|v| v.to_string())
         .unwrap_or_default();
     if base.is_empty() {
-        return Response::error("R2_PUBLIC_BASE not configured", 500);
+        return crate::routes::errors::not_configured("R2_PUBLIC_BASE missing");
     }
     let form = req
         .form_data()
@@ -159,7 +159,10 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         }
     }
     if urls[0].is_empty() && !updating {
-        return Response::error("garment photo (image0) required", 400);
+        return crate::routes::errors::bad_request(
+            "GARMENT_REQUIRED",
+            "garment photo (image0) required",
+        );
     }
     let mut created = format!("{}", js_sys::Date::now() as u64);
     let sizes_csv = text.sizes.join(",");
@@ -195,7 +198,10 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         }
     }
     if urls[0].is_empty() {
-        return Response::error("garment photo (image0) required", 400);
+        return crate::routes::errors::bad_request(
+            "GARMENT_REQUIRED",
+            "garment photo (image0) required",
+        );
     }
     db.exec(PRODUCTS_DDL)
         .await

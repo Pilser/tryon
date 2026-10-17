@@ -65,7 +65,7 @@ pub async fn handle_save(mut req: Request, env: Env) -> Result<Response> {
         .map_err(|e| worker::Error::RustError(e.to_string()))?
         .unwrap_or_default();
     if !crate::routes::studio::authorized(Some(&auth), &expected) {
-        return Response::error("unauthorized", 401);
+        return crate::routes::errors::unauthorized();
     }
     let bucket = env
         .bucket("PRODUCTS")
@@ -78,7 +78,7 @@ pub async fn handle_save(mut req: Request, env: Env) -> Result<Response> {
         .map(|v| v.to_string())
         .unwrap_or_default();
     if base.is_empty() {
-        return Response::error("R2_PUBLIC_BASE not configured", 500);
+        return crate::routes::errors::not_configured("R2_PUBLIC_BASE missing");
     }
     let form = req
         .form_data()

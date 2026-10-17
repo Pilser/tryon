@@ -44,21 +44,22 @@ pub async fn handle_upload(mut req: Request, env: Env) -> worker::Result<Respons
         .headers()
         .get("content-length")?
         .and_then(|v| v.parse::<usize>().ok());
-    precheck(
+    if let Err(e) = precheck(
         len,
         if ct.is_empty() {
             None
         } else {
             Some(ct.as_str())
         },
-    )
-    .map_err(|e| worker::Error::RustError(e.into()))?;
+    ) {
+        return crate::routes::errors::bad_request("INVALID_UPLOAD", e);
+    }
     let bytes = req
         .bytes()
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
     if bytes.len() > MAX_BYTES {
-        return Response::error("upload over 10 MB", 400);
+        return crate::routes::errors::bad_request("UPLOAD_TOO_LARGE", "upload over 10 MB");
     }
     gl::forward(
         &key,

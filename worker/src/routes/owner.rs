@@ -44,7 +44,7 @@ pub async fn handle_login(mut req: Request, env: Env) -> Result<Response> {
     if login_ok(input.token.trim(), &env_token(&env)) {
         Response::from_json(&LoginOut { ok: true })
     } else {
-        Response::error("bad token", 401)
+        crate::routes::errors::json_error(401, "UNAUTHORIZED", "bad token")
     }
 }
 

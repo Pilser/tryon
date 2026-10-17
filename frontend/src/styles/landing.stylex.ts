@@ -1,44 +1,44 @@
 import * as stylex from "@stylexjs/stylex";
 import { tokens as t } from "./tokens.stylex";
 
-const MOBILE = "@media (max-width: 720px)" as const;
-
+/* Landing: same kit language as the dashboard - one page column, cards by
+   hairline border, a responsive product grid. The hero is normal flow, so
+   nothing overlaps on odd screen heights. */
 export const landing = stylex.create({
   page: {
-    position: "relative", maxWidth: 1200, height: 340,
-    marginLeft: "auto", marginRight: "auto", overflow: "hidden",
-    [MOBILE]: { height: "auto", paddingBottom: 8 },
+    /* The glow is a wide absolute blob: clip it so it can never widen the
+       page (that would add horizontal scroll on phones). */
+    position: "relative", overflow: "hidden",
+    display: "grid", justifyItems: "center", textAlign: "center",
+    gap: 14, width: "100%", maxWidth: 1100, marginLeft: "auto", marginRight: "auto",
+    paddingTop: 96, paddingBottom: 8, paddingLeft: 14, paddingRight: 14,
+    "@media (min-width: 720px)": { gap: 16, paddingTop: 116, paddingBottom: 14 },
   },
   glow: {
-    position: "absolute", left: "50%", top: -220, width: 640, height: 420,
+    position: "absolute", left: "50%", top: -180, width: 640, height: 420,
     transform: "translateX(-50%)",
     background: "radial-gradient(closest-side, rgba(185,217,60,.16), transparent)",
     pointerEvents: "none",
-    [MOBILE]: { display: "none" },
   },
   eyebrow: {
-    position: "absolute", left: 0, top: 96, width: "100%", margin: 0,
-    textAlign: "center", fontSize: 13, letterSpacing: 2, textTransform: "uppercase",
+    margin: 0, fontSize: 13, letterSpacing: 2, textTransform: "uppercase",
     color: t.primary, fontWeight: 700,
-    [MOBILE]: { position: "static", display: "block", paddingTop: 68, marginBottom: 6 },
   },
   heroTitle: {
-    position: "absolute", left: 0, top: 84, width: "100%", margin: 0,
-    color: t.text, fontFamily: t.fontHead, fontSize: 52, lineHeight: 1.05, textAlign: "center",
-    [MOBILE]: { position: "static", width: "auto", fontSize: 34, marginTop: 68, paddingLeft: 20, paddingRight: 20 },
+    margin: 0, color: t.text, fontFamily: t.fontHead, fontWeight: 700,
+    fontSize: 34, lineHeight: 1.08,
+    "@media (min-width: 720px)": { fontSize: 48 },
   },
   heroSub: {
-    position: "absolute", left: 0, top: 208, width: "100%", margin: 0,
-    color: t.muted, fontSize: 18, textAlign: "center",
-    [MOBILE]: { position: "static", width: "auto", fontSize: 15, marginTop: 10, paddingLeft: 20, paddingRight: 20 },
+    margin: 0, color: t.muted, fontSize: 15, lineHeight: 1.55, maxWidth: 560,
+    "@media (min-width: 720px)": { fontSize: 17 },
   },
   search: {
-    position: "absolute", left: "50%", top: 178, width: 600, maxWidth: "calc(100% - 32px)",
-    height: 52, transform: "translateX(-50%)", borderRadius: 10,
+    width: "100%", maxWidth: 620, height: 52, borderRadius: 12,
     backgroundColor: t.surface, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
     display: "flex", alignItems: "center", gap: 4, boxSizing: "border-box",
     paddingLeft: 12, paddingRight: 4, paddingTop: 4, paddingBottom: 4,
-    [MOBILE]: { position: "static", transform: "none", width: "auto", marginTop: 18, marginLeft: 16, marginRight: 16 },
+    marginTop: 4,
   },
   searchIcon: { display: "flex", color: t.muted, flexShrink: 0 },
   searchInput: {
@@ -57,28 +57,26 @@ export const landing = stylex.create({
     borderStyle: "none", cursor: "pointer",
     display: "flex", alignItems: "center", justifyContent: "center",
   },
-  pillrow: {
-    position: "absolute", left: 0, top: 332, width: "100%", textAlign: "center",
-    [MOBILE]: { position: "static", marginTop: 14, paddingLeft: 12, paddingRight: 12 },
-  },
+  pillrow: { display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" },
   pill: {
-    display: "inline-block", minWidth: 90, height: 36, lineHeight: "36px",
-    paddingLeft: 16, paddingRight: 16, marginLeft: 6, marginRight: 6, marginTop: 6,
-    boxSizing: "border-box", textAlign: "center", verticalAlign: "top",
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    minHeight: 40, paddingLeft: 14, paddingRight: 14,
+    boxSizing: "border-box", textAlign: "center",
     borderRadius: 10, backgroundColor: t.surface,
-    borderWidth: 1, borderStyle: "solid", borderColor: "transparent",
-    color: t.text, fontSize: 15, textDecoration: "none",
+    borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    color: t.text, fontSize: 14, textDecoration: "none",
   },
-  pillAll: { backgroundColor: t.primary, color: t.primaryInk, fontWeight: 700 },
+  pillAll: { backgroundColor: t.primary, color: t.primaryInk, fontWeight: 700, borderColor: t.primary },
   pillOn: { borderColor: t.primary, color: t.primary },
-  count: {
-    position: "absolute", left: 0, top: 248, width: "100%", margin: 0,
-    color: t.muted, fontSize: 14, textAlign: "center",
-    [MOBILE]: { position: "static", width: "auto", marginTop: 10 },
-  },
+  count: { margin: 0, color: t.muted, fontSize: 13 },
   grid: {
-    display: "flex", flexWrap: "wrap", gap: 30, justifyContent: "center",
-    padding: 22, maxWidth: 1200, marginLeft: "auto", marginRight: "auto",
-    [MOBILE]: { gap: 16, padding: 12 },
+    display: "grid", gap: 14,
+    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+    width: "100%", maxWidth: 1100, marginLeft: "auto", marginRight: "auto",
+    paddingLeft: 14, paddingRight: 14, paddingBottom: 40, paddingTop: 14,
+    "@media (min-width: 720px)": {
+      gap: 18, paddingLeft: 26, paddingRight: 26, paddingTop: 18,
+      gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+    },
   },
 });

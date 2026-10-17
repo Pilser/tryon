@@ -3,14 +3,13 @@ import { tokens as t } from "./tokens.stylex";
 
 export const card = stylex.create({
   root: {
-    position: "relative", width: 300, flexShrink: 0,
-    borderRadius: 16, backgroundColor: t.surface,
+    position: "relative", width: "100%", minWidth: 0,
+    borderRadius: 14, backgroundColor: t.surface,
     borderWidth: 1, borderStyle: "solid", borderColor: t.line,
     overflow: "hidden", paddingBottom: 16,
     transitionProperty: "transform, border-color",
     transitionDuration: ".15s, .15s",
     ":hover": { transform: "translateY(-3px)", borderColor: t.primary },
-    "@media (max-width: 400px)": { width: "100%", maxWidth: 340 },
   },
   media: { display: "block", position: "relative", width: "100%", aspectRatio: "3 / 4", backgroundColor: t.line },
   img: {

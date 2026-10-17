@@ -31,9 +31,16 @@ page with a max width, cards defined by a hairline border + whitespace (no
 nested fills), stat cards (muted label, big value, hairline rule), flush
 list cards with hairline-separated rows, button rows that never touch
 (full width on phones), and a centred empty state. `skin.ts` maps the
-literal shell classes (`.dash-page`, `.dash-card`, `.dash-row2`, …) onto
-it so HTML shells and JS-rendered content look the same. Destructive
-actions are always `.btn.danger`.
+literal shell classes (`.page`, `.page-head`, `.dash-card`, `.dash-row2`,
+`.bundle-form`, …) onto it so HTML shells and JS-rendered content look the
+same. Destructive actions are always `.btn.danger`.
+
+Every page grid uses `grid-template-columns: minmax(0, 1fr)`: grid children
+default to `min-width: auto`, which lets an inner horizontal scroller (the
+studio's product/user duo, the timeline ribbon) stretch the whole page and
+produce sideways scroll on a phone. The owner bundle form is a normal CSS
+grid (3 columns of photo slots on desktop, one column on phones) - no
+absolute coordinates, so it cannot overflow either.
 
 ## 3. SSR in Workers (what it is)
 

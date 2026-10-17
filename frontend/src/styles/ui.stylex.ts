@@ -12,6 +12,7 @@ export const ui = stylex.create({
   /* ------------------------------------------------------------ page --- */
   page: {
     display: "grid", gap: 14, width: "100%", maxWidth: 1100, marginInline: "auto",
+    gridTemplateColumns: "minmax(0, 1fr)",
     paddingLeft: 14, paddingRight: 14, paddingTop: 16, paddingBottom: 40,
     "@media (min-width: 720px)": {
       gap: 18, paddingLeft: 26, paddingRight: 26, paddingTop: 26,

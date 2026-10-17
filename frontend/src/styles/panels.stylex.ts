@@ -2,17 +2,30 @@ import * as stylex from "@stylexjs/stylex";
 import { tokens as t } from "./tokens.stylex";
 
 export const studio = stylex.create({
+  /* The studio is a kit card now: hairline border + whitespace, not a
+     transparent box floating on the page. */
   root: {
-    maxWidth: 1100, marginTop: 8, marginBottom: 8, marginLeft: "auto", marginRight: "auto",
-    padding: 12, backgroundColor: "transparent",
-    "@media (max-width: 720px)": { padding: 8 },
+    minWidth: 0,
+    backgroundColor: t.surface, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    borderRadius: 14, display: "grid", gap: 12,
+    paddingTop: 14, paddingBottom: 14, paddingLeft: 14, paddingRight: 14,
+    "@media (min-width: 720px)": {
+      gap: 14, paddingTop: 18, paddingBottom: 18, paddingLeft: 20, paddingRight: 20,
+    },
   },
   preview: { maxWidth: 280, borderRadius: 8 },
   resultImg: { maxWidth: "100%", borderRadius: 12 },
+  /* One page wrapper for every shell (studio, product): kit metrics. */
   page: {
-    maxWidth: 1100, marginLeft: "auto", marginRight: "auto",
-    paddingTop: 66, paddingLeft: 22, paddingRight: 22, paddingBottom: 22,
-    "@media (max-width: 720px)": { paddingTop: 62, paddingLeft: 12, paddingRight: 12, paddingBottom: 12 },
+    display: "grid", gap: 14, width: "100%", maxWidth: 1100,
+    marginLeft: "auto", marginRight: "auto",
+    /* Grid children must be allowed to shrink: the studio's product/user
+       duo is a horizontal scroller inside this grid. */
+    gridTemplateColumns: "minmax(0, 1fr)",
+    paddingTop: 66, paddingBottom: 40, paddingLeft: 14, paddingRight: 14,
+    "@media (min-width: 720px)": {
+      gap: 18, paddingTop: 78, paddingLeft: 26, paddingRight: 26,
+    },
   },
   pickRow: {
     display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap",
@@ -31,13 +44,14 @@ export const studio = stylex.create({
   },
   loginCard: {
     borderWidth: 1, borderStyle: "solid", borderColor: t.line,
-    borderRadius: 16, backgroundColor: t.surface,
-    padding: 24, marginBottom: 22,
-    "@media (max-width: 720px)": { padding: 16, borderRadius: 12 },
+    borderRadius: 14, backgroundColor: t.surface, display: "grid", gap: 12,
+    paddingTop: 16, paddingBottom: 16, paddingLeft: 16, paddingRight: 16,
+    "@media (min-width: 720px)": { paddingTop: 20, paddingBottom: 20, paddingLeft: 20, paddingRight: 20 },
   },
   ownerBar: {
-    display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between",
-    flexWrap: "wrap", marginBottom: 4,
+    display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between",
+    flexWrap: "wrap", paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: t.line,
     "@media (min-width: 901px)": { justifyContent: "flex-end" },
   },
   ownerHint: {
@@ -64,16 +78,12 @@ export const studio = stylex.create({
   gate: { textAlign: "center", marginTop: 20, marginBottom: 8 },
   catbox: {
     borderWidth: 1, borderStyle: "solid", borderColor: t.line,
-    borderRadius: 12, backgroundColor: t.surface,
-    padding: 16, marginTop: 12, marginBottom: 16,
+    borderRadius: 14, backgroundColor: t.surface, display: "grid", gap: 10,
+    paddingTop: 14, paddingBottom: 14, paddingLeft: 14, paddingRight: 14,
+    marginTop: 14, marginBottom: 14,
+    "@media (min-width: 720px)": { paddingTop: 18, paddingBottom: 18, paddingLeft: 20, paddingRight: 20 },
   },
-  /* Only the first box after the bundle form needs clearance above the
-     desktop absolute field grid; boxes after each other sit tight. */
-  catboxFirst: {
-    marginTop: 440,
-    "@media (max-width: 900px)": { marginTop: 12 },
-  },
-  catboxTitle: { marginTop: 0, marginBottom: 8, fontSize: 16, color: t.text },
+  catboxTitle: { marginTop: 0, marginBottom: 0, fontFamily: t.fontHead, fontSize: 15, fontWeight: 700, color: t.text },
   catList: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 },
   catChip: {
     display: "flex", alignItems: "center", gap: 6,
@@ -273,25 +283,44 @@ export const cats = stylex.create({
 });
 
 export const owner = stylex.create({
+  /* Owner panel: a kit card in normal flow. The old absolute-positioned
+     desktop grid is gone - it could not shrink and forced horizontal
+     scroll on narrow laptops. */
   page: {
-    position: "relative", maxWidth: 1200, minHeight: 560,
-    marginTop: 64, marginBottom: 0, marginLeft: "auto", marginRight: "auto",
-    paddingTop: 24, paddingBottom: 24, paddingLeft: 24, paddingRight: 24,
+    maxWidth: 1100, marginLeft: "auto", marginRight: "auto",
+    backgroundColor: t.surface, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    borderRadius: 14, display: "grid", gap: 14,
+    paddingTop: 16, paddingBottom: 18, paddingLeft: 14, paddingRight: 14,
+    "@media (min-width: 720px)": { gap: 16, paddingLeft: 20, paddingRight: 20 },
   },
   title: {
-    "@media (max-width: 900px)": { position: "static" }, position: "absolute", left: 24, top: 24, fontFamily: t.fontHead, fontSize: 28, margin: 0 },
+    fontFamily: t.fontHead, fontSize: 22, fontWeight: 700, color: t.text,
+    marginTop: 0, marginBottom: 0,
+  },
+  /* Bundle form: three photo slots on top, then the fields. One column on
+     phones, three on desktops - all in flow, no magic margins. */
+  form: {
+    display: "grid", gap: 12, gridTemplateColumns: "minmax(0, 1fr)",
+    "@media (min-width: 901px)": { gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 },
+  },
+  wide: { "@media (min-width: 901px)": { gridColumn: "1 / -1" } },
   lab: {
-    "@media (max-width: 900px)": { position: "static", marginTop: 16 }, position: "absolute", top: 90, fontSize: 15, margin: 0 },
-  lab0: { left: 24 },
-  lab1: { left: 264 },
-  lab2: { left: 504 },
+    fontSize: 14, fontWeight: 700, color: t.text, marginTop: 0, marginBottom: 0,
+    "@media (min-width: 901px)": { gridRow: 1 },
+  },
+  lab0: { "@media (min-width: 901px)": { gridColumn: 1 } },
+  lab1: { "@media (min-width: 901px)": { gridColumn: 2 } },
+  lab2: { "@media (min-width: 901px)": { gridColumn: 3 } },
   labReq: { color: t.primary },
   labOpt: { color: t.muted },
   slot: {
-    position: "absolute", top: 150, width: 216, height: 270, borderRadius: 8,
+    position: "relative", width: "100%", height: 210, borderRadius: 12,
     backgroundColor: t.line, cursor: "pointer", overflow: "hidden", display: "block",
-    "@media (max-width: 900px)": { position: "relative", left: 0, top: "auto", width: "100%", height: 200, marginTop: 12 },
+    "@media (min-width: 901px)": { gridRow: 2, height: 300 },
   },
+  slot0: { "@media (min-width: 901px)": { gridColumn: 1 } },
+  slot1: { "@media (min-width: 901px)": { gridColumn: 2 } },
+  slot2: { "@media (min-width: 901px)": { gridColumn: 3 } },
   slotImg: { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover" },
   slotEmpty: {
     position: "absolute", left: 0, top: 0, width: "100%", height: "100%",
@@ -326,52 +355,31 @@ export const owner = stylex.create({
   },
   slotRetake: { right: 8 },
   slotRelib: { left: 8 },
-  cap: { position: "absolute", top: 428, color: t.muted, fontSize: 13, margin: 0,
-    "@media (max-width: 900px)": { position: "static", marginTop: 4 } },
-  cap0: { left: 24 },
-  cap1: { left: 264 },
-  cap2: { left: 504 },
+  cap: {
+    color: t.muted, fontSize: 12, marginTop: 0, marginBottom: 0,
+    "@media (min-width: 901px)": { gridRow: 3 },
+  },
+  cap0: { "@media (min-width: 901px)": { gridColumn: 1 } },
+  cap1: { "@media (min-width: 901px)": { gridColumn: 2 } },
+  cap2: { "@media (min-width: 901px)": { gridColumn: 3 } },
   field: {
-    "@media (max-width: 900px)": { position: "static", width: "100%", marginTop: 12 },
-    position: "absolute", height: 52, borderRadius: 10, backgroundColor: t.surface,
-    borderWidth: 1, borderStyle: "solid", borderColor: t.line,
-    color: t.text, fontSize: 15, paddingLeft: 18, paddingRight: 18, outlineStyle: "none",
+    height: 52, width: "100%", boxSizing: "border-box", borderRadius: 10,
+    backgroundColor: t.bg, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    color: t.text, fontSize: 15, paddingLeft: 16, paddingRight: 16, outlineStyle: "none",
   },
-  photoBtn: {
-    "@media (max-width: 900px)": { position: "static", width: "100%", marginTop: 12 },
-    position: "absolute", left: 24, top: 470, width: 180, height: 48,
-    borderRadius: 10, backgroundColor: t.primary, color: t.primaryInk,
-    fontSize: 15, fontWeight: 700, borderStyle: "none", cursor: "pointer",
-  },
-  camBtn: {
-    "@media (max-width: 900px)": { position: "static", width: "100%", marginTop: 12 },
-    position: "absolute", left: 216, top: 470, width: 180, height: 48,
-    borderRadius: 10, backgroundColor: t.surface,
-    borderWidth: 1, borderStyle: "solid", borderColor: t.line,
-    color: t.text, fontSize: 15, cursor: "pointer",
-  },
+  fTitle: { "@media (min-width: 901px)": { gridRow: 4, gridColumn: "1 / -1" } },
+  fPrice: { "@media (min-width: 901px)": { gridRow: 5, gridColumn: 1 } },
+  fCur: { "@media (min-width: 901px)": { gridRow: 5, gridColumn: 2 } },
+  fCat: { "@media (min-width: 901px)": { gridRow: 5, gridColumn: 3 } },
+  fSizes: { "@media (min-width: 901px)": { gridRow: 6, gridColumn: 1 } },
+  fDesc: { "@media (min-width: 901px)": { gridRow: 6, gridColumn: "2 / -1" } },
   submit: {
-    "@media (max-width: 900px)": { position: "static", width: "100%", marginTop: 16 },
-    position: "absolute", left: 760, top: 406, width: 240, height: 52,
-    borderRadius: 10, backgroundColor: t.primary, color: t.primaryInk,
+    width: "100%", height: 52, borderRadius: 10,
+    backgroundColor: t.primary, color: t.primaryInk,
     fontSize: 15, fontWeight: 700, borderStyle: "none", cursor: "pointer",
-  },
-  note: {
-    "@media (max-width: 900px)": { position: "static", marginTop: 12 }, position: "absolute", left: 760, top: 474, color: t.muted, fontSize: 13, margin: 0 },
-  list: {
-    marginTop: 560, paddingLeft: 24, paddingRight: 24, paddingBottom: 40,
-    "@media (max-width: 900px)": { marginTop: 16, paddingLeft: 12, paddingRight: 12 },
+    "@media (min-width: 901px)": { gridRow: 7, gridColumn: "1 / -1" },
   },
   listLink: { color: t.complement },
-  slot0: { left: 24 },
-  slot1: { left: 264 },
-  slot2: { left: 504 },
-  fTitle: { left: 760, top: 150, width: 416 },
-  fPrice: { left: 760, top: 214, width: 268 },
-  fCur: { left: 1038, top: 214, width: 138 },
-  fCat: { left: 760, top: 278, width: 200 },
-  fSizes: { left: 972, top: 278, width: 204 },
-  fDesc: { left: 760, top: 342, width: 416 },
 });
 
 export const share = stylex.create({

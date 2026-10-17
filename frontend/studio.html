@@ -12,7 +12,13 @@
 </head>
 <body data-page="studio">
 <header class="topbar"><a class="nav-back" href="/app/" aria-label="Back">&#8249;</a><a class="brand" href="/app/">TryOn &amp; Shop</a><a class="studio-link" href="/app/studio.html" aria-label="Studio"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></a></header>
-<main class="studio-page">
+<main class="page">
+  <header class="page-head">
+    <div>
+      <h1 class="page-title">Try-on studio</h1>
+      <p class="page-lead">Pick a photo, try the piece on, and keep every attempt in the ribbon below.</p>
+    </div>
+  </header>
   <div id="st-product"></div>
   <section class="studio" id="studio">
     <h3 class="tl-head" id="st-tlhead" style="display:none">Your photos - tap to reuse</h3>
@@ -60,7 +66,7 @@
       <button class="btn secondary" id="bd-logout" type="button">Log out</button>
     </div>
     <h2 class="title">Upload bundle - 3 photos</h2>
-    <form id="bundle-form" method="post" action="/api/studio/products" enctype="multipart/form-data">
+    <form class="bundle-form" id="bundle-form" method="post" action="/api/studio/products" enctype="multipart/form-data">
       <p class="lab1">1 · Garment *</p>
       <label class="slot-garment" title="tap to pick garment photo"><img id="slot-img-0" class="slot-img" style="display:none" alt="garment preview"/><span class="slot-empty" id="slot-empty-0"><button type="button" class="slot-pick" data-i="0" aria-label="Choose photo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span>Library</span></button><button type="button" class="slot-cam" data-i="0" aria-label="Take photo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg><span>Camera</span></button></span><button type="button" class="slot-retake" data-i="0" style="display:none" aria-label="Take another photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></button><button type="button" class="slot-relib" data-i="0" style="display:none" aria-label="Choose another photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></button><input id="file0" name="image0" type="file" accept="image/*" hidden/><input id="filecam0" type="file" accept="image/*" capture="environment" hidden/></label>
       <label class="slot-model" title="tap to pick model photo"><img id="slot-img-1" class="slot-img" style="display:none" alt="model preview"/><span class="slot-empty" id="slot-empty-1"><button type="button" class="slot-pick" data-i="1" aria-label="Choose photo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span>Library</span></button><button type="button" class="slot-cam" data-i="1" aria-label="Take photo"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg><span>Camera</span></button></span><button type="button" class="slot-retake" data-i="1" style="display:none" aria-label="Take another photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></button><button type="button" class="slot-relib" data-i="1" style="display:none" aria-label="Choose another photo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></button><input id="file1" name="image1" type="file" accept="image/*" hidden/><input id="filecam1" type="file" accept="image/*" capture="environment" hidden/></label>
@@ -72,10 +78,10 @@
       <input class="f-sizes f-in" name="sizes" placeholder="Sizes S,M,L"/>
       <input class="f-desc f-in" name="description" placeholder="Description - helps the AI fit it right"/>
       <button class="submit" id="bd-submit" type="submit"><span class="submit-t">Save bundle</span></button>
-      <p class="error" id="bd-err" style="display:none"></p>
-      <p class="ok" id="bd-ok" style="display:none"></p>
+      <p class="error form-wide" id="bd-err" style="display:none"></p>
+      <p class="ok form-wide" id="bd-ok" style="display:none"></p>
     </form>
-    <div class="catbox catbox-first" id="catbox">
+    <div class="catbox" id="catbox">
       <h3 class="catbox-title">Categories</h3>
       <div class="row">
         <input class="cat-in" id="bd-cat-title" placeholder="New category title"/>

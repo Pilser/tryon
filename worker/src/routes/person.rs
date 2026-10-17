@@ -1,4 +1,8 @@
+/* routes/person.rs - shopper person photo: precheck here, upload at Genlook. */
 use tryon_shared::photo::{is_accepted_mime, MAX_BYTES};
+use worker::{Env, Method, Request, Response};
+
+use crate::routes::genlook_api as gl;
 
 /// Pre-checks for `POST /api/person-upload` before reading the body.
 /// Genlook keeps person photos 7 days by default (`keepForDays` 1/3/7
@@ -28,6 +32,42 @@ pub fn check_file_part(mime: &str, len: usize) -> Result<(), &'static str> {
         return Err("unsupported type: use JPEG, PNG, WebP or HEIC");
     }
     tryon_shared::photo::validate_bytes(len, mime)
+}
+
+/// `POST /api/person-upload` — after the prechecks the multipart body is
+/// forwarded untouched, so Genlook's boundary and any extra fields
+/// (`keepForDays`, `externalUserId`) survive.
+pub async fn handle_upload(mut req: Request, env: Env) -> worker::Result<Response> {
+    let key = gl::api_key(&env)?;
+    let ct = req.headers().get("content-type")?.unwrap_or_default();
+    let len = req
+        .headers()
+        .get("content-length")?
+        .and_then(|v| v.parse::<usize>().ok());
+    precheck(
+        len,
+        if ct.is_empty() {
+            None
+        } else {
+            Some(ct.as_str())
+        },
+    )
+    .map_err(|e| worker::Error::RustError(e.into()))?;
+    let bytes = req
+        .bytes()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    if bytes.len() > MAX_BYTES {
+        return Response::error("upload over 10 MB", 400);
+    }
+    gl::forward(
+        &key,
+        Method::Post,
+        &format!("{}/images/upload", gl::base(&env)),
+        Some(&ct),
+        Some(bytes),
+    )
+    .await
 }
 
 #[cfg(test)]

@@ -1,5 +1,10 @@
+/* routes/tryon.rs - try-on: payload build + Genlook forwarding + polling. */
+use serde::Deserialize;
 use serde_json::{json, Value};
 use tryon_shared::models::TryOnRequest;
+use worker::{Env, Method, Request, Response};
+
+use crate::routes::genlook_api as gl;
 
 /// Validate try-on payload before spending Genlook credits. Pure + tested.
 pub fn validate(req: &TryOnRequest) -> Result<(), &'static str> {
@@ -76,6 +81,63 @@ pub fn parse_sync_response(status: u16, body: &Value) -> Result<SyncOutcome, Str
             Err(format!("{code}: {msg}"))
         }
     }
+}
+
+/// Client sends the product snapshot (already validated against D1 in
+/// phase7) + the person `imageId` from `/api/person-upload`.
+#[derive(Deserialize)]
+pub struct SyncIn {
+    pub product_id: String,
+    pub title: String,
+    pub description: String,
+    pub image_url: String,
+    pub person_image_id: String,
+}
+
+/// `POST /api/try-on` and `POST /api/try-on/sync` — same work: validate,
+/// then wait upstream. `/try-on/sync` holds the connection up to 90 s and
+/// answers 200 (COMPLETED + temporary `resultImageUrl`) or 202 (PENDING,
+/// poll `/api/generations/:id`).
+pub async fn handle_sync(mut req: Request, env: Env) -> worker::Result<Response> {
+    let key = gl::api_key(&env)?;
+    let input: SyncIn = req
+        .json()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    validate(&TryOnRequest {
+        product_id: input.product_id.clone(),
+        person_image_id: input.person_image_id.clone(),
+    })
+    .map_err(|e| worker::Error::RustError(e.into()))?;
+    let body = build_sync_body(
+        &input.product_id,
+        &input.title,
+        &input.description,
+        &input.image_url,
+        &input.person_image_id,
+    );
+    let bytes = serde_json::to_vec(&body).map_err(|e| worker::Error::RustError(e.to_string()))?;
+    gl::forward(
+        &key,
+        Method::Post,
+        &format!("{}/try-on/sync", gl::base(&env)),
+        Some("application/json"),
+        Some(bytes),
+    )
+    .await
+}
+
+/// `GET /api/generations/:id` — poll a PENDING try-on.
+pub async fn handle_generation(env: Env, id: &str) -> worker::Result<Response> {
+    let key = gl::api_key(&env)?;
+    gl::forward(
+        &key,
+        Method::Get,
+        &format!("{}/generations/{id}", gl::base(&env)),
+        None,
+        None,
+    )
+    .await
 }
 
 #[cfg(test)]

@@ -1,4 +1,7 @@
+pub mod categories;
+pub mod genlook_api;
 pub mod health;
+pub mod ids;
 pub mod owner;
 pub mod person;
 pub mod products;

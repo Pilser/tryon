@@ -97,12 +97,17 @@ tryon/
     photo/pipe.rs (WASM validate + downscale + JPEG encode + preview URL)
     styles/main.css (premium theme)
   worker/src/
-    lib.rs (re-export only)
-    main.rs (fetch router only)
-    routes/mod.rs + products.rs + studio.rs + tryon.rs (sync body/parse) + person.rs (upload precheck) + shop.rs + health.rs
+    lib.rs (routing table only; UI is static, this serves redirects + JSON)
+    routes/ (one domain per file)
+      mod.rs (module list)
+      products.rs (list/get, D1 rows with PRODUCTS_JSON seed fallback)
+      categories.rs + shop.rs (owner catalogue + branding writes)
+      studio.rs (bundle upload: R2 keys, form parse, D1 upsert)
+      tryon.rs (sync body + response parse) + person.rs (upload precheck)
+      owner.rs (login/logout/token) + ids.rs (row ids) + health.rs
+      genlook_api.rs (base URL + x-api-key + one forwarding helper)
     store.rs (D1+R2 abstraction, testable without bindings)
     genlook.rs (REST client, key from env, testable with mock base_url)
-    ssr.rs (landing/detail/studio render helpers)
 ```
 
 Rules: one domain per file, <=500 hard / <=300 target. `mod.rs` re-export only.

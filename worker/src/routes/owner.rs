@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use worker::{Env, Request, Response, Result};
 
 /// Login body for `POST /api/owner/login`. Stateless: the browser keeps
 /// the token and sends it as `Bearer` on studio calls; logout just clears
@@ -25,6 +26,31 @@ pub fn bearer_of(header: Option<&str>) -> &str {
         Some(h) => h.strip_prefix("Bearer ").unwrap_or(""),
         None => "",
     }
+}
+
+/// The owner token this deployment expects (empty = open local backend).
+pub fn env_token(env: &Env) -> String {
+    env.var("OWNER_TOKEN")
+        .map(|v| v.to_string())
+        .unwrap_or_default()
+}
+
+/// `POST /api/owner/login` — verify the submitted token.
+pub async fn handle_login(mut req: Request, env: Env) -> Result<Response> {
+    let input: LoginIn = req
+        .json()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    if login_ok(input.token.trim(), &env_token(&env)) {
+        Response::from_json(&LoginOut { ok: true })
+    } else {
+        Response::error("bad token", 401)
+    }
+}
+
+/// `POST /api/owner/logout` — stateless ack; the browser drops the token.
+pub async fn handle_logout() -> Result<Response> {
+    Response::from_json(&LoginOut { ok: true })
 }
 
 #[cfg(test)]

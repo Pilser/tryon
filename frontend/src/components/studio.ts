@@ -132,42 +132,42 @@ export function initStudio(product: Product): void {
   el("st-timeline").addEventListener("click", ribbonActs);
   document.getElementById("st-usertl")?.addEventListener("click", ribbonActs);
 
-  /* Before/after compare: result stacked over the user photo in one
-     frame. Hold (or tap) the top image to reveal the original photo
-     underneath; release (or tap again) to return to the result. */
-  const paintCompare = (orig: string, result: string): void => {
-    const frame = document.getElementById("st-cmp");
-    const baseImg = document.getElementById("st-cmp-base") as HTMLImageElement | null;
-    const topImg = document.getElementById("st-cmp-top") as HTMLImageElement | null;
-    const cap = document.getElementById("st-cmp-cap");
-    const single = document.getElementById("st-resimg") as HTMLImageElement | null;
-    if (!frame || !baseImg || !topImg) {
-      if (single) { single.src = result; show(single, true); }
-      return;
+  /* Result display: results feed the USER CARD (the one next to the
+     product card) instead of opening a second card below. The card shows
+     the newest result; holding it peeks the photo before it (the original)
+     and releasing puts the result back on top. */
+  const paintResult = (url: string): void => {
+    stopAnim();
+    show(el("st-res"), false);
+    activeThumb = url; activeFull = url; activeKey = url;
+    const face = el("st-prev") as HTMLImageElement;
+    face.src = url; show(face, true);
+    const ue = document.getElementById("st-userempty");
+    if (ue) show(ue, false);
+    const us = document.getElementById("st-usertl");
+    if (us) show(us, false);
+    if (!spent) show(el("st-start"), true);
+    // Save stays one tap away in its own line (st-meta is reused for
+    // hold-to-peek captions, which would wipe a button).
+    const saveBox = document.getElementById("st-save");
+    if (saveBox) {
+      saveBox.innerHTML = "";
+      const save = document.createElement("button");
+      save.type = "button";
+      save.className = "btn secondary";
+      save.textContent = "Save photo";
+      save.addEventListener("click", () => void (async () => {
+        try {
+          const b = await (await fetch(url)).blob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(b); a.download = "tryon-result.jpg"; a.click();
+        } catch {
+          window.open(url, "_blank", "noopener");
+        }
+      })());
+      saveBox.appendChild(save);
+      show(saveBox, true);
     }
-    if (!orig) {
-      show(frame, false);
-      if (cap) show(cap, false);
-      if (single) { single.src = result; show(single, true); }
-      return;
-    }
-    if (single) show(single, false);
-    baseImg.src = orig; topImg.src = result;
-    show(frame, true);
-    let pinned = false;
-    const capOff = "Your result - hold or tap the photo to see your original.";
-    const capOn = "Your original photo - release or tap for the result.";
-    const paint = (on: boolean): void => {
-      topImg.style.opacity = on ? "0" : "";
-      if (cap) { cap.textContent = on ? capOn : capOff; show(cap, true); }
-    };
-    paint(false);
-    topImg.onpointerdown = (e) => { e.preventDefault(); paint(true); };
-    topImg.onpointerup = () => paint(pinned);
-    topImg.onpointercancel = () => paint(pinned);
-    topImg.onpointerleave = () => paint(pinned);
-    topImg.onclick = () => { pinned = !pinned; paint(pinned); };
-    topImg.oncontextmenu = (e) => e.preventDefault();
   };
   const hideCompare = (): void => {
     const c = document.getElementById("st-cmp");
@@ -197,7 +197,8 @@ export function initStudio(product: Product): void {
       ready(previewURL(blob), e.thumb);
       paintTimeline(selectEntry, e.thumb);
     } else if (e.url) {
-      (el("st-resimg") as HTMLImageElement).src = e.url; show(el("st-res"), true);
+      // Results feed the user card too: no second card opens below.
+      paintResult(e.url);
       paintTimeline(selectEntry, e.thumb);
     }
   })();
@@ -248,24 +249,14 @@ export function initStudio(product: Product): void {
         url = await pollGeneration(body.generationId, (s) => { prog.textContent = `Checking result (${s}s)`; });
       } else throw new Error(body.message || "try-on failed (credit refunded)");
       stopAnim(); show(el("st-prog"), false);
-      // The processed photo replaces the old one; the result also goes
-      // first in the ribbon, so the photo behind it is the before view.
-      prev.src = url; show(el("st-res"), true);
-      paintCompare(activeFull, url);
+      // The result feeds the user card (hold = original, release = result)
+      // and goes first in the ribbon; no second card opens below.
       pushTimeline({ kind: "result", thumb: url, imageId: "", url, ts: nowSecs() });
+      paintResult(url);
       paintTimeline(selectEntry, url);
       // One try-on is gone server-side; refresh so the banner shows on the
       // last free try and the button hides when nothing is left.
       void refreshAllowance();
-      el("st-dl").onclick = () => void (async () => {
-        try {
-          const b = await (await fetch(url as string)).blob();
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(b); a.download = "tryon-result.jpg"; a.click();
-        } catch {
-          window.open(url as string, "_blank", "noopener");
-        }
-      })();
     } catch (e) {
       stopAnim(); show(el("st-prog"), false);
       fail(e instanceof Error ? e.message : String(e));

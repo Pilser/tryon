@@ -5,8 +5,10 @@
    same data. Per-device actions: give a token, block / unblock. */
 import * as stylex from "@stylexjs/stylex";
 import {
+  cancelToken,
   deleteToken,
   deviceBlock,
+  purgeTokens,
   mintTokens,
   saveSettings,
   studioCredits,
@@ -57,7 +59,7 @@ export function tokensCsv(rows: UsageOut["tokens"]): string {
       String(r.value),
       csvCell(r.note),
       new Date(r.created_ms).toISOString(),
-      r.redeemed_by ? "used" : "unused",
+      r.redeemed_by ? "used" : r.canceled ? "canceled" : "unused",
       r.redeemed_by || "",
       r.redeemed_ms ? new Date(r.redeemed_ms).toISOString() : "",
     ].join(",");
@@ -164,15 +166,22 @@ function deviceRow(d: UsageOut["devices"][number], free: number): string {
 
 function tokenRow(t: UsageOut["tokens"][number]): string {
   const used = !!t.redeemed_by;
+  const canceled = !used && !!t.canceled;
+  const state = used ? "used" : canceled ? "canceled" : "unused";
   return `<div class="${cx(s.row)}">
     <div><p class="${cx(s.code)}">${esc(t.code)}</p>
     <p class="${cx(s.sub)}">${esc(label(t.kind, t.value))}${t.note ? " · " + esc(t.note) : ""}<br/>${
-      used ? "used " + esc(when(t.redeemed_ms)) + " by " + esc(short(t.redeemed_by)) : "unused, made " + esc(when(t.created_ms))
+      used
+        ? "used " + esc(when(t.redeemed_ms)) + " by " + esc(short(t.redeemed_by))
+        : canceled
+          ? "canceled, made " + esc(when(t.created_ms))
+          : "unused, made " + esc(when(t.created_ms))
     }</p></div>
     <div class="${cx(s.chips)}">
-      <span class="${cx(s.chip, used ? s.chipUsed : s.chipPaid)}">${used ? "used" : "unused"}</span>
+      <span class="${cx(s.chip, state === "unused" ? s.chipPaid : s.chipUsed)}">${state}</span>
       <button class="btn secondary" type="button" data-copy="${esc(t.code)}">Copy</button>
-      ${used ? `<button class="btn" type="button" data-del="${esc(t.code)}">Delete</button>` : ""}
+      ${state === "unused" ? `<button class="btn" type="button" data-cancel="${esc(t.code)}">Cancel</button>` : ""}
+      ${used || canceled ? `<button class="btn" type="button" data-del="${esc(t.code)}">Delete</button>` : ""}
     </div>
   </div>`;
 }
@@ -195,7 +204,7 @@ function paint(): void {
         ${tile(n(d.tryons_total), "try-ons")}
         ${tile(n(d.tokens_redeemed), "codes used")}
         ${tile(n(Math.max(0, d.tokens_total - d.tokens_redeemed)), "codes unused")}
-        ${tile(credits === null ? "-" : n(credits), "genlook credits")}
+        ${tile(credits === null ? "-" : n(credits), "credits")}
       </div>
       <p class="${cx(s.sectionTitle)}">Latest users</p>
       <div class="${cx(s.list)}">${
@@ -224,8 +233,10 @@ function paint(): void {
       <p class="${cx(s.sub)}">Blocked = try-ons pause on that device until you tap Unblock. Give a token
         or unblock after you have talked to the user on WhatsApp.</p>`;
   } else if (active === "tokens") {
-    const unused = d.tokens.filter((x) => !x.redeemed_by);
+    const unused = d.tokens.filter((x) => !x.redeemed_by && !x.canceled);
     const used = d.tokens.filter((x) => !!x.redeemed_by);
+    const canceled = d.tokens.filter((x) => !x.redeemed_by && !!x.canceled);
+    const spent = d.tokens.filter((x) => !!x.redeemed_by || !!x.canceled);
     body = `<p class="${cx(s.sectionTitle)}">Make codes</p>
       <div class="${cx(s.form)}">
         <select class="${cx(studio.select)}" id="dash-kind">
@@ -250,9 +261,14 @@ function paint(): void {
       <div class="${cx(s.list)}">${
         unused.map(tokenRow).join("") || `<p class="${cx(s.empty)}">No unused codes.</p>`
       }</div>
-      <p class="${cx(s.sectionTitle)}">Used (${n(used.length)}) - safe to delete</p>
+      <p class="${cx(s.sectionTitle)}">Used &amp; canceled (${n(spent.length)}) - safe to delete</p>
+      <div class="${cx(s.actions)}">
+        <button class="btn secondary" type="button" data-purge="used">Delete used (${n(used.length)})</button>
+        <button class="btn secondary" type="button" data-purge="canceled">Delete canceled (${n(canceled.length)})</button>
+        <button class="btn primary" type="button" data-purge="both">Delete both (${n(spent.length)})</button>
+      </div>
       <div class="${cx(s.list)}">${
-        used.map(tokenRow).join("") || `<p class="${cx(s.empty)}">No used codes.</p>`
+        spent.map(tokenRow).join("") || `<p class="${cx(s.empty)}">No used or canceled codes.</p>`
       }</div>`;
   } else {
     body = `<p class="${cx(s.body)}">Every device gets <b>${n(d.free_tries)}</b> free try-ons before the
@@ -262,10 +278,9 @@ function paint(): void {
         <input class="${cx(s.num)}" id="dash-free" type="number" min="0" max="1000" value="${n(d.free_tries)}" aria-label="free try-ons"/>
         <button class="btn primary" id="dash-save" type="button">Save allowance</button>
       </div>
-      <p class="${cx(s.sectionTitle)}">Genlook credits</p>
+      <p class="${cx(s.sectionTitle)}">Credits</p>
       <p class="${cx(s.body)}">Balance: <b>${credits === null ? "not available" : n(credits)}</b> (each try-on costs 1,
-        failed ones are refunded). Genlook does not put a cost field in generation responses; this reads
-        their account/credits endpoint.</p>
+        failed ones are refunded).</p>
       <p class="${cx(s.sectionTitle)}">Shop contact used by the banner</p>
       <p class="${cx(s.sub)}">WhatsApp: <b>${d.owner_whatsapp ? "+" + esc(d.owner_whatsapp) : "not set"}</b>
         - edit it in the Shop card above (name, number, currency).</p>
@@ -302,6 +317,27 @@ function wire(): void {
     b.addEventListener("click", () => void (async () => {
       try {
         await deleteToken(ownerToken(), (b as HTMLElement).dataset.del || "");
+        await reload();
+      } catch (e) {
+        paintError(e instanceof Error ? e.message : String(e));
+      }
+    })()),
+  );
+  host?.querySelectorAll("[data-cancel]").forEach((b) =>
+    b.addEventListener("click", () => void (async () => {
+      try {
+        await cancelToken(ownerToken(), (b as HTMLElement).dataset.cancel || "");
+        await reload();
+      } catch (e) {
+        paintError(e instanceof Error ? e.message : String(e));
+      }
+    })()),
+  );
+  host?.querySelectorAll("[data-purge]").forEach((b) =>
+    b.addEventListener("click", () => void (async () => {
+      const filter = (b as HTMLElement).dataset.purge as "used" | "canceled" | "both";
+      try {
+        await purgeTokens(ownerToken(), filter);
         await reload();
       } catch (e) {
         paintError(e instanceof Error ? e.message : String(e));

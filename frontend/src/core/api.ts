@@ -135,6 +135,7 @@ export interface UsageOut {
     created_ms: number;
     redeemed_by: string;
     redeemed_ms: number;
+    canceled: number;
   }>;
 }
 
@@ -158,6 +159,17 @@ export const mintTokens = (
 
 export const deleteToken = (token: string, code: string): Promise<{ ok: boolean }> =>
   ownerPost("/api/studio/tokens/delete", { code }, token);
+
+/** Pull an unused code so it can no longer be redeemed (row stays, audit). */
+export const cancelToken = (token: string, code: string): Promise<{ ok: boolean }> =>
+  ownerPost("/api/studio/tokens/cancel", { code }, token);
+
+/** Bulk-delete spent codes: used, canceled, or both. */
+export const purgeTokens = (
+  token: string,
+  filter: "used" | "canceled" | "both",
+): Promise<{ ok: boolean }> =>
+  ownerPost("/api/studio/tokens/purge", { filter }, token);
 
 export const saveSettings = (token: string, freeTries: number): Promise<{ free_tries: number }> =>
   ownerPost("/api/studio/settings", { free_tries: freeTries }, token);

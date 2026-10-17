@@ -92,6 +92,7 @@ export const base = stylex.create({
     width: "100%",
     height: 52,
     backgroundColor: t.surface,
+    zIndex: 10,
   },
   brand: {
     position: "absolute",

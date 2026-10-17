@@ -79,6 +79,7 @@ const MAP: Array<[string, any[]]> = [
   [".duo-fit", [duo.fit]],
   [".duo-gtitle", [duo.boxTitle]],
   [".usercard-title", [duo.boxTitle]],
+  [".userstrip", [duo.ustrip]],
   [".fs-btn", [gallery.fsBtn]],
   [".share-row", [share.row]],
   [".share-link", [share.link]],

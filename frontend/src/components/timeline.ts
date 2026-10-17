@@ -12,6 +12,22 @@ const cx = (...ss: any[]): string =>
 
 export type SelectFn = (e: TimelineEntry) => void;
 
+function actionTiles(): HTMLElement[] {
+  const take = document.createElement("button");
+  take.type = "button";
+  take.className = cx(s.take);
+  take.dataset.act = "take";
+  take.title = "Take a photo now";
+  take.innerHTML = `<span class="${cx(s.takeIcon)}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span><span class="${cx(s.addLabel)}">Take photo</span>`;
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = cx(s.add);
+  add.dataset.act = "add";
+  add.title = "Add your photo";
+  add.innerHTML = `<span class="${cx(s.addIcon)}">+</span><span class="${cx(s.addLabel)}">Add photo</span>`;
+  return [take, add];
+}
+
 export function paintTimeline(onSelect: SelectFn, activeThumb: string | null = null): void {
   const tl = document.getElementById("st-timeline");
   const th = document.getElementById("st-tlhead");
@@ -21,28 +37,38 @@ export function paintTimeline(onSelect: SelectFn, activeThumb: string | null = n
   // Leading tiles: Take photo (camera UI) then Add photo (library).
   // Buttons, not labels: the studio binds one delegated handler that
   // survives every ribbon repaint.
-  const take = document.createElement("button");
-  take.type = "button";
-  take.className = cx(s.take);
-  take.dataset.act = "take";
-  take.title = "Take a photo now";
-  take.innerHTML = `<span class="${cx(s.takeIcon)}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span><span class="${cx(s.addLabel)}">Take photo</span>`;
-  tl.appendChild(take);
-  const add = document.createElement("button");
-  add.type = "button";
-  add.className = cx(s.add);
-  add.dataset.act = "add";
-  add.title = "Add your photo";
-  add.innerHTML = `<span class="${cx(s.addIcon)}">+</span><span class="${cx(s.addLabel)}">Add photo</span>`;
-  tl.appendChild(add);
-  if (!list.length) { tl.style.display = ""; th.style.display = "none"; skin(tl); return; }
-  tl.style.display = ""; th.style.display = "";
-  list.forEach((e) => {
-    const b = document.createElement("button");
-    b.className = cx(s.item) + (e.thumb === activeThumb ? " " + cx(s.itemOn) : "");
-    b.innerHTML = `<img class="${cx(s.itemImg)}" src="${esc(e.thumb)}" alt="${esc(e.kind)}"/>`;
-    b.onclick = () => onSelect(e);
-    tl.appendChild(b);
-  });
+  for (const t of actionTiles()) tl.appendChild(t);
+  if (!list.length) { tl.style.display = ""; th.style.display = "none"; }
+  else {
+    tl.style.display = ""; th.style.display = "";
+    list.forEach((e) => {
+      tl.appendChild(entryButton(e, activeThumb, onSelect));
+    });
+  }
   skin(tl);
+  paintUserStrip(onSelect, activeThumb);
+}
+
+function entryButton(e: TimelineEntry, activeThumb: string | null, onSelect: SelectFn): HTMLButtonElement {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = cx(s.item) + (e.thumb === activeThumb ? " " + cx(s.itemOn) : "");
+  b.innerHTML = `<img class="${cx(s.itemImg)}" src="${esc(e.thumb)}" alt="${esc(e.kind)}"/>`;
+  b.onclick = () => onSelect(e);
+  return b;
+}
+
+/* Duplicate mini ribbon living inside the user-photo card: same take/add
+   tiles plus the added person photos only. Visible while the card is
+   empty so a previous photo is one tap away; the studio hides it the
+   moment a photo lands, leaving just the photo. */
+export function paintUserStrip(onSelect: SelectFn, activeThumb: string | null = null): void {
+  const strip = document.getElementById("st-usertl");
+  if (!strip) return;
+  const list = loadTimeline().filter((e) => e.kind === "person");
+  strip.innerHTML = "";
+  for (const t of actionTiles()) strip.appendChild(t);
+  list.forEach((e) => {
+    strip.appendChild(entryButton(e, activeThumb, onSelect));
+  });
 }

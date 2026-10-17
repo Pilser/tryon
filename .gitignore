@@ -29,6 +29,8 @@ frontend/dist/**
 !.github/**
 !.opencode/
 !.opencode/**
+!mock-genlook/
+!mock-genlook/**
 
 # astro generated
 frontend/dist-astro/

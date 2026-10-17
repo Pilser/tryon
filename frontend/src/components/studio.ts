@@ -36,6 +36,8 @@ export function initStudio(product: Product): void {
     (el("st-prev") as HTMLImageElement).src = src; show(el("st-prev"), true);
     const ue = document.getElementById("st-userempty");
     if (ue) show(ue, false);
+    const us = document.getElementById("st-usertl");
+    if (us) show(us, false);
     el("st-meta").textContent = "";
     show(el("st-start"), true);
     // Bring the user card into view after a fresh pick/tap (never on
@@ -79,8 +81,9 @@ export function initStudio(product: Product): void {
   };
   el("pick-file").addEventListener("change", onPick);
   el("pick-cam").addEventListener("change", onPick);
-  // Ribbon tiles survive every repaint: one delegated handler, bound once.
-  el("st-timeline").addEventListener("click", (ev) => {
+  // Ribbon tiles survive every repaint: one delegated handler per
+  // ribbon (main + in-card duplicate), bound once.
+  const ribbonActs = (ev: Event): void => {
     const b = (ev.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
     if (!b) return;
     ev.preventDefault();
@@ -93,7 +96,9 @@ export function initStudio(product: Product): void {
         (el("pick-file") as HTMLInputElement).click();
       }
     })();
-  });
+  };
+  el("st-timeline").addEventListener("click", ribbonActs);
+  document.getElementById("st-usertl")?.addEventListener("click", ribbonActs);
 
   /* Before/after compare: result stacked over the user photo in one
      frame. Hold (or tap) the top image to reveal the original photo
@@ -263,5 +268,9 @@ export function initStudio(product: Product): void {
   if (personUsable(saved) && document.getElementById("st-prev")) {
     activeImageId = (saved as { imageId: string }).imageId;
     ready(((saved as { thumb?: string }).thumb || ""), ((saved as { thumb?: string }).thumb || ""), false);
+  } else {
+    // No photo yet: reveal the in-card duplicate ribbon.
+    const us = document.getElementById("st-usertl");
+    if (us) show(us, true);
   }
 }

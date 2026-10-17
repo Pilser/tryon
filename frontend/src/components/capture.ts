@@ -75,6 +75,16 @@ export function capturePhoto(): Promise<File | null> {
     m.facingMode = "environment";
     document.body.appendChild(m);
     void m.present().catch(() => done(null));
+    // Upgrade watchdog: if the inner camera never boots (missing chunk,
+    // blocked stream), fall back instead of hanging with a dead overlay.
+    void (async () => {
+      const start = Date.now();
+      while (!customElements.get("pwa-camera-modal-instance")) {
+        if (settled || Date.now() - start > 5000) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      if (!settled && !customElements.get("pwa-camera-modal-instance")) done(null);
+    })();
     // Safety net: never leave the modal hanging without a result.
     window.setTimeout(() => {
       if (!settled && !document.body.contains(m)) done(null);

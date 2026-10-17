@@ -13,6 +13,7 @@ export function duoHTML(p: Product): string {
     + `<div class="duo-cell"><p class="usercard-title">Your photo</p><div class="usercard">`
     + `<img id="st-prev" class="usercard-img" draggable="false" style="display:none" alt="your photo"/>`
     + `<p class="usercard-empty" id="st-userempty">Your photo shows here. Take or add one from the ribbon below.</p>`
+    + `<div class="userstrip" id="st-usertl" style="display:none"></div>`
     + `<button class="fs-btn" type="button" aria-label="Fullscreen">${FS_SVG}</button>`
     + `</div></div>`
     + `<button class="duo-arrow" id="st-duo-next" type="button" aria-label="See your photo">&#8250;</button></div>`;

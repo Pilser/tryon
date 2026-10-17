@@ -16,7 +16,7 @@ cd frontend && bun run dev   # :8811 — proxies /api/* -> :8787
 ```
 - Runtime: `frontend/dev.ts`.
 - Serves `frontend/index.html` etc. at `/app/...`
-- Watches `src/**/*.{ts,tsx}` and re-builds `dist/bundle.js` + `dist/stylex.css`
+- Watches `src/**/*.{ts,tsx}` and re-builds `dist/` (main.js + lazy chunks) + `dist/stylex.css`
 - Serves an offline static fallback if :8787 is down.
 
 ### B) Worker API on :8787
@@ -88,5 +88,20 @@ accepts any token (e.g. `admin123`). Persist now via `core/store.ts → saveOwne
 - Cards responsive `width:100%` with `max-width:340px` under 400 px.
 - Studio/detail padding tightened (`12-16px`) via media queries in `card.stylex.ts`, `panels.stylex.ts`, `base.stylex.ts`, `landing.stylex.ts`.
 - Bundle stays StyleX compiled and CSS tokens alive.
-EOF
-echo "written"; ls -l /home/pilser/AAA-PROJECTS/tryon/docs/LOCAL_RUN.md && wc -l /home/pilser/AAA-PROJECTS/tryon/docs/LOCAL_RUN.md
+
+## 6. Try-on without credits (mock Genlook)
+
+`mock-genlook/server.py` is a stdlib-only stand-in for `https://api.genlook.app/tryon/v1`
+that returns the person photo unchanged after a configurable delay. The worker reads
+`GENLOOK_BASE` (defaults to production), so the whole flow — upload → try-on →
+PENDING → COMPLETED → download — runs free. See `mock-genlook/README.md`.
+
+```bash
+python3 mock-genlook/server.py --delay 2                     # :8899
+GENLOOK_API_KEY=test GENLOOK_BASE=http://127.0.0.1:8899/tryon/v1 \
+  bun .local-rig/harness.cjs                                 # :8787
+cd frontend && bun run dev                                   # :8811
+```
+
+Failure drills: `?fail=credits` → `402 INSUFFICIENT_CREDITS`; a `title`/`externalId`
+containing `fail` → `FAILED`; an unknown `{externalId}` reference → `404 PRODUCT_NOT_FOUND`.

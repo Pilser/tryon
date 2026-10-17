@@ -16,10 +16,11 @@ cpSync(path.join(root, "node_modules/@ionic/pwa-elements/dist/esm"), path.join(r
 await esbuild.build({
   entryPoints: ["src/main.ts"],
   bundle: true,
+  splitting: true,
   minify: true,
   target: "es2020",
-  format: "iife",
-  outfile: "dist/bundle.js",
+  format: "esm",
+  outdir: "dist",
   loader: { ".ts": "ts" },
   plugins: [
     stylexPlugin({
@@ -31,4 +32,4 @@ await esbuild.build({
     }) as any,
   ],
 });
-console.log("built dist/bundle.js + dist/stylex.css");
+console.log("built dist/main.js + dist/stylex.css");

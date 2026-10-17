@@ -6,7 +6,9 @@ import path from "node:path";
 
 const ROOT = new URL(".", import.meta.url).pathname;
 const PORT = 8811;
-const API_UPSTREAM = "http://localhost:8787";
+// Override to route /api/* somewhere other than the harness — e.g. the
+// credits-free bridge: API_UPSTREAM=http://127.0.0.1:8888 bun dev.ts
+const API_UPSTREAM = process.env.API_UPSTREAM ?? "http://localhost:8787";
 
 async function build(label: string): Promise<void> {
   const proc = Bun.spawn(["bun", "build.ts"], { cwd: ROOT, stdout: "inherit", stderr: "inherit" });

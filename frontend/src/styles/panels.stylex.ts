@@ -157,6 +157,15 @@ export const duo = stylex.create({
     textAlign: "center", margin: 0, padding: 12, boxSizing: "border-box",
     color: t.muted, fontSize: 13,
   },
+  /* Duplicate mini ribbon inside the user card: only while empty. */
+  ustrip: {
+    position: "absolute", left: 8, right: 8, bottom: 8, zIndex: 1,
+    display: "flex", gap: 6, alignItems: "center",
+    overflowX: "auto", padding: 6, borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,.55)",
+    scrollbarWidth: "none",
+    "::-webkit-scrollbar": { display: "none" },
+  },
   arrow: {
     display: "none",
     "@media (max-width: 720px)": {

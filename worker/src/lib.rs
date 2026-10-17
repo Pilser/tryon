@@ -16,6 +16,13 @@ use worker::{
 
 const GENLOOK_BASE: &str = "https://api.genlook.app/tryon/v1";
 
+/// Base URL override for local dev (mock-genlook/). Production default above.
+fn genlook_base(env: &Env) -> String {
+    env.var("GENLOOK_BASE")
+        .map(|v| v.to_string())
+        .unwrap_or_else(|_| GENLOOK_BASE.into())
+}
+
 fn shop_from_env(env: &Env) -> ShopSettings {
     ShopSettings {
         shop_name: env
@@ -234,7 +241,7 @@ async fn handle_tryon_sync(mut req: Request, env: Env) -> Result<Response> {
     forward_genlook(
         &key,
         Method::Post,
-        &format!("{GENLOOK_BASE}/try-on/sync"),
+        &format!("{}/try-on/sync", genlook_base(&env)),
         Some("application/json"),
         Some(bytes),
     )
@@ -743,7 +750,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             forward_genlook(
                 &key,
                 Method::Post,
-                &format!("{GENLOOK_BASE}/images/upload"),
+                &format!("{}/images/upload", genlook_base(&ctx.env)),
                 Some(&ct),
                 Some(bytes),
             )
@@ -779,7 +786,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             forward_genlook(
                 &key,
                 Method::Get,
-                &format!("{GENLOOK_BASE}/generations/{id}"),
+                &format!("{}/generations/{id}", genlook_base(&ctx.env)),
                 None,
                 None,
             )

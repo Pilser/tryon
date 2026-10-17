@@ -97,6 +97,15 @@ pub struct SyncIn {
     pub device_id: String,
 }
 
+/// Everything the client must supply before a credit is spent. Genlook
+/// would answer an opaque error (or 500) for these, so refuse them here.
+fn bad_request_for(input: &SyncIn) -> Option<&'static str> {
+    if input.image_url.trim().is_empty() {
+        return Some("image_url required");
+    }
+    None
+}
+
 /// `POST /api/try-on` and `POST /api/try-on/sync` — same work: check the
 /// device allowance, validate, then wait upstream. `/try-on/sync` holds the
 /// connection up to 90 s and answers 200 (COMPLETED + temporary
@@ -113,6 +122,9 @@ pub async fn handle_sync(mut req: Request, env: Env) -> worker::Result<Response>
         product_id: input.product_id.clone(),
         person_image_id: input.person_image_id.clone(),
     }) {
+        return crate::routes::errors::bad_request("INVALID_REQUEST", e);
+    }
+    if let Some(e) = bad_request_for(&input) {
         return crate::routes::errors::bad_request("INVALID_REQUEST", e);
     }
     if let Some(blocked) = crate::routes::quota::gate(&env, &input.device_id).await? {
@@ -174,6 +186,27 @@ mod tests {
         let b = build_sync_body("shirt-42", "Tee", "Cotton tee", "https://cdn/x.jpg", "img1");
         assert_eq!(b["products"][0]["externalId"], json!("shirt-42"));
         assert_eq!(b["person"]["image"]["source"]["id"], json!("img1"));
+    }
+
+    #[test]
+    fn refuses_an_empty_product_image() {
+        let full = SyncIn {
+            product_id: "p".into(),
+            title: "t".into(),
+            description: "d".into(),
+            image_url: "https://cdn/x.jpg".into(),
+            person_image_id: "img1".into(),
+            device_id: "d1".into(),
+        };
+        assert!(bad_request_for(&full).is_none());
+        assert_eq!(
+            bad_request_for(&SyncIn {
+                image_url: "  ".into(),
+                ..full
+            })
+            .unwrap(),
+            "image_url required"
+        );
     }
 
     #[test]

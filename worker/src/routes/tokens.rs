@@ -111,8 +111,12 @@ pub async fn handle_redeem(mut req: Request, env: Env) -> worker::Result<Respons
     let Some(token) = token else {
         return errors::json_error(404, "TOKEN_NOT_FOUND", "no such unlock code");
     };
-    if !token.redeemed_by.is_empty() && token.redeemed_by != id {
-        return errors::json_error(409, "TOKEN_USED", "that code was already used");
+    if !token.redeemed_by.is_empty() {
+        if token.redeemed_by != id {
+            return errors::json_error(409, "TOKEN_USED", "that code was already used");
+        }
+        // The same device asking again is a no-op: a code never pays twice.
+        return Response::from_json(&device::snapshot(&env, &id).await);
     }
     let now = device::now_ms();
     let row = device::device_row(&env, &id).await.unwrap_or_default();

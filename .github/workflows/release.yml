@@ -30,7 +30,7 @@ jobs:
           tar xzf /tmp/wbg.tar.gz -C /tmp
           /tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen \
             target/wasm32-unknown-unknown/release/tryon_worker.wasm \
-            --out-dir .local-rig/glue-node --target node --out-name tryon_worker
+            --out-dir .local-rig/glue-node --target nodejs --out-name tryon_worker
       - name: upload wasm artifact
         uses: actions/upload-artifact@v4
         with:

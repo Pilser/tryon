@@ -1,0 +1,32 @@
+# Cache policy for the client app (Workers static assets).
+# Patterns match the incoming request URL, so pages/bundles are listed
+# under /app/* even though the files sit at the root of this directory.
+#
+# Hashed names (esbuild content hash) can be cached for a year: a new
+# build produces a new name, so a stale copy is never used.
+/app/dist/chunk-*.js
+  Cache-Control: public, max-age=31536000, immutable
+/app/dist/dist-*.js
+  Cache-Control: public, max-age=31536000, immutable
+/app/dist/heic-to-*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+# Entry points have stable names, so always revalidate (ETag makes the
+# revalidation a cheap 304 and a deploy can never serve a stale entry).
+/app/dist/main.js
+  Cache-Control: no-cache
+/app/dist/stylex.css
+  Cache-Control: no-cache
+
+# Pages: same story, plus a couple of hardening headers.
+/app/*.html
+  Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Everything else served from the edge: tag it so a deploy can purge the
+# whole bundle by tag (`Cache-Tag` needs an Enterprise zone; harmless
+# otherwise) and never sniff content types.
+/*
+  Cache-Tag: tryon-shop-static
+  X-Content-Type-Options: nosniff

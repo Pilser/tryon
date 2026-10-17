@@ -1,0 +1,7 @@
+# Workers static assets: serve the client app from /app/* without invoking
+# the Worker (the Worker only owns /, /product/*, /studio, /healthz, /api/*).
+# The frontend files live at the root of this directory, so /app/<x> is a
+# 200 proxy (rewrite) to /<x>. Static rules go before the splat rule.
+
+/app/ /index.html 200
+/app/* /:splat 200

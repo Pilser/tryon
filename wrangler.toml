@@ -24,3 +24,14 @@ database_id = "replace-me"
 
 [build]
 command = "cargo install worker-build && worker-build --release"
+
+# The client app is static: Workers serve frontend/ straight from the edge
+# (`/app/*` -> frontend/<file> via frontend/_redirects) without invoking the
+# Worker, so pages and bundles are cached and cost no request. The Worker
+# keeps /, /product/:id, /studio, /healthz and /api/* to itself.
+# Needs wrangler >= 4 (array form of run_worker_first).
+[assets]
+directory = "./frontend"
+binding = "ASSETS"
+not_found_handling = "none"
+run_worker_first = ["/", "/product/*", "/studio", "/healthz", "/api/*"]

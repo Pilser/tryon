@@ -40,7 +40,8 @@ pub const USAGE_DDL: [&str; 4] = [
         note TEXT NOT NULL DEFAULT '',
         created_ms INTEGER NOT NULL DEFAULT 0,
         redeemed_by TEXT NOT NULL DEFAULT '',
-        redeemed_ms INTEGER NOT NULL DEFAULT 0
+        redeemed_ms INTEGER NOT NULL DEFAULT 0,
+        canceled INTEGER NOT NULL DEFAULT 0
     )",
     "CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -51,8 +52,10 @@ pub const USAGE_DDL: [&str; 4] = [
 /// Columns added after the first release. Existing deployments run these
 /// once; a duplicate-column error simply means the column already exists,
 /// so migration failures are tolerated in `ensure_ddl`.
-pub const USAGE_MIGRATIONS: [&str; 1] =
-    ["ALTER TABLE devices ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0"];
+pub const USAGE_MIGRATIONS: [&str; 2] = [
+    "ALTER TABLE devices ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tokens ADD COLUMN canceled INTEGER NOT NULL DEFAULT 0",
+];
 
 /* ------------------------------------------------------------- pure ----- */
 

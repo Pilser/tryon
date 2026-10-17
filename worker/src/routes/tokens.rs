@@ -85,6 +85,8 @@ struct TokenRow {
     value: i64,
     #[serde(default)]
     redeemed_by: String,
+    #[serde(default)]
+    canceled: i64,
 }
 
 /// `POST /api/device/redeem` - spend a 4-character unlock code (once).
@@ -102,7 +104,7 @@ pub async fn handle_redeem(mut req: Request, env: Env) -> worker::Result<Respons
     device::ensure_ddl(&env).await?;
     let db = device::db(&env)?;
     let token: Option<TokenRow> = db
-        .prepare("SELECT kind,value,redeemed_by FROM tokens WHERE code=?")
+        .prepare("SELECT kind,value,redeemed_by,canceled FROM tokens WHERE code=?")
         .bind(&[JsValue::from(code.clone())])
         .map_err(|e| worker::Error::RustError(e.to_string()))?
         .first(None)
@@ -111,6 +113,10 @@ pub async fn handle_redeem(mut req: Request, env: Env) -> worker::Result<Respons
     let Some(token) = token else {
         return errors::json_error(404, "TOKEN_NOT_FOUND", "no such unlock code");
     };
+    if token.canceled > 0 {
+        // The owner pulled this code before anyone spent it.
+        return errors::json_error(409, "TOKEN_USED", "that code was canceled");
+    }
     if !token.redeemed_by.is_empty() {
         if token.redeemed_by != id {
             return errors::json_error(409, "TOKEN_USED", "that code was already used");
@@ -230,6 +236,81 @@ pub async fn handle_delete(mut req: Request, env: Env) -> worker::Result<Respons
     Response::from_json(&serde_json::json!({ "ok": true }))
 }
 
+/// `POST /api/studio/tokens/cancel` - mark an UNUSED code as canceled so it
+/// can no longer be redeemed. The row stays for the audit trail and shows
+/// up as canceled (a used state) in the dashboard, deletable like the rest.
+pub async fn handle_cancel(mut req: Request, env: Env) -> worker::Result<Response> {
+    if !crate::routes::owner::authorized(&req, &env) {
+        return errors::unauthorized();
+    }
+    let input: DeleteIn = req
+        .json()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let Some(code) = clean_code(&input.code) else {
+        return errors::bad_request("INVALID_TOKEN", "that is not a 4-character code");
+    };
+    device::ensure_ddl(&env).await?;
+    let db = device::db(&env)?;
+    let row: Option<TokenRow> = db
+        .prepare("SELECT kind,value,redeemed_by,canceled FROM tokens WHERE code=?")
+        .bind(&[JsValue::from(code.clone())])
+        .map_err(|e| worker::Error::RustError(e.to_string()))?
+        .first(None)
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let Some(row) = row else {
+        return errors::json_error(404, "TOKEN_NOT_FOUND", "no such unlock code");
+    };
+    if !row.redeemed_by.is_empty() {
+        return errors::json_error(409, "TOKEN_USED", "that code was already used");
+    }
+    db.prepare("UPDATE tokens SET canceled=1 WHERE code=?")
+        .bind(&[JsValue::from(code)])
+        .map_err(|e| worker::Error::RustError(e.to_string()))?
+        .run()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    Response::from_json(&serde_json::json!({ "ok": true }))
+}
+
+#[derive(Deserialize)]
+pub struct PurgeIn {
+    /// `used` = redeemed rows, `canceled` = canceled rows, `both` = either.
+    pub filter: String,
+}
+
+/// The DELETE for a purge filter (pure, tested). `None` = unknown filter.
+fn purge_sql(filter: &str) -> Option<&'static str> {
+    match filter {
+        "used" => Some("DELETE FROM tokens WHERE redeemed_by!='' AND canceled=0"),
+        "canceled" => Some("DELETE FROM tokens WHERE canceled=1"),
+        "both" => Some("DELETE FROM tokens WHERE redeemed_by!='' OR canceled=1"),
+        _ => None,
+    }
+}
+
+/// `POST /api/studio/tokens/purge` - bulk-delete spent codes by filter.
+pub async fn handle_purge(mut req: Request, env: Env) -> worker::Result<Response> {
+    if !crate::routes::owner::authorized(&req, &env) {
+        return errors::unauthorized();
+    }
+    let input: PurgeIn = req
+        .json()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let Some(sql) = purge_sql(&input.filter) else {
+        return errors::bad_request("INVALID_REQUEST", "filter must be used|canceled|both");
+    };
+    device::ensure_ddl(&env).await?;
+    let db = device::db(&env)?;
+    db.prepare(sql)
+        .run()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    Response::from_json(&serde_json::json!({ "ok": true }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,6 +327,17 @@ mod tests {
         assert!(clean_code("AB!D").is_none());
         assert!(clean_code("abi").is_none()); // I is not in the alphabet
         assert_eq!(clean_code(" ab2c ").as_deref(), Some("AB2C"));
+    }
+
+    #[test]
+    fn purge_filters_map_to_the_right_delete() {
+        assert!(purge_sql("used")
+            .unwrap()
+            .contains("redeemed_by!='' AND canceled=0"));
+        assert!(purge_sql("canceled").unwrap().contains("canceled=1"));
+        assert!(purge_sql("both").unwrap().contains("OR canceled=1"));
+        assert!(purge_sql("everything").is_none());
+        assert!(purge_sql("").is_none());
     }
 
     #[test]

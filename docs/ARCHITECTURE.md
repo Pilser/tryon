@@ -109,6 +109,12 @@ Owner dashboard (`routes/usage.rs`, `routes/tokens.rs`, `routes/quota.rs`):
 - `POST /api/studio/devices/block` -> `{device_id, blocked}` blocks a device
   (wrong number, unpaid usage) or unblocks it; the try-on gate answers
   `403 BLOCKED` for a blocked device before anything else.
+- `POST /api/studio/tokens/cancel` -> pull an UNUSED code (`{code}`): the
+  row stays with `canceled=1` (audit) but redemption answers
+  `409 TOKEN_USED`. Canceled codes list with the used ones and are
+  deletable.
+- `POST /api/studio/tokens/purge` -> `{filter:"used"|"canceled"|"both"}`
+  bulk-deletes spent codes.
 - `GET /api/studio/credits` -> forwards Genlook `GET /account/credits`
   (`{creditBalance}`). Generation responses carry no per-call cost field:
   a try-on is a flat 1 credit, refunded when it fails, so the balance

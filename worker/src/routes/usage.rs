@@ -48,6 +48,8 @@ pub struct TokenStat {
     pub redeemed_by: String,
     #[serde(default)]
     pub redeemed_ms: i64,
+    #[serde(default)]
+    pub canceled: i64,
 }
 
 #[derive(Serialize)]
@@ -82,7 +84,7 @@ pub async fn handle_usage(req: Request, env: Env) -> worker::Result<Response> {
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
     let tokens: Vec<TokenStat> = db
         .prepare(
-            "SELECT code,kind,value,note,created_ms,redeemed_by,redeemed_ms \
+            "SELECT code,kind,value,note,created_ms,redeemed_by,redeemed_ms,canceled \
              FROM tokens ORDER BY created_ms DESC LIMIT 500",
         )
         .all()

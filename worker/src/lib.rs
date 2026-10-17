@@ -105,6 +105,12 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .post_async("/api/studio/devices/block", |req, ctx| async move {
             routes::usage::handle_device_block(req, ctx.env).await
         })
+        .post_async("/api/studio/tokens/cancel", |req, ctx| async move {
+            routes::tokens::handle_cancel(req, ctx.env).await
+        })
+        .post_async("/api/studio/tokens/purge", |req, ctx| async move {
+            routes::tokens::handle_purge(req, ctx.env).await
+        })
         .get_async("/api/studio/credits", |req, ctx| async move {
             routes::usage::handle_credits(req, ctx.env).await
         })

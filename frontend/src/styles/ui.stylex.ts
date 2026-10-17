@@ -133,4 +133,25 @@ export const ui = stylex.create({
     paddingTop: 28, paddingBottom: 28, marginTop: 0, marginBottom: 0,
   },
   meta: { fontSize: 11, color: t.muted, marginTop: 0, marginBottom: 0 },
+
+  /* Garment sizes: a labelled chip row that sits beside a product name.
+     Chips carry their own contrast so a size is never invisible. */
+  sizeRow: {
+    display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap",
+    verticalAlign: "middle",
+  },
+  sizeLabel: {
+    fontSize: 11, fontWeight: 700, color: t.muted, textTransform: "uppercase",
+    letterSpacing: ".05em",
+  },
+  sizeChip: {
+    fontSize: 12, fontWeight: 700, paddingTop: 2, paddingBottom: 2,
+    paddingLeft: 8, paddingRight: 8, borderRadius: 7, whiteSpace: "nowrap",
+    backgroundColor: t.line, color: t.text,
+    borderWidth: 1, borderStyle: "solid", borderColor: t.primary,
+  },
+  /* Name + sizes on one line (wraps to two on narrow cards). */
+  inlineHead: {
+    display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", minWidth: 0,
+  },
 });

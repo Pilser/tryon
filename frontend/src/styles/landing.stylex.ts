@@ -20,10 +20,6 @@ export const landing = stylex.create({
     background: "radial-gradient(closest-side, rgba(185,217,60,.16), transparent)",
     pointerEvents: "none",
   },
-  eyebrow: {
-    margin: 0, fontSize: 13, letterSpacing: 2, textTransform: "uppercase",
-    color: t.primary, fontWeight: 700,
-  },
   heroTitle: {
     margin: 0, color: t.text, fontFamily: t.fontHead, fontWeight: 700,
     fontSize: 34, lineHeight: 1.08,
@@ -57,17 +53,6 @@ export const landing = stylex.create({
     borderStyle: "none", cursor: "pointer",
     display: "flex", alignItems: "center", justifyContent: "center",
   },
-  pillrow: { display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" },
-  pill: {
-    display: "inline-flex", alignItems: "center", justifyContent: "center",
-    minHeight: 40, paddingLeft: 14, paddingRight: 14,
-    boxSizing: "border-box", textAlign: "center",
-    borderRadius: 10, backgroundColor: t.surface,
-    borderWidth: 1, borderStyle: "solid", borderColor: t.line,
-    color: t.text, fontSize: 14, textDecoration: "none",
-  },
-  pillAll: { backgroundColor: t.primary, color: t.primaryInk, fontWeight: 700, borderColor: t.primary },
-  pillOn: { borderColor: t.primary, color: t.primary },
   count: { margin: 0, color: t.muted, fontSize: 13 },
   grid: {
     display: "grid", gap: 14,

@@ -212,6 +212,14 @@ export const duo = stylex.create({
     marginTop: 0, marginBottom: 6, marginLeft: 0, marginRight: 0,
     fontFamily: t.fontHead, fontSize: 13, fontWeight: 700, color: t.text,
   },
+  /* Duo card title row: name left, garment sizes right. */
+  gHead: {
+    display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 6,
+  },
+  gTitle: {
+    marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0,
+    fontFamily: t.fontHead, fontSize: 13, fontWeight: 700, color: t.text,
+  },
 });
 export const compare = stylex.create({
   frame: {

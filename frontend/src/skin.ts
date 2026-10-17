@@ -3,7 +3,7 @@
    maps them. Call after every innerHTML render. */
 import * as stylex from "@stylexjs/stylex";
 import { base } from "./styles/base.stylex";
-import { gallery } from "./styles/card.stylex";
+import { card, gallery } from "./styles/card.stylex";
 import { landing } from "./styles/landing.stylex";
 import { studio, timeline, owner, share, compare, duo } from "./styles/panels.stylex";
 import { dash, quota } from "./styles/dash.stylex";
@@ -18,14 +18,12 @@ const MAP: Array<[string, any[]]> = [
   [".studio-link", [base.studioLink]],
   [".hero-title", [landing.heroTitle]],
   [".hero-sub", [landing.heroSub]],
-  [".eyebrow", [landing.eyebrow]],
   [".glow", [landing.glow]],
   [".search", [landing.search]],
   [".search-icon", [landing.searchIcon]],
   [".search-input", [landing.searchInput]],
   [".cat-sel", [landing.catSel]],
   [".search-go", [landing.searchGo]],
-  [".pillrow", [landing.pillrow]],
   [".count", [landing.count]],
   [".grid", [landing.grid]],
   [".btn.primary", [base.btn, base.btnPrimary]],
@@ -71,6 +69,14 @@ const MAP: Array<[string, any[]]> = [
   [".dash-card-title", [ui.cardTitle]],
   [".dash-lead-row", [ui.rowSub]],
   [".dash-hairline", [ui.hairline]],
+  [".size-row", [ui.sizeRow]],
+  [".size-label", [ui.sizeLabel]],
+  [".size-chip", [ui.sizeChip]],
+  [".card-head", [card.head]],
+  [".title-flush", [card.titleFlush]],
+  [".duo-ghead", [duo.gHead]],
+  [".duo-gtitle", [duo.gTitle]],
+  [".detail-head", [base.detailHead]],
   [".dash-rows", [ui.rows]],
   [".dash-row2", [ui.row]],
   [".dash-row-main", [ui.rowMain]],
@@ -101,7 +107,6 @@ const MAP: Array<[string, any[]]> = [
   [".usercard-empty", [duo.userEmpty]],
   [".duo-arrow", [duo.arrow]],
   [".duo-fit", [duo.fit]],
-  [".duo-gtitle", [duo.boxTitle]],
   [".usercard-title", [duo.boxTitle]],
   [".userstrip", [duo.ustrip]],
   [".fs-btn", [gallery.fsBtn]],

@@ -3,13 +3,13 @@
    ONLY the photo frame (same nodes, so swap + hold keep working). */
 import { galleryHTML, armAll, toggleFs, armFsFit } from "./product-card";
 import type { Product } from "../core/types";
-import { esc } from "../core/format";
+import { esc, sizesHTML } from "../core/format";
 
 const FS_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>`;
 
 export function duoHTML(p: Product): string {
   return `<div class="duo-track" id="st-duo">`
-    + `<div class="duo-cell"><p class="duo-gtitle">${esc(p.title)}</p><div class="duo-fit">${galleryHTML(p)}</div></div>`
+    + `<div class="duo-cell"><div class="duo-ghead"><p class="duo-gtitle">${esc(p.title)}</p>${sizesHTML(p.sizes)}</div><div class="duo-fit">${galleryHTML(p)}</div></div>`
     + `<div class="duo-cell"><p class="usercard-title">Your photo</p><div class="usercard">`
     + `<img id="st-prev" class="usercard-img" draggable="false" style="display:none" alt="your photo"/>`
     + `<p class="usercard-empty" id="st-userempty">Your photo shows here. Take or add one from the ribbon below.</p>`

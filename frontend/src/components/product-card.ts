@@ -7,7 +7,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { card as s, gallery as g } from "../styles/card.stylex";
 import type { Product } from "../core/types";
-import { esc, money } from "../core/format";
+import { esc, money, sizesHTML } from "../core/format";
 import { inquireUrl, waShareUrl, shareUrl } from "../core/whatsapp";
 import { waIcon } from "./whatsapp-icon";
 
@@ -55,7 +55,8 @@ export function cardHTML(p: Product, shop: string, owner: string): string {
     <div class="${cx(s.badgePill)}"></div><p class="${cx(s.badge)}">${esc(p.category)}</p>
     ${single ? "" : `<button class="${cx(s.inset)} model-inset" aria-label="see it worn"><img class="${cx(s.insetImg)} inset-img" loading="lazy" decoding="async" draggable="false" src="${esc(b.s)}" alt="model wearing it"/></button>
     <p class="${cx(s.caption)} swap-cur">${CAP_G}</p>`}
-    <p class="${cx(s.title)}">${esc(p.title)}</p><p class="${cx(s.price)}">${esc(money(p))}</p>
+    <div class="${cx(s.head)}"><h3 class="${cx(s.titleFlush)}">${esc(p.title)}</h3>${sizesHTML(p.sizes)}</div>
+    <p class="${cx(s.price)}">${esc(money(p))}</p>
     <a class="${cx(s.tryon)}" href="/app/studio.html?id=${esc(p.id)}"><span class="${cx(s.tryonLabel)}">Try On</span></a>
     <a class="${cx(s.inquire)}" target="_blank" rel="noopener" href="${esc(inquireUrl(owner, shop, p.title, shareUrl(location.origin, p.id)))}"><span class="${cx(s.inquireLabel)}">${waIcon()} Inquire</span></a>
   </article>`;

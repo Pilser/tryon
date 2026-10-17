@@ -28,6 +28,30 @@ function group(value: number, decimals: number): string {
 
 export const mb = (bytes: number): string => (bytes / 1048576).toFixed(1) + " MB";
 
+/* Garment sizes, cleaned: trimmed, de-duplicated, capped so a long list
+   cannot break a card header. Accepts the API array or the owner's
+   comma/space separated string. */
+export const cleanSizes = (sizes: string[] | string | null | undefined, max = 8): string[] => {
+  const raw = Array.isArray(sizes) ? sizes : String(sizes ?? "").split(/[,\s]+/);
+  const out: string[] = [];
+  for (const s of raw) {
+    const v = String(s ?? "").trim().toUpperCase();
+    if (v && !out.includes(v)) out.push(v);
+    if (out.length >= max) break;
+  }
+  return out;
+};
+
+/* Size chips for a card / product page: "Size M L", nothing when the
+   owner never set sizes. */
+export const sizesHTML = (sizes: string[] | string | null | undefined, label = "Size"): string => {
+  const list = cleanSizes(sizes);
+  if (!list.length) return "";
+  return `<span class="size-row">${label ? `<span class="size-label">${esc(label)}</span>` : ""}${
+    list.map((s) => `<span class="size-chip">${esc(s)}</span>`).join("")
+  }</span>`;
+};
+
 /* Human size for storage chips and totals: 742 B / 84 KB / 1.2 MB. */
 export const size = (bytes: number): string => {
   const b = Math.max(0, Math.round(bytes || 0));

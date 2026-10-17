@@ -93,6 +93,10 @@ export const base = stylex.create({
   },
   detailImg: { width: "100%", borderRadius: 12 },
   detailTitle: { fontSize: "2rem", marginTop: ".5rem", marginBottom: ".5rem" },
+  /* Product page: h1 + size chips on one line. */
+  detailHead: {
+    display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
+  },
   back: { display: "inline-block", marginTop: 16, marginLeft: 22, color: t.complement, textDecoration: "none" },
   topbar: {
     position: "absolute",

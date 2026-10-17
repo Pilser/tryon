@@ -1,6 +1,6 @@
 /* pages/product.ts - compose only: duo + info + share + studio. */
 import { getProduct, getShop } from "../core/api";
-import { esc, money, brandHTML } from "../core/format";
+import { esc, money, brandHTML, sizesHTML } from "../core/format";
 import { inquireUrl, waShareUrl } from "../core/whatsapp";
 import { waIcon } from "../components/whatsapp-icon";
 import { linkIcon, shareIcon, downloadIcon } from "../components/icons";
@@ -21,7 +21,7 @@ export async function product(): Promise<void> {
   const link = location.origin + "/app/product.html?id=" + p.id;
   detail.innerHTML =
     `<article class="detail">${duoHTML(p)}
-     <div><h1>${esc(p.title)}</h1><p>${esc(p.description)}</p>
+     <div><div class="detail-head"><h1>${esc(p.title)}</h1>${sizesHTML(p.sizes)}</div><p>${esc(p.description)}</p>
      <div class="row"><span class="price">${esc(money(p))}</span>
      <button id="cp-link" class="icon-btn" type="button" title="Copy link" aria-label="Copy link">${linkIcon()}</button>
      <a id="wa-share" class="icon-btn" target="_blank" title="Share" aria-label="Share" href="${esc(waShareUrl(location.origin, p.title, p.id))}">${shareIcon()}</a>

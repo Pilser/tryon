@@ -44,6 +44,15 @@ export const card = stylex.create({
     margin: 0, paddingLeft: 16, paddingRight: 16, paddingTop: 2,
     color: t.text, fontFamily: t.fontHead, fontSize: 20, lineHeight: 1.2,
   },
+  /* Name + size chips on one row, both flush (no double padding). */
+  head: {
+    display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", minWidth: 0,
+    paddingLeft: 16, paddingRight: 16, paddingTop: 2,
+  },
+  titleFlush: {
+    margin: 0, minWidth: 0,
+    color: t.text, fontFamily: t.fontHead, fontSize: 20, lineHeight: 1.2,
+  },
   price: {
     margin: 0, paddingLeft: 16, paddingRight: 16, paddingTop: 4,
     color: t.primary, fontFamily: t.fontHead, fontSize: 16, fontWeight: 700,

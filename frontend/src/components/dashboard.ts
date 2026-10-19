@@ -6,6 +6,7 @@
    owner-only actions that are not tab specific. */
 import {
   redeemPlatformToken,
+  requestPlatformCredits,
   saveSettings,
   studioCredits,
   studioUsage,
@@ -161,6 +162,13 @@ function settingsTab(d: UsageOut): string {
           placeholder="e.g. 0421" aria-label="platform token code"/>
         <button class="btn primary" id="dash-redeem-btn" type="button">Redeem code</button>
       </div>
+      <p class="${cx(s.body)}">Out of codes? Ask the platform admin for more - the request
+        shows up in their console for approval.</p>
+      <div class="${cx(s.form)}">
+        <input class="${cx(s.num)}" id="dash-request" type="number" min="1" max="10000"
+          placeholder="e.g. 50" aria-label="credits to request"/>
+        <button class="btn secondary" id="dash-request-btn" type="button">Request credits</button>
+      </div>
     </div>
     <div class="${cx(u.card)}">
       <p class="${cx(u.cardTitle)}">Shop details</p>
@@ -244,6 +252,20 @@ function wire(box: HTMLElement): void {
     try {
       const out = await redeemPlatformToken(ownerToken(), v);
       note(out.message || "Code redeemed.");
+    } catch (e) {
+      fail(e instanceof Error ? e.message : String(e));
+    }
+  })());
+  box.querySelector("#dash-request-btn")?.addEventListener("click", () => void (async () => {
+    const raw = (el("dash-request") as HTMLInputElement | null)?.value.trim() || "";
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+      fail("Request between 1 and 10000 credits.");
+      return;
+    }
+    try {
+      const out = await requestPlatformCredits(ownerToken(), Math.floor(amount));
+      note(out.message || "Request sent.");
     } catch (e) {
       fail(e instanceof Error ? e.message : String(e));
     }

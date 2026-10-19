@@ -235,6 +235,14 @@ export const redeemPlatformToken = (
 ): Promise<{ ok: boolean; message?: string }> =>
   ownerPost("/api/studio/tokens/redeem", { code }, token);
 
+/** Ask the platform admin for more try-on credits (manual billing gate). */
+export const requestPlatformCredits = (
+  token: string,
+  requested: number,
+  reason = "",
+): Promise<{ ok: boolean; message?: string }> =>
+  ownerPost("/api/studio/tokens/request", { requested, reason }, token);
+
 export const deviceBlock = (token: string, deviceId: string, blocked: boolean): Promise<unknown> =>
   ownerPost("/api/studio/devices/block", { device_id: deviceId, blocked }, token);
 

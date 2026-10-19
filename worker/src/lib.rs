@@ -131,6 +131,9 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .post_async("/api/studio/tokens/redeem", |req, ctx| async move {
             routes::platform::handle_redeem(req, ctx.env).await
         })
+        .post_async("/api/studio/tokens/request", |req, ctx| async move {
+            routes::platform::handle_request(req, ctx.env).await
+        })
         .run(req, env)
         .await
 }

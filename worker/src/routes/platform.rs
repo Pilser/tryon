@@ -107,6 +107,86 @@ pub async fn handle_redeem(mut req: Request, env: Env) -> Result<Response> {
     crate::routes::errors::json_error(if status == 401 { 401 } else { 400 }, "REDEEM_FAILED", &msg)
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct RequestIn {
+    pub requested: i64,
+    #[serde(default)]
+    pub reason: String,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct RequestOut {
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+/// Pure: request window (tested) — mirrors the platform's 1..=10_000.
+pub fn valid_amount(n: i64) -> bool {
+    (1..=10_000).contains(&n)
+}
+
+/// `POST /api/studio/tokens/request {requested, reason?}` — owner-gated.
+/// The platform puts the request in front of its admin (manual billing
+/// gate); credits land only after an approval.
+pub async fn handle_request(mut req: Request, env: Env) -> Result<Response> {
+    if !crate::routes::owner::authorized(&req, &env) {
+        return crate::routes::errors::unauthorized();
+    }
+    let input: RequestIn = req
+        .json()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    if !valid_amount(input.requested) {
+        return crate::routes::errors::json_error(
+            400,
+            "BAD_AMOUNT",
+            "request between 1 and 10000 credits",
+        );
+    }
+    if !configured(&env) {
+        return crate::routes::errors::json_error(
+            501,
+            "PLATFORM_NOT_CONFIGURED",
+            "this shop does not run on the platform yet",
+        );
+    }
+    let url = format!("{}/api/v1/shop/credits/request", base(&env));
+    let mut headers = Headers::new();
+    headers.set("authorization", &format!("Bearer {}", secret(&env)))?;
+    headers.set("content-type", "application/json")?;
+    let body = serde_json::to_vec(&RequestIn {
+        requested: input.requested,
+        reason: input.reason.trim().to_string(),
+    })?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post);
+    init.with_headers(headers);
+    init.with_body(Some(js_sys::Uint8Array::from(body.as_slice()).into()));
+    let mut upstream = Fetch::Request(Request::new_with_init(&url, &init)?)
+        .send()
+        .await?;
+    let status = upstream.status_code();
+    let text = upstream.text().await?;
+    if (200..300).contains(&status) {
+        return Response::from_json(&RequestOut {
+            ok: true,
+            message: Some(
+                "Request sent - the platform admin will review it and top up your balance.".into(),
+            ),
+        });
+    }
+    let msg = serde_json::from_str::<serde_json::Value>(&text)
+        .ok()
+        .and_then(|v| v.get("message").and_then(|m| m.as_str()).map(String::from))
+        .unwrap_or_else(|| "the platform rejected that request".into());
+    crate::routes::errors::json_error(
+        if status == 401 { 401 } else { 400 },
+        "REQUEST_FAILED",
+        &msg,
+    )
+}
+
 /// Pure: the platform proxy URL for a Genlook relative path (tested).
 pub fn genlook_proxy_url(platform_base: &str, path: &str) -> String {
     format!(
@@ -146,6 +226,15 @@ pub async fn genlook_forward(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn request_amounts_are_bounded() {
+        assert!(valid_amount(1));
+        assert!(valid_amount(10_000));
+        assert!(!valid_amount(0));
+        assert!(!valid_amount(-3));
+        assert!(!valid_amount(10_001));
+    }
 
     #[test]
     fn proxy_url_joins_without_double_slashes() {

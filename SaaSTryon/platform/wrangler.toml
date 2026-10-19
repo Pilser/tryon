@@ -1,8 +1,8 @@
 name = "tryon-platform"
 # The wasm/shim pair is built in CI (repo AGENTS.md §3 — never built or run
-# locally). `main` below is the post-build entry asset wrangler expects;
-# adjust together with the build step when the wasm pipeline lands.
-main = "dist/platform.js"
+# locally). `main` is the worker-build shim: CI runs `worker-build --release`
+# in this directory, which emits build/worker/shim.mjs + the wasm module.
+main = "build/worker/shim.mjs"
 compatibility_date = "2026-01-01"
 
 # Secrets (set via `wrangler secret put`; never in [vars]):

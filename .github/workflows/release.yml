@@ -97,6 +97,43 @@ jobs:
             frontend/_headers
           if-no-files-found: error
 
+  platform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: restore build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: tryon-platform
+      # The platform control plane ships as wasm too: worker-build emits
+      # the shim + module that wrangler deploys (never built locally).
+      - name: build platform wasm (worker-build)
+        working-directory: SaaSTryon/platform
+        run: |
+          cargo install worker-build --locked
+          worker-build --release
+      - uses: oven-sh/setup-bun@v2
+      - name: install (frozen lockfile)
+        working-directory: SaaSTryon/platform/frontend
+        run: bun install --frozen-lockfile
+      - name: typecheck
+        working-directory: SaaSTryon/platform/frontend
+        run: bun ./node_modules/typescript/bin/tsc --noEmit
+      - name: build (esbuild + stylex)
+        working-directory: SaaSTryon/platform/frontend
+        run: bun build.ts
+      - name: upload platform artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tryon-platform-${{ github.ref_name }}
+          path: |
+            SaaSTryon/platform/build/worker/*
+            SaaSTryon/platform/frontend/dist/*
+          if-no-files-found: error
+
   # Optional: publish to Cloudflare when the repo has the secrets
   # (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID). Skipped otherwise, so
   # artifact downloads keep working with no account wired up.

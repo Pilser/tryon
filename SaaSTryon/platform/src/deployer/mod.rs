@@ -21,6 +21,7 @@ pub mod bundle;
 pub mod cf_api;
 mod deploy_store;
 mod provision;
+pub mod subdomain;
 
 use serde::Serialize;
 use serde_json::json;
@@ -315,6 +316,23 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
 /// [`deploy_shop_with`] with mocks).
 pub async fn deploy_shop(env: Env, input: DeployInputs) -> Result<DeployResult, DeployError> {
     let cfg = CfConfig::from_env(&env).map_err(DeployError::store)?;
+    // The workers.dev subdomain comes from the config when it is set,
+    // otherwise straight from the Cloudflare API (B3) - shop subdomains
+    // are automatic, nobody has to configure them by hand.
+    let cfg = if cfg.dev_subdomain.is_some() {
+        cfg
+    } else {
+        let probe = FetchTransport::new(cfg.clone());
+        match subdomain::fetch_dev_subdomain(&probe, &cfg.account).await {
+            Ok(sub) => CfConfig {
+                dev_subdomain: Some(sub),
+                ..cfg
+            },
+            // A missing subdomain must not fail the deploy: the shop is
+            // live either way, only the printed URL is unknown.
+            Err(_) => cfg,
+        }
+    };
     let db = store::db(&env).map_err(DeployError::store)?;
     let bucket = env
         .bucket("BUNDLES")

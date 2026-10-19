@@ -2,7 +2,7 @@
 time based), redeeming them into a device's allowance, and deleting
 them. Codes are random, unambiguous and single-use; the D1 row records
 who redeemed them and when, which is what the dashboard lists. */
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use wasm_bindgen::JsValue;
 use worker::{Env, Request, Response};
 

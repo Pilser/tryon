@@ -147,6 +147,62 @@ jobs:
             SaaSTryon/platform/frontend/dist/*
           if-no-files-found: error
 
+
+  # The shop bundle: built ONCE per release and stored in R2. Every
+  # tenant shop is deployed by the platform from this bundle, so no shop
+  # ever needs a local or per-shop CI build (PLATFORM.md §7.2).
+  bundle:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: restore build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: tryon-release
+      - uses: oven-sh/setup-bun@v2
+      - name: install (frozen lockfile)
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+      - name: frontend build (esbuild + stylex)
+        working-directory: frontend
+        run: bun build.ts
+      - name: shop wasm (worker-build -> build/index.js + index_bg.wasm)
+        run: |
+          cargo install worker-build --version 0.1.14 --locked
+          curl -sL -o /tmp/wbg.tar.gz https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl.tar.gz
+          tar xzf /tmp/wbg.tar.gz -C /tmp
+          export WASM_BINDGEN_BIN=/tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen
+          worker-build --release
+      - name: shop D1 schema (shop-schema.sql)
+        run: |
+          cargo run --release -p tryon-worker --bin ddl_dump > build/shop-schema.sql
+      - name: package the bundle
+        run: bun scripts/package-bundle.ts "${{ github.ref_name }}"
+      - name: upload the bundle to R2 (the platform deploys from here)
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        run: |
+          set -e
+          PREFIX="tryon-bundles/bundles/${{ github.ref_name }}"
+          for f in manifest.json shop.wasm worker.js shop-schema.sql; do
+            bunx wrangler@4 r2 object put "$PREFIX/$f" --file "bundle-out/$f" --remote
+          done
+          cd bundle-out/assets
+          for f in $(find . -type f | sed 's|^\./||'); do
+            bunx wrangler@4 r2 object put "$PREFIX/assets/$f" --file "$f" --remote
+          done
+      - name: upload bundle artifact (fallback copy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tryon-bundle-${{ github.ref_name }}
+          path: bundle-out/
+          if-no-files-found: error
+
   # Optional: publish to Cloudflare when the repo has the secrets
   # (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID). Skipped otherwise, so
   # artifact downloads keep working with no account wired up.

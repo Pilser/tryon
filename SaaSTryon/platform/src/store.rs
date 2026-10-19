@@ -32,10 +32,11 @@ pub fn split_statements(sql: &str) -> Vec<String> {
         .filter(|l| !l.trim_start().starts_with("--"))
         .collect::<Vec<_>>()
         .join("\n");
+    // No trailing semicolon: D1's exec() splits the batch on ";" and a
+    // trailing ";" would leave it an empty statement ("incomplete input").
     body.split(";\n")
-        .map(|s| s.trim().to_string())
+        .map(|s| s.trim().trim_end_matches(';').trim().to_string())
         .filter(|s| !s.is_empty())
-        .map(|s| format!("{};", s.trim().trim_end_matches(';').trim()))
         .collect()
 }
 
@@ -329,7 +330,28 @@ mod tests {
         assert_eq!(stmts.len(), 2, "two statements, no comment");
         assert!(stmts[0].starts_with("CREATE TABLE a"));
         assert!(stmts[1].starts_with("CREATE TABLE b"));
-        assert!(stmts.iter().all(|s| s.ends_with(';')));
+        assert!(stmts.iter().all(|s| !s.ends_with(';')));
+    }
+
+    #[test]
+    fn the_real_migrations_split_into_complete_statements() {
+        // The migration files are the input, so this is the guard that
+        // the shipped schema actually parses.
+        for (i, sql) in super::MIGRATIONS.iter().enumerate() {
+            let stmts = split_statements(sql);
+            assert!(!stmts.is_empty(), "migration {i} produced no statements");
+            for st in &stmts {
+                assert!(
+                    st.contains('(') && !st.ends_with(';'),
+                    "migration {i}: statement looks cut: {st}"
+                );
+                assert!(!st.starts_with("--"), "migration {i}: comment leaked");
+                assert!(
+                    st.matches('(').count() == st.matches(')').count(),
+                    "migration {i}: unbalanced parens: {st}"
+                );
+            }
+        }
     }
 
     #[test]

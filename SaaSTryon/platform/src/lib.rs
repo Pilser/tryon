@@ -7,6 +7,7 @@ pub mod auth;
 pub mod cfg;
 pub mod deployer;
 pub mod http;
+pub mod shops;
 pub mod store;
 
 pub use admin::{transition, AdminAction, UserStatus};

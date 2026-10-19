@@ -1,15 +1,17 @@
-/* lib.rs - the SaaSTryon control-plane worker (Phase B).
+/* lib.rs - the SaaSTryon control-plane worker.
 Entry point + module declarations only; every domain lives in its own
 file (`http.rs` router, `auth.rs` token/sessions, `admin.rs` approval,
-`store.rs` D1, `cfg.rs` validation). Shops/deployer arrive in Phase C+. */
+`store.rs` D1, `cfg.rs` validation, `deployer/` per-shop deploy flow). */
 pub mod admin;
 pub mod auth;
 pub mod cfg;
+pub mod deployer;
 pub mod http;
 pub mod store;
 
 pub use admin::{transition, AdminAction, UserStatus};
 pub use auth::{hash_token, new_token, Session};
+pub use deployer::{new_deploy_token, DeployError, DeployInputs, DeployResult};
 pub use store::{ensure_schema, UserRow, UserView};
 
 use worker::{event, Context, Env, Request, Response, Result};

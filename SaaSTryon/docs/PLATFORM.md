@@ -8,17 +8,20 @@ with their "last updated" dates so future readers can re-verify. Written
 ## 0. One-paragraph summary
 
 Cloudflare's multi-tenant stack fits this product exactly: shops run as
-**deployed Workers with their own hostnames**, a control-plane Worker does
-signup → admin approval → deploy, and Genlook calls go through a platform
-proxy (key never in shop code). Two deploy backends behind one interface
-(D-P1, §4.1): **ScriptTarget** on a plain Workers account ($5/mo — starts
-today, 500-shop cap, workers.dev auto-subdomains + per-shop custom domains,
-Genlook proxy reached via baked service binding) and **DispatchTarget** on
-Workers for Platforms ($25/mo — dispatch namespace + dynamic dispatch
-Worker + outbound Worker + `*/*` wildcard KV routing, unlimited shops) when
-scale or isolation demands it. Usage prices are identical on both
-($0.30/M requests, $0.02/M CPU-ms); custom hostnames cost $0.10/hostname/
-month beyond 100 included on any plan.
+**plain deployed Workers with their own hostnames**, a control-plane Worker
+in **Rust** does signup → admin approval → deploys each shop via the normal
+Workers **script-PUT API** (no Workers for Platforms subscription, no
+dispatch namespace, no dispatcher workshop — D-P1 rev, §4.1), and Genlook
+calls go through a small proxy Worker reached by a baked service binding
+(the Genlook key never in shop code). Frontends are **React + StyleX**,
+built to `dist/` and served as **static assets with edge caching** (pages
+never invoke workers; hashed assets immutably cached, `Cache-Tag`
+purge-by-tag as fallback — purge-by-tag is on ALL plans since 2025-04).
+Free plan covers build/staging; the **$5/mo** Workers Paid tier is the only
+planned direct spend before live tenants (per-shop D1 caps + the 100 k
+requests/day removal). Usage prices are the same as WfP's ($0.30/M
+requests, $0.02/M CPU-ms); custom hostnames cost $0.10/hostname/month
+beyond 100 included on any plan.
 
 ---
 
@@ -41,8 +44,17 @@ month beyond 100 included on any plan.
 | Commons API calls | `/cloudflare-for-platforms/cloudflare-for-saas/start/common-api-calls/` | Custom hostname create/edit, fallback origin endpoints |
 | Worker as origin | `/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/` | Dummy DNS + `*/*` route = Worker as fallback origin |
 | Dynamic Workers (new) | `/dynamic-workers/` indexes (upd. 2026-10-12) + pricing page | New runtime primitive; see §6 on why we did NOT pick it |
-| D1 limits | `/d1/platform/limits/` (upd. 2026-04-21) | Per-tenant databases explicitly supported |
+| D1 limits | `/d1/platform/limits/` (upd. 2026-04-21) | Per-tenant databases explicitly supported; 50 k/account paid, 10 free |
 | Skill pack | `~/.agents/skills/cloudflare/references/workers-for-platforms/*` | Cross-checked against live docs; API shapes match |
+| **Workers pricing** | `/workers/platform/pricing/` (upd. 2026-10-02) | $5 plan composition; identical usage rates; static-asset reqs free; service-binding calls bill once |
+| **Workers limits** | `/workers/platform/limits/` (upd. 2026-10-12) | 100/500 script caps; 10 ms/5 min CPU; 100 k req/day free; custom-domains cap |
+| **workers.dev** | `/workers/configuration/routing/workers-dev/` (upd. 2026-09-22) | Auto subdomain per script; enabling/caveats |
+| **Custom domains** | `/workers/configuration/routing/custom-domains/` + API `workers/domains` (upd. 2026-09-29) | API-attachable; DNS+cert auto; no wildcards; 100/zone |
+| **API rate limits** | `/fundamentals/api/reference/limits/` (upd. 2026-08-25) | 1,200/5 min token limit, headers |
+| **10121 gating proof** | answeroverflow.com/m/1250070557475467; terraform-provider-cloudflare#5504; alchemy.run WfP page | dispatch-namespace API fails without WfP entitlement |
+| **Dynamic Workers on Paid** | github.com/jokull/agent-cms/issues/53 | `worker_loaders` available on plain Paid (preview use only) |
+| **Static assets** | `/workers/static-assets/` + `/workers/static-assets/headers/` (upd. 2026-09/10) | Assets served without worker invocation; `_headers`; default cache-control |
+| **Workers Caching / purge** | `/workers/cache/` pages (upd. 2026-10-13) + `/cache/how-to/purge-cache/` | `Cache-Tag`, purge modes, purge-for-all changelog (2025-04-01) |
 
 Dashboard changelog (2025-12-18) adds: namespace creation, dispatch-worker
 templates (path + subdomain), and tag management now exist as UI parity —
@@ -51,6 +63,11 @@ useful for manual debugging, but every flow the platform needs is API-first.
 ---
 
 ## 2. The four WfP components (as learned)
+
+> Background for the dispatch mode we chose NOT to build first (D-P1 rev,
+> §4.1). Kept because the deploy/upload/asset mechanics overlap almost 1:1
+> with the plain script-PUT path (§3 applies to both; only the namespace
+> wrapper differs).
 
 1. **Dispatch namespace** — container for all deployed shops.
    - Script count: **unlimited** (normal Workers cap at 500/account).
@@ -251,11 +268,10 @@ Dynamic Workers on file for the preview/playground feature (§9 Phase G).
 
 ### 4.1 Can the $25/month WfP plan be bypassed? — YES (verified 2026-10-19)
 
-Question asked outright: can one platform Worker deploy other Workers
-automatically using just an API access token, WITHOUT the $25 Workers for
-Platforms subscription? Answer: **yes, via the plain Workers script API** —
-with real trade-offs (mainly shop cap and egress interception). Verified
-facts:
+Question asked: can one platform Worker deploy other Workers automatically
+using just an API access token, WITHOUT the $25 Workers for Platforms
+subscription? Answer: **yes, via the plain Workers script API** — with real
+trade-offs (shop cap, no egress interception). Verified facts:
 
 | # | Fact | Source |
 |---|---|---|
@@ -288,52 +304,62 @@ of $25. The WfP plan buys us: unlimited scripts (≈1100+ shops), KV-hostname
 wildcard routing under `crowdy.app` without per-shop route churn, untrusted
 isolation, outbound egress interception, and 2× the included traffic/CPU.
 
-**Decision D-P1: the deployer gets two backends behind one interface** —
-`ScriptTarget` (plain account, default; phases B–F build on this) and
-`DispatchTarget` (WfP) — so switching later is a config change, not a
-rewrite. CF-API client, D1-per-shop provisioner, bundle loader, and
-metering are shared. Switch to WfP (buy in dashboard, self-serve per B1)
-when any of: (a) ~400 shops (approaching 500 cap), (b) >100 custom domains
-per zone, (c) seller-hosted third-party shop code (need untrusted mode).
+**Decision D-P1 (finalised 2026-10-19): ONE backend only — the plain
+Workers script API (script-PUT). No dispatch namespace, no dispatcher, no
+outbound worker, no WfP purchase, no dual-target abstraction.** If WfP is
+ever needed later (see triggers below) the hard research is in this
+section and the publisher-template clone; it would be an additive module at
+that point, not an architecture from day one.
 
-What changes in script mode per phase:
-- **Phase C**: deploy `shop-<id8>` as a normal script (multipart PUT) with
-  bindings: per-shop `DB` (D1), shared `IMAGES` (R2 `{bucket_name:
-  "tenant-images"}`), `GENLOOK_PROXY` service binding, `SHOP_ID` +
-  `PLATFORM_TOKEN` vars. Tags via `/scripts/{name}/tags` (2 per call limits
-  apply; keep the 3-tag convention). Verify `workers.dev` enablement via
-  `/scripts/{name}/subdomain` endpoint at deploy time (Q8).
-- **Phase D** shrinks: no runtime dispatcher needed. Platform registrar
-  attaches Custom Domains (`PUT /workers/domains`) for
-  `{{shop}}.crowdy.app` when a shop deploys; KV ROUTE_KV store becomes
-  dashboard bookkeeping (host→shop) instead of a hot routing path. workers.dev
-  auto-URL is the built-in fallback.
-- **Phase E**: genlook-proxy is a plain sibling Worker with KV credit
-  counters; shops reach it via the service binding metered as 1 request.
-- **Phase G**: unchanged CfS flow for customer-owned domains (owner adds
-  CNAME → `target.crowdy.app`).
-- Free-plan note: usable as a **staging target** (100 scripts, but 100 k
-  req/day + 10 D1 caps make tenant shops impossible there).
+- The platform deploys shops with `PUT /accounts/{id}/workers/scripts/{name}`
+  (B2) and attaches hostnames with `PUT /accounts/{id}/workers/domains` (B6).
+- **Free plan** is fine for building and staging (B4: 100 scripts). **The
+  $5/mo Workers Paid tier is required before real tenant shops** — it buys
+  per-shop D1 databases (10 → 50,000; B8), removal of the 100 k
+  requests/DAY account cap, and 30 s CPU. That is a dashboard toggle, the
+  only planned direct spend, and it is $5 — not $25.
+- WfP revisited ONLY when: (a) ~400 shops (500-script cap), (b) >100 custom
+  domains per zone, (c) shop count growth forces wildcard KV routing instead
+  of per-shop custom domains. Usage prices are identical (B5), so scaling is
+  about caps, not rates.
+
+Cache plan for serving the frontend (verified 2026-10-19):
+
+| # | Fact | Source |
+|---|---|---|
+| C1 | Static asset requests route to a dedicated asset layer and do NOT invoke the Worker code (default routing) — requests to assets are **free and unlimited**, automatically cached across Cloudflare's edge (tiered caching). | docs `workers/static-assets` ("Caching behavior" + routing); pricing page fn 3 |
+| C2 | Default asset response header: `Cache-Control: public, max-age=0, must-revalidate` (browser revalidates HTML each load); custom headers via a `_headers` file (limit 100 rules). | docs `workers/static-assets/headers` |
+| C3 | **Purge-by-tag is available on ALL plans now** — since 2025-04-01 every cache purge method (URL, tag, prefix, host, everything) is unlocked for all tiers. Tags attach via the `Cache-Tag` response header (printable ASCII, ≤16 KB aggregate, case-insensitive). | changelog 2025-04-01-purge-for-all; cache docs purge-by-tags |
+| C4 | Invalidations never touch Workers-private cache or (for static assets) the content-addressed storage: a redeploy ships a new asset manifest, and hashed filenames (`/assets/*.js`) mean new names — HTML revalidates (C2), long-cache the hashed assets via `_headers` (`max-age=31536000, immutable`). This alone makes redeploys correct without any purge. | docs `workers/static-assets` + `workers/reference/how-the-cache-works` |
+
+→ Platform UI (and each deployed shop frontend) is served from `dist/`
+static assets, NOT computed by the backend: pages never run the Worker;
+`/api/*` is the only Worker surface. `Cache-Tag: platform-ui:v<n>`
+(released by redeploy + optional zone purge) is the fallback invalidation
+path if manual cache surgery is ever needed (Q12).
 
 ---
 
-## 5. Limits to respect (all from the WfP limits page unless noted)
+## 5. Limits to respect (WfP page for dispatch mode; plain-plan limits per §4.1 for script mode)
 
 | Limit | Value | Impact on us |
 |---|---|---|
-| Scripts per namespace | unlimited | 1000 included in plan, rest $0.02 each |
+| **Scripts per account (script mode)** | 100 Free / 500 Paid | the real shop cap; WfP revisit trigger at ~400 |
+| Scripts per namespace (dispatch mode, background) | unlimited | 1000 included in WfP plan, rest $0.02 each |
 | Tags per script | 8 | use `shop:<id>:yes`, `tier:<t>`, `env:<e>` |
-| Gradual deployments | not supported for user Workers | redelopys are all-at-once |
+| Gradual deployments | dispatch mode: not supported | script mode: normal Workers gradual deploys WOULD be available; v1 stays all-at-once |
 | `request.cf` | unavailable (untrusted mode) | shop code must not use it (it doesn't) |
-| `caches.default` | disabled | shop uses asset fetch + R2 only |
+| `caches.default` | disabled (untrusted mode) | shop uses asset fetch + R2 only |
 | API client rate | 1,200/5 min per user token | deployer queue + backoff |
 | API per-IP | 200/s | same |
 | GraphQL analytics | 320/5 min | dashboards must cache |
 | Durable Object namespaces | no WfP limit | n/a |
-| D1 databases per account | 10 free / 50,000 paid (expandable to millions) | **1 shop = 1 D1 OK** |
+| D1 databases per account | 10 free / 50,000 paid (expandable to millions) | **1 shop = 1 D1 OK (needs Paid)** |
 | D1 DB size | 10 GB paid / 500 MB free | per shop is plenty |
-| Routes per zone | 1,000 normal | we use ONE wildcard route ✓ |
-| Custom domains per zone (Worker custom domains) | 100 | we use CFfS hostnames instead (50,000) |
+| Routes per zone | 1,000 | script mode: no wildcard route needed (per-shop custom domains); one route only if we add a router worker later |
+| Custom domains per zone (Worker custom domains) | 100 | **script mode uses these for `{{shop}}.crowdy.app`**; customer-owned domains still via CFfS (50,000 hostnames) |
+| env vars / bindings per script | 64 Free / 128 Paid (~5,000 bindings max) | 5-6 bindings per shop ≪ cap |
+| Workers KV namespaces per account | 1,000 (all plans) | shared namespaces, no per-tenant KV |
 
 D1's own FAQ explicitly blesses the per-shop-database pattern ("per-user,
 per-tenant databases, thousands at no extra cost"). The deployer creates a
@@ -344,7 +370,11 @@ D1 per shop at deploy time, applies the shop schema, then binds `{type:
 
 ## 6. Routing: subdomains *and* custom domains
 
-### 6.1 Subdomains (our master domain, e.g. `crowdy.app`) 
+> §6.1–6.2 dispatch-mode notes are kept as background research (what we
+> DO when/if WfP is ever bought — §4.1 trigger list). The script-mode
+> replacement is §6.4 and is what v1 builds.
+
+### 6.1 Subdomains via wildcard dispatcher (dispatch mode only — background)
 
 1. Zone `crowdy.app` in the SAME Cloudflare account as WfP.
 2. DNS: `*` CNAME/A → dummy origin (`A 192.0.2.0`, proxied orange).
@@ -356,7 +386,7 @@ D1 per shop at deploy time, applies the shop schema, then binds `{type:
 `*.saas.com/*` route is also documented for subdomain-only setups; we use
 `*/*` so the SAME dispatcher later serves custom hostnames.
 
-### 6.2 Custom domains (shop owner's `mystore.com`)
+### 6.2 Owner custom domains via CFfS (both modes — unchanged)
 
 Docs-recommended production pattern (hostname-routing page):
 
@@ -380,7 +410,7 @@ Docs-recommended production pattern (hostname-routing page):
    matter whether the owner's own zone is orange- or grey-clouded — this is
    why `*/*` is the docs recommendation and our choice.
 5. Cost: $0.10/hostname/month after the 100 included; no per-plan feature
-   we need до then is Enterprise-locked (we avoid `custom_metadata`).
+   we need until then is Enterprise-locked (we avoid `custom_metadata`).
 
 Self-serve apex domain (`mystore.com` root, no `www`): CNAME apex is
 technically invalid; docs point to Apex Proxying which is Enterprise-only.
@@ -397,31 +427,89 @@ at all — WfP is explicitly listed as unsupported for Worker preview URLs
 (changelog 2025-07-23). Preview = `<tenant>.crowdy.app` + dispatch flag or a
 separate staging namespace script name.
 
-In ScriptTarget mode (§4.1) this inverts: every script DOES auto-get
+In script mode (§4.1) this inverts: every script DOES auto-get
 `{{name}}.{{sub}}.workers.dev` (B3) — it becomes the default tenant URL plus
 the automatic preview surface for version URLs. The docs still mark
 workers.dev as "treated as a Free website ... not business-critical", so the
 plan treats workers.dev as the fallback/beta URL and attaches a Custom
-Domain (`{{shop}}.crowdy.app`) as the production URL.
+Domain (`{{shop}}.crowdy.app`) as the production URL (§6.4).
+
+### 6.4 Script-mode routing (v1 — what we build)
+
+No dispatcher, no KV hot path:
+
+1. **workers.dev auto-URL**: `shop-<id8>.<account-sub>.workers.dev` comes
+   free at script creation (B3). Platform stores it on the shop row at
+   deploy time; shop never needs it published if custom domain is on.
+2. **Custom domain on OUR zone** (production URL): after successful script
+   PUT, registrar calls `PUT /accounts/{id}/workers/domains`
+   `{zone_id, hostname: "{{sub}}.crowdy.app", service: "shop-<id8>",
+   environment: "production"}` → DNS + cert auto-issued (B6). Platform D1
+   `hostnames` row holds `cf_domain_id` + status; KV ROUTE_KV is pure
+   bookkeeping for the platform dashboard (host→shop), never a runtime
+   routing dependency.
+3. **First deploy latency**: domain enable is near-instant (provisioned by
+   API, no customer DNS dance); Q10 covers the pending-cert corner.
+4. **Fleet note**: 100 custom domains per zone — plenty for v1; when the
+   zone fills we attach additional zones (routed zones per Worker: 1,000)
+   or switch that tier to WfP KV wildcard routing.
 
 ---
 
 ## 7. Platform architecture (SaaSTryon)
 
-### 7.1 Components & machine mapping
+### 7.1 Components (script mode — 3 workers, ONE account)
 
-| Component | Worker (all in this workspace) | Bindings |
+| Component | Worker | Bindings |
 |---|---|---|
-| Control plane (`platform/`) | signup, login, admin approval, deploy orchestration, domain/token requests, dashboard UI | platform D1, ROUTE_KV, BUNDLES (R2), secrets: CLOUDFLARE_API_TOKEN, ADMIN_TOKEN, GENLOOK_API_KEY (for grant accounting) |
-| Dispatcher (`edge/`) | one route; hostname→shop, limits, suspension | DISPATCHER (dispatch_namespaces), ROUTE_KV, PLATFORM_DB (read), SECRETS none |
-| Outbound (`outbound/`) | egress interceptor + Genlook key injection + quota enforcement | PLATFORM_DB (read/write), secrets: GENLOOK_API_KEY |
-| Shop user worker (deployed copies) | existing tryon shop (Rust wasm) + per-shop bindings | DB (D1), PRODUCTS (R2), ASSETS, SHOP_ID, PLATFORM_TOKEN |
+| Control plane (`platform/`) | signup, login, admin approval, deploy orchestration (script-PUT), hostname registrar, token/credit requests, serves its own admin UI from static assets | platform D1, ROUTE_KV (bookkeeping), BUNDLES (R2), secrets: CLOUDFLARE_API_TOKEN, ADMIN_TOKEN, GENLOOK_API_KEY (grant accounting) |
+| Genlook proxy (`genlook-proxy/`) | single small worker: shops call it with their per-shop token; it injects GENLOOK_API_KEY, meters per-shop credits, enforces tier limits | KV counters (REFS_KV), platform D1 (read), secrets: GENLOOK_API_KEY |
+| Shop workers (deployed copies) | existing tryon shop (Rust wasm + React dist), uploaded via script-PUT by the platform | DB (per-shop D1), PRODUCTS + tenant R2 (`shops/<id>/…`), ASSETS, GENLOOK_PROXY (service binding), SHOP_ID, PLATFORM_TOKEN |
 
-All four live in one Cloudflare account. `crowdy.app` zone hosts dispatcher
-route + custom hostnames. The deployed shops get their own D1 (isolation),
-share `tenant-images` R2 bucket (key prefix `shops/<shopId>/…` — R2 bucket
-count is a practical cap; per-tenant buckets v2 if needed) and share
-platform `ASSETS`.
+One Cloudflare account. `crowdy.app` zone hosts per-shop custom domains
+(§6.4) + the platform worker itself. Shops get their own D1 (isolation),
+share `tenant-images` R2 (key prefix `shops/<shopId>/…`) and the platform
+`BUNDLES` bucket holds the released shop artifacts (wasm + dist) the
+deployer uploads from.
+
+### 7.1.1 Tech stack & backend modularity (hard rules)
+
+- **Backend = Rust** (workers crate) — same shape as the tryon shop: wasm
+  module, JSON API, D1/KV/R2 bindings. One crate per worker, in the existing
+  Cargo workspace: `crates/platform/` (control plane), `crates/genlook-proxy/`
+  (proxy). Binary never built locally — CI release only (AGENTS.md).
+- **Frontend = React + StyleX** reusing the tryon design language: the
+  shared `ui.stylex.ts` kit (cards = hairline border + whitespace, no round
+  buttons, full-width buttons on phones, names over device ids) is imported
+  into the platform frontend as its style source; platform pages live in
+  `SaaSTryon/platform/frontend/` (Vite → `dist/`).
+- **Serving**: the platform worker's `[assets]` binding serves
+  `SaaSTryon/platform/frontend/dist` under default routing (assets first, no
+  worker invocation — C1/C4 in §4.1); `/api/*` requests fall through to the
+  Rust wasm. `_headers` (checked into `dist`) sets immutable long-cache for
+  hashed assets + `Cache-Tag: platform-ui:v<n>` purge fallback.
+- **Modularity is enforced, not aspirational** (AGENTS.md §4 + bloat gate):
+  - one domain per file, ≤300 lines target / **≤500 hard**,
+    `check-bloat.sh --max 500` runs per phase;
+  - `lib.rs`/`mod.rs` re-export only;
+  - frontend pages never import backend internals — the ONLY boundary is
+    `POST /api/v1/<command>` mirroring the shop's `command-api::dispatch()`;
+  - non-TUI Rust ships tests.
+- Planned module split for `crates/platform/src/` (starter, tune as it
+  grows — never merge domains to "save lines"):
+  | File | Domain |
+  |---|---|
+  | `http.rs` | router: `/api/v1/*` dispatch → command fns; static fallthrough |
+  | `auth.rs` | signup/login/session tokens, password hashing, gate |
+  | `admin.rs` | approve/suspend/allowance/admin audit |
+  | `shops.rs` | shop lifecycle: create(→deployer), redeploy, block, delete |
+  | `store.rs` | D1 schema+migrations, queries (users/shops/hostnames/credits/credit_requests/audit) |
+  | `deployer/cf_api.rs` | REST client: auth header, error mapping, 429 backoff, queue (B7) |
+  | `deployer/bundle.rs` | BUNDLES manifest → multipart script PUT + assets session (Q1 probe) |
+  | `deployer/provision.rs` | per-shop D1 create + schema apply, bindings set |
+  | `hostnames.rs` | `/workers/domains` registrar + state machine (§6.4) |
+  | `billing.rs` | credits/credit_requests ledger + tier limits |
+  | `cfg.rs` | env/config bindings, reserved subdomains, validation |
 
 ### 7.2 Platform D1 schema (draft)
 
@@ -453,39 +541,61 @@ authed user → "Deploy shop" (POST /platform/v1/shops
               {subdomain, shopName, tier=starter})
 1. validate subdomain (dns-safe, reserved list, free)
 2. enforce allowance: users.deploy_used < deploy_allowance else 402
-3. provision: D1 create + schema (worker `DB`), slot in shared R2
-4. generate PLATFORM_TOKEN (random secret_text per shop)
-5. fetch bundle from R2 (manifest → parts), compute asset hashes
-6. CF API: (a) assets session/upload; (b) PUT user worker
-   script `shop-<id8>` with bindings + tags
-7. KV: `host:<sub>.crowdy.app` -> {script, shopId}
+3. provision: per-shop D1 create + shop schema (binding `DB`)
+4. generate PLATFORM_TOKEN (random secret per shop)
+5. script-PUT (cf_api.rs + bundle.rs):
+   PUT /accounts/{id}/workers/scripts/shop-<id8>
+   multipart: wasm module + metadata {main_module, bindings:
+   [DB d1, tenant-images R2, GENLOOK_PROXY service binding,
+   SHOP_ID, PLATFORM_TOKEN], compat date} + asset upload session
+   (workers.dev auto-URL comes with the script, B3/Q8)
+6. registrar (hostnames.rs): attach custom domain
+   {sub}.crowdy.app via PUT /workers/domains (B6, §6.4)
+7. KV bookkeeping: host:{sub}.crowdy.app -> {script, shopId}
+   (dashboard only — NOT a hot routing path)
 8. record shop cluster_id (script name), audit, decrement allowance
 response → shop live at https://<sub>.crowdy.app
+(fallback while cert pending: the script's workers.dev auto-URL)
 ```
 
-Idempotency: re-PUT overwrites the script in place (docs behaviour) — support
-"redeploy on new bundle version" with the same script name and
-`keep_bindings`; version rollbacks = keep R2 bundle history, re-upload.
+Idempotency: re-PUT overwrites the script in place (plain script API
+overwrites the deployment on each PUT) — support "redeploy on new bundle
+version" with the same script name; sent bindings are re-declared in full
+every deploy (Q5 semantics apply to plain scripts too; verify on staging).
+Version rollbacks = keep R2 bundle history, re-upload; normal Workers
+gradual versions exist in script mode if ever wanted (v1 auto-at-once).
 
-### 7.4 Genlook proxy + token limits (the shop never holds the key)
+### 7.4 Genlook proxy (the shop never holds the key) — service binding, no outbound worker
 
-- Shops call Genlook over plain `fetch()`; the **outbound worker sees every
-  call** (configured via the dispatch namespace binding `outbound` +
-  `parameters: ["tenant"]`; dispatcher passes `tenant: {shopId, requestId}`).
-- Outbound worker logic: if URL host == Genlook → inject
-  `GENLOOK_API_KEY` (secret never bound to shops), check
-  `credits.granted - credits.used > 0` (D1, cheap point read; hard-cap CPU
-  with `limits:{cpuMs}` per tier), forward, decrement/use counters; the
-  shop's existing `GET /tryon/v1/account/credits` response is rewritten by
-  the outbound worker OR by the shop's miss-redirect to the platform (v1:
-  outbound rewrites the body so the shop UI keeps working untouched).
+Outbound-worker interception is WfP-only (B9), so script mode bakes a
+service binding into every shop's script at deploy time instead:
+
+- Shop script metadata includes `{type: "service", name: "GENLOOK_PROXY",
+  service: "genlook-proxy"}` — worker→worker via service binding is one
+  billed request, no internet hop (B5). The shop's wasm already needs one
+  tiny change (see §7.5/F): send Genlook calls to the proxy binding URL
+  path instead of `genlook` directly.
+- genlook-proxy logic: if URL path == `/tryon/v1/tryon` → check
+  `credits.granted - credits.used > 0` for the `PLATFORM_TOKEN`-identified
+  shop (cheap point read + KV counter for hot-path speed), inject
+  `GENLOOK_API_KEY` (secret lives only here), forward upstream, bump usage
+  counters, rewrite the shop's `GET /tryon/v1/account/credits` response so
+  the existing shop UI keeps working untouched (same rewrite the outbound
+  worker would have done, just one hop earlier).
 - Costs/quota granularity: 1 try-on ≈ 1 token balance unit; grants are rows
-  in `credits`. Every call lands in `_workers-outbound` analytics + optional
-  Analytics Engine data points (`index: shopId`) for the owner dashboard.
-- Non-Genlook egress: allow `platform API host` (for credit self-service +
-  product image uploads to R2 presigned URLs if we add them), **403
-  everything else** in v1 (egress allow-list; docs show the deny-anything
-  else pattern).
+  in `credits`. Analytics: proxy keeps per-shop counters in KV + platform
+  D1; GraphQL invocation analytics on the proxy and shop scripts support
+  the admin dashboards later (Phase H).
+- Egress note: without the WfP outbound worker there is no runtime
+  egress DENY for shop code — but we ship the shop code ourselves, the wasm
+  never gains a generic egress surface beyond product features, and the
+  Genlook key is simply absent from shop bindings. App-level allow-list
+  stays in the shop code (it only ever calls Genlook + its own APIs).
+- Suspension (replaces WfP's per-tenant limits): admin "block shop" = set
+  custom domain `enabled: false` (PATCH `/workers/domains/{id}`/delete) +
+  disable the script's workers.dev route (`/scripts/{name}/subdomain`
+  `{enabled: false}`) → shop 404s at the edge without deleting anything;
+  reactivate flips both back. Q8/Q10 cover the exact API shapes on staging.
 
 ### 7.5 Shop-side extension (settings page asks the platform for more)
 
@@ -509,11 +619,13 @@ gate).
 - Admin gate: same token-card login pattern as the shop dashboard
   (`#db-token` + `#db-login`, `tryon.owner.v1`-like key `tryon.platform.v1`).
   Admin approves (status approved, sets `deploy_allowance`), can suspend
-  (dispatcher blocks hostname → 403 "This shop is suspended"), can cancel
-  (delete-by-tag script deletion).
+  (§7.4 suspension: domain disabled + workers.dev route off → shop simply
+  unreachable; owner sees the shop's 404/deactivated state), can cancel
+  (script delete by name + D1 data retained per retention rules).
 - Rate limits: simple D1 counters + KV cached plan lookups; deep analytics
-  later through GraphQL per dispatch namespace (doc: `GraphQL
-  workersInvocationsAdaptive` filter `dispatchNamespaceName`).
+  later through per-script GraphQL invocation analytics
+  (`workersInvocationsAdaptive` filtered by script name) and the proxy's
+  counters.
 
 ---
 
@@ -521,31 +633,34 @@ gate).
 
 | # | Question | How to resolve |
 |---|---|---|
-| Q1 | Exact multipart shape for uploading a wasm user worker (`web_assembly` binding vs `application/wasm` part) inside a dispatch namespace | throwaway deploy on the $25 account; REST + SDK trial |
-| Q2 | Does WfP plan purchase have any account prerequisite (paid Workers plan?) | dashboard shows buy flow; verify before spending |
+| Q1 | Exact multipart shape for uploading a **wasm shop worker via plain script-PUT** (`web_assembly` binding vs `application/wasm` part) | throwaway deploy on the staging account; REST trial — does NOT need the WfP plan (=Q1 original scope, now plain-script) |
+| Q2 | ~~Does WfP plan purchase have prerequisites~~ — RESOLVED-ish: purchase is self-serve in dashboard (error 10121 message says "purchase it within the dashboard"); WfP is out of build scope (D-P1 rev) | only if WfP path is ever reopened |
 | Q3 | R2 bucket count per account cap (shared `tenant-images` strategy) | check dashboard limits page or create-limits |
-| Q4 | KV eventual-consistency window affecting new-hostname routing (first seconds after deploy) | dispatcher: on miss, degrade to script-name-from-host guess + retry |
-| Q5 | `keep_bindings` semantics when re-adding the FULL binding set each deploy | tests in staging namespace; always send full set + keep_bindings |
+| Q4 | ~~KV consistency on new-hostname routing~~ — demoted: KV is dashboard bookkeeping only in script mode; routing is native (§6.4) | not a build risk |
+| Q5 | Bindings semantics on plain script re-PUT (resend full set each deploy; does it drop bindings if omitted?) | staging trial in Phase C; always resend full set |
 | Q6 | Asset hash salting needed only if tenant-special themes ever arrive | revisit if themes ship |
 | Q7 | Live pricing surprise (e.g. asset upload pricing changed Oct 2026 per banner) | re-read the live pricing page before card charge |
-| Q8 | REST call to ENABLE `workers.dev` for a freshly uploaded script script (wrangler relies on config; API shape = `POST /scripts/{name}/subdomain {enabled}`?) | probe on staging account before first scripted deploy |
+| Q8 | REST call to enable/disable the script's workers.dev route on create and on suspension (shape = `POST /scripts/{name}/subdomain {enabled}`?) | staging probe before first scripted deploy (B3 default is enabled — verify we can flip it) |
 | Q9 | Minimal API-token scopes for script-mode deploys (Workers Scripts Edit + D1 Edit + KV Edit + Zone/DNS? for `/workers/domains` custom domains) | trial token on the staging account; least-privilege per B2 |
-| Q10 | Whether `/workers/domains` requires the zone in the same account (B6 implies yes) and what happens for shops with a pending cert on `{{shop}}.crowdy.app` | staging probe in Phase D |
-| Q11 | Script tags endpoint limits (`/scripts/{name}/tags`, PUT 2 tags per call?) vs namespace upload's inline tags | probe; keep 3-tag convention either way |
+| Q10 | Whether `/workers/domains` requires the zone in the same account (B6 implies yes) and what happens while a cert is still provisioning for `{{shop}}.crowdy.app` (shop URL timing on first deploy) | staging probe in Phase D |
+| Q11 | Script tags endpoint limits (`/scripts/{name}/tags`, PUT 2 tags per call?) vs inline tags in upload metadata | probe; keep 3-tag convention either way |
+| Q12 | Does zone-level purge-by-tag (C3) actually reach *static-asset* responses, or only zone-CDN/Worker-cache content? C4's redeploy+hashed-assets path is primary; tags are fallback | Phase F staging probe: add `Cache-Tag` via `_headers`, purge, observe `CF-Cache-Status` |
+| Q13 | Rust worker test harness for the platform crate (shop precedent: pure-logic unit tests via `ram-test`; D1/CF-API paths mocked behind traits; optional `workers-rs` miniflare integration later) | decide in Phase B; keep CI strategy aligned with existing crates |
 
 ## 9. Build order (phases)
 
 | Phase | Deliverable | Tests / proof |
 |---|---|---|
-| A (done) | This doc + folder scaffold + template cloned | doc review |
-| B | `platform/`: wrangler config, D1 migrations, signup/login/approval/allowance (admin UI pages using tryon design language), REST contracts frozen | vitest-pool-workers: ≥5 tests (signup, pending, approve, allowance gate, auth guard) |
-| C | `platform/deploy`: bundle loader, D1-per-shop provisioner, CF API client with queue+backoff, tags; `DeploymentTarget` interface with `ScriptTarget` first (§4.1 D-P1), `DispatchTarget` later; local mock of CF endpoints | unit tests on manifest parsing, idempotent deploy vs mock; live smoke deploy only once account set up (ask before spending) |
-| D | `edge/` — script mode = hostname registrar (`PUT /workers/domains` + KV bookkeeping); dispatch mode = runtime dispatcher, kept behind the target interface | vitest stubs + staging probe (Q8/Q10) |
-| E | `outbound/`: Genlook allow-list + key injection + per-shop metering + credits rewriting | unit; staging namespace end-to-end |
-| F | tryon shop changes: acceptance of `SHOP_ID` prop, R2 key prefixes `shops/<id>/`, Settings card → platform API calls; deploy UI in platform | browser probes; frontend commit per usual tryon rules |
-| G | Custom domains (CFfS) self-serve + "buy tokens" flow behind admin/manual billing flag | API contract + staging hostname |
-| H | Hardening: rollout dashboards (GraphQL), Logpush/observability, D1 backups | |
+| A (done) | Platform research doc + folder scaffold + publisher template cloned | doc review |
+| B | `crates/platform/` skeleton (Rust worker): http router, `store.rs` D1 migrations (users/shops/hostnames/credits/credit_requests/audit), `auth.rs` signup/login/session, `admin.rs` approval+allowance; `SaaSTryon/platform/frontend/` React+StyleX app with signup/login/token-gate + admin pages in the tryon UI language; `_headers` dist cache rules; static assets serving from the worker | `ram-check`/`ram-test -p platform`: ≥5 Rust tests (signup validation, pending gate, approve→allowance, allowance 402, auth guard); `tsc`; browser probe of the UI; `check-bloat.sh` |
+| C | `deployer/` in the platform crate: `cf_api.rs` (REST client, 429 backoff queue per B7), `bundle.rs` (BUNDLES manifest → script-PUT multipart incl. wasm probe Q1 + assets session), `provision.rs` (per-shop D1 + schema + bindings); local mock CF endpoints | unit tests on manifest parsing, idempotent re-PUT vs mock (Q5); live smoke deploy only after account setup (ask before any spend) |
+| D | `hostnames.rs`: `/workers/domains` registrar + workers.dev fallback + suspension helpers (§6.4, Q8/Q10); KV bookkeeping | unit tests on state machine; staging probe with real throwaway script |
+| E | `crates/genlook-proxy/`: Genlook key injection + per-shop credit metering + `/account/credits` rewrite (§7.4) | Rust unit tests (metering math, deny-exhausted); mock end-to-end with the harness shop; live Genlook still NOT fired without approval |
+| F | Shop-side: wasm accepts `SHOP_ID`/`PLATFORM_TOKEN`/`GENLOOK_PROXY` binding wiring, R2 key prefixes `shops/<id>/…`, Settings card → platform API (§7.5); platform deploy UI "Deploy shop" form live | browser probes; frontend commit per usual tryon rules; Q12 cache-tag probe |
+| G | Self-serve customer-owned domains (CFfS §6.2) + "buy more tokens" flow behind admin/manual billing gate | API contract tests + staging hostname |
+| H | Hardening: per-script GraphQL analytics dashboards, suspension/ban runbook drills, D1 backups (Time Travel), bloat + rate-limit drills | |
 
 Sequencing rule (AGENTS.md compliant): each phase ends with
-`tsc/bun-check` + `bun test` + browser probe if UI changed; Rust side keeps
-its own ram-check/ram-test rules and is never built on this machine.
+`./scripts/ram-check.sh -p <crate>` + `./scripts/ram-test.sh -p <crate>` +
+`./scripts/check-bloat.sh` + frontend `tsc`/tests + browser probe if UI
+changed; Rust binaries are never built on this machine (CI only).

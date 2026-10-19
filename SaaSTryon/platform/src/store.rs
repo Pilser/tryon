@@ -59,7 +59,10 @@ pub async fn ensure_schema(env: &worker::Env) -> Result<()> {
             if stmt.is_empty() {
                 continue;
             }
-            db.exec(stmt).await.map_err(|e| {
+            // One prepared statement per call: D1's exec() re-splits the
+            // batch on ";" and then chokes on the pieces it cannot parse
+            // (a trailing ";" becomes an empty statement).
+            db.prepare(stmt).run().await.map_err(|e| {
                 let shown: String = stmt.chars().take(64).collect();
                 Error::RustError(format!(
                     "schema migration {:04} failed at {shown:?}: {e}",

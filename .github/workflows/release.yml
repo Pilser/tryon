@@ -124,6 +124,11 @@ jobs:
           export WASM_BINDGEN_BIN=/tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen
           worker-build --release
       - uses: oven-sh/setup-bun@v2
+      # The platform kit re-exports the root frontend's stylex styles, so
+      # the root package must be installed for the types to resolve.
+      - name: install root frontend deps (shared stylex styles)
+        working-directory: frontend
+        run: bun install --frozen-lockfile
       - name: install (frozen lockfile)
         working-directory: SaaSTryon/platform/frontend
         run: bun install --frozen-lockfile

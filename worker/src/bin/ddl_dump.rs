@@ -10,13 +10,10 @@ fn main() {
     for s in device::USAGE_DDL.iter() {
         parts.push((*s).to_string());
     }
-    for s in device::USAGE_MIGRATIONS.iter() {
-        parts.push((*s).to_string());
-    }
+    // No ALTER migrations here: the bundle applies to a FRESH per-shop
+    // database, and the CREATE statements already carry those columns
+    // (re-adding them fails with "duplicate column name").
     parts.push(shop::SHOP_DDL.to_string());
-    for s in shop::SHOP_MIGRATIONS.iter() {
-        parts.push((*s).to_string());
-    }
     for s in photos::PHOTO_DDL.iter() {
         parts.push((*s).to_string());
     }

@@ -216,13 +216,16 @@ mod tests {
         let no_assets = MultipartBuilder::metadata_json("worker.js", "2026-10-19", &bindings, None);
         assert!(!no_assets.contains("\"assets\""), "no jwt -> no assets key");
         let b = meta["bindings"].as_array().unwrap();
-        assert_eq!(b.len(), 5, "exact 5 bindings");
+        assert_eq!(b.len(), 4, "exact 4 bindings (no service binding)");
         let blob = meta.to_string();
         assert!(
             !blob.contains("GENLOOK_API_KEY"),
             "the Genlook key must never appear"
         );
-        assert!(blob.contains("GENLOOK_PROXY"), "service binding stays");
+        assert!(
+            !blob.contains("GENLOOK"),
+            "no Genlook anything in a shop script"
+        );
         assert_eq!(b.iter().filter(|x| x["name"] == "DB").count(), 1);
     }
 

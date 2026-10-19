@@ -15,15 +15,17 @@ asserted exact in tests):
   SHOP_ID        plain_text    -> `<id8>` (R2 key prefix + logs)
   PLATFORM_TOKEN secret_text   -> the per-shop deploy_ secret, minted
                                   per deploy and passed straight through
-  GENLOOK_PROXY  service       -> `genlook-proxy` (§7.4: the Genlook
-                                  API key is NEVER a shop binding) */
+                                  The Genlook proxy is NOT a binding: the
+                                  shop calls the platform's
+                                  shop/genlook route with its
+                                  PLATFORM_TOKEN, so the Genlook API key
+                                  is never in a shop script (§7.4). */
 use serde_json::{json, Value};
 
 use super::DeployError;
 use crate::deployer::cf_api::{call_with_retry, CfBody, CfConfig, CfError, CfRequest, Transport};
 
 pub const R2_IMAGES_BUCKET: &str = "tenant-images";
-pub const GENLOOK_SERVICE: &str = "genlook-proxy";
 
 /// Script name / cluster id for a shop (B3 name limits; 8 hex caps it).
 pub fn script_name(id8: &str) -> String {
@@ -53,11 +55,6 @@ pub fn bindings_for(id8: &str, d1_uuid: &str, platform_token: &str) -> Vec<Value
             "type": "secret_text",
             "name": "PLATFORM_TOKEN",
             "text": platform_token,
-        }),
-        json!({
-            "type": "service",
-            "name": "GENLOOK_PROXY",
-            "service": GENLOOK_SERVICE,
         }),
     ]
 }
@@ -132,8 +129,8 @@ mod tests {
         let b = bindings_for("a1b2c3d4", "db-uuid", "deploy_6183ab26911057e6");
         assert_eq!(
             b.len(),
-            5,
-            "exactly DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN/GENLOOK_PROXY"
+            4,
+            "exactly DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN (no service binding)"
         );
         assert_eq!(b[0]["type"], "d1");
         assert_eq!(b[0]["name"], "DB");
@@ -146,9 +143,11 @@ mod tests {
         assert_eq!(b[2]["text"], "a1b2c3d4");
         assert_eq!(b[3]["type"], "secret_text");
         assert_eq!(b[3]["name"], "PLATFORM_TOKEN");
-        assert_eq!(b[4]["type"], "service");
-        assert_eq!(b[4]["name"], "GENLOOK_PROXY");
-        assert_eq!(b[4]["service"], GENLOOK_SERVICE);
+        // The Genlook key never reaches a shop script, and neither does
+        // a service binding: the platform proxies over HTTP.
+        let blob = serde_json::to_string(&b).unwrap();
+        assert!(!blob.contains("GENLOOK"));
+        assert!(!blob.contains("\"type\":\"service\""));
     }
 
     #[test]
@@ -165,7 +164,6 @@ mod tests {
         assert_eq!(token["text"], fake, "exact pass-through");
         let blob = serde_json::to_string(&b).unwrap();
         assert!(!blob.contains("GENLOOK_API_KEY"));
-        assert!(blob.contains("GENLOOK_PROXY"));
         assert!(!blob.contains("api_token"));
     }
 

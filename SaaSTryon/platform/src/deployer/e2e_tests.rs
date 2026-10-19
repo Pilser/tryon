@@ -296,7 +296,7 @@ fn happy_path_end_to_end_sequence() {
         .starts_with("multipart/form-data; boundary="));
     let meta: V = serde_json::from_str(&multipart_part(&raw.bytes, "metadata")).unwrap();
     let bindings = meta["bindings"].as_array().unwrap();
-    assert_eq!(bindings.len(), 5, "exactly the provision set");
+    assert_eq!(bindings.len(), 4, "exactly the provision set");
     assert_eq!(
         bindings[0]["database_id"], "d1-uuid-9",
         "D1 from provision step"

@@ -62,11 +62,18 @@ pub fn bindings_for(id8: &str, d1_uuid: &str, platform_token: &str) -> Vec<Value
 /// Split the bundled shop schema into statements on ";\n" (store.rs
 /// convention; run through the batched query endpoint as one call).
 pub fn split_stmts(schema_sql: &str) -> Vec<String> {
-    schema_sql
-        .split(";\n")
+    // Comment lines are dropped first: a `--` line may mention the
+    // `";\n"` marker itself, and splitting on that would leave a
+    // comment as a statement.
+    let body: String = schema_sql
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("--"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    body.split(";\n")
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
-        .map(|s| format!("{s};"))
+        .map(|s| format!("{};", s.trim().trim_end_matches(';').trim()))
         .collect()
 }
 

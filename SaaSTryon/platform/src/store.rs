@@ -22,6 +22,23 @@ pub const MIGRATIONS: [&str; 2] = [
 /// Kept for callers that referenced the first migration directly.
 pub const INIT_SQL: &str = MIGRATIONS[0];
 
+/// Splits a migration file into statements. Comment lines are dropped
+/// first: a `--` line may mention the `";\n"` marker itself, and
+/// splitting on that would leave a comment as a statement (SQLite
+/// rejects a lone comment with "incomplete input").
+pub fn split_statements(sql: &str) -> Vec<String> {
+    let body: String = sql
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("--"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    body.split(";\n")
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("{};", s.trim().trim_end_matches(';').trim()))
+        .collect()
+}
+
 /// Bind for this worker (`[[d1_databases]]` in wrangler.toml).
 pub const DB_BINDING: &str = "PLATFORM_DB";
 
@@ -36,7 +53,7 @@ pub fn db(env: &worker::Env) -> Result<D1Database> {
 pub async fn ensure_schema(env: &worker::Env) -> Result<()> {
     let db = db(env)?;
     for (rev, sql) in MIGRATIONS.iter().enumerate() {
-        for stmt in sql.split(";\n") {
+        for stmt in split_statements(sql) {
             let stmt = stmt.trim();
             if stmt.is_empty() {
                 continue;
@@ -297,4 +314,28 @@ pub(crate) async fn write(db: &D1Database, sql: &str, binds: Vec<JsValue>) -> Re
     // Success = no Err; D1 meta counters are never trusted for logic.
     let _ = db.prepare(sql).bind(&binds)?.run().await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_statements;
+
+    #[test]
+    fn migration_split_ignores_comment_lines() {
+        // A comment may mention the marker itself - the split must not
+        // turn the comment into a statement.
+        let sql = "-- header with the \";\\n\" marker inside\nCREATE TABLE a (x TEXT);\n-- trailing note\nCREATE TABLE b (y TEXT);\n";
+        let stmts = split_statements(sql);
+        assert_eq!(stmts.len(), 2, "two statements, no comment");
+        assert!(stmts[0].starts_with("CREATE TABLE a"));
+        assert!(stmts[1].starts_with("CREATE TABLE b"));
+        assert!(stmts.iter().all(|s| s.ends_with(';')));
+    }
+
+    #[test]
+    fn empty_and_blank_input_yields_nothing() {
+        assert!(split_statements("").is_empty());
+        assert!(split_statements("   \n\n").is_empty());
+        assert!(split_statements("-- only a comment\n").is_empty());
+    }
 }

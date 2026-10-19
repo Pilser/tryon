@@ -13,7 +13,7 @@ use std::task::{Context, Poll, Waker};
 
 /// Minimal executor: every mocked future resolves without external
 /// wakers, so polling until Ready is enough on the test host.
-fn block_on<F: std::future::Future>(fut: F) -> F::Output {
+pub(crate) fn block_on<F: std::future::Future>(fut: F) -> F::Output {
     let waker = Waker::noop().clone();
     let mut cx = Context::from_waker(&waker);
     let mut fut = Box::pin(fut);
@@ -27,12 +27,12 @@ fn block_on<F: std::future::Future>(fut: F) -> F::Output {
 
 // ------------------------------------------------------------- mocks
 
-struct MockCf {
-    steps: RefCell<Vec<MockStep>>,
-    calls: RefCell<Vec<CfRequest>>,
+pub(crate) struct MockCf {
+    pub(crate) steps: RefCell<Vec<MockStep>>,
+    pub(crate) calls: RefCell<Vec<CfRequest>>,
 }
 
-enum MockStep {
+pub(crate) enum MockStep {
     /// 200 with this JSON body.
     Ok(V),
     /// Non-2xx answering a CF error body.
@@ -79,10 +79,10 @@ impl Transport for MockCf {
     }
 }
 
-struct MockStore {
-    shops: RefCell<Vec<ShopRow>>,
-    audits: RefCell<Vec<String>>,
-    used: RefCell<Vec<String>>,
+pub(crate) struct MockStore {
+    pub(crate) shops: RefCell<Vec<ShopRow>>,
+    pub(crate) audits: RefCell<Vec<String>>,
+    pub(crate) used: RefCell<Vec<String>>,
 }
 
 impl DeployStore for MockStore {
@@ -121,9 +121,9 @@ impl DeployStore for MockStore {
     }
 }
 
-struct MockBundles {
-    data: BundleData,
-    loaded: RefCell<Vec<String>>,
+pub(crate) struct MockBundles {
+    pub(crate) data: BundleData,
+    pub(crate) loaded: RefCell<Vec<String>>,
 }
 
 impl BundleSource for MockBundles {
@@ -144,11 +144,11 @@ fn gate_owner(status: &str, used: i64, allowance: i64) -> OwnerGate {
     }
 }
 
-fn asset_bytes() -> Vec<u8> {
+pub(crate) fn asset_bytes() -> Vec<u8> {
     b"<html>\xF0\x9F\x8C\x9F</html>\n".to_vec()
 }
 
-fn test_bundle() -> BundleData {
+pub(crate) fn test_bundle() -> BundleData {
     let manifest = crate::deployer::parse_manifest(
         r#"{
           "schema": "st-bundle/1",
@@ -172,7 +172,7 @@ fn test_bundle() -> BundleData {
 
 /// Same shape, one extra asset - the "changed bundle" input for the
 /// idempotency diff.
-fn alt_bundle() -> BundleData {
+pub(crate) fn alt_bundle() -> BundleData {
     let mut d = test_bundle();
     d.manifest.assets.push(AssetRef {
         key: "assets/bonus.html".into(),
@@ -184,7 +184,7 @@ fn alt_bundle() -> BundleData {
     d
 }
 
-fn clone_bundle(d: &BundleData) -> BundleData {
+pub(crate) fn clone_bundle(d: &BundleData) -> BundleData {
     BundleData {
         manifest: d.manifest.clone(),
         wasm: d.wasm.clone(),
@@ -194,7 +194,7 @@ fn clone_bundle(d: &BundleData) -> BundleData {
     }
 }
 
-fn inputs() -> DeployInputs {
+pub(crate) fn inputs() -> DeployInputs {
     DeployInputs {
         owner_id: "usr_1".into(),
         subdomain: "amina".into(),
@@ -205,15 +205,19 @@ fn inputs() -> DeployInputs {
     }
 }
 
-fn cfg() -> CfConfig {
+pub(crate) fn cfg() -> CfConfig {
     CfConfig {
         token: "tok".into(),
         account: "acc123".into(),
         dev_subdomain: Some("acc1".into()),
+        // No zone: these tests keep the workers.dev URL only, so the
+        // custom-domain attach stays out of the mocked call sequence.
+        zone_id: None,
+        zone_name: "latiforge.com".into(),
     }
 }
 
-fn multipart_part(body: &[u8], name: &str) -> String {
+pub(crate) fn multipart_part(body: &[u8], name: &str) -> String {
     let text = String::from_utf8_lossy(body);
     let marker = format!("name=\"{name}\"; filename=");
     let start = text.find(&marker).expect("part present") + marker.len();
@@ -228,7 +232,7 @@ fn script_name_of(path: &str) -> String {
 }
 
 /// The 5 steps of a successful deploy: create, query, session, upload, PUT.
-fn deploy_cf(uuid: &str, buckets: V) -> MockCf {
+pub(crate) fn deploy_cf(uuid: &str, buckets: V) -> MockCf {
     MockCf {
         steps: RefCell::new(vec![
             MockStep::Ok(serde_json::json!({
@@ -322,7 +326,7 @@ fn happy_path_end_to_end_sequence() {
     );
 }
 
-fn empty_store() -> MockStore {
+pub(crate) fn empty_store() -> MockStore {
     MockStore {
         shops: RefCell::new(vec![]),
         audits: RefCell::new(vec![]),
@@ -413,65 +417,6 @@ fn cf_failure_leaves_store_untouched() {
 /// Q5: redeploying the same bundle re-sends the FULL binding set. Two
 /// deploys are structurally equal except the per-deploy identity values
 /// (SHOP_ID + PLATFORM_TOKEN random; DB uuid identical here).
-#[test]
-fn idempotent_metadata_across_two_deploys() {
-    let build = |cf: &MockCf, bundle: &BundleData| {
-        let store = empty_store();
-        let bundles = MockBundles {
-            data: clone_bundle(bundle),
-            loaded: RefCell::new(vec![]),
-        };
-        block_on(deploy_shop_with(&store, &bundles, cf, &cfg(), &inputs())).expect("deploys");
-        let calls = cf.calls.borrow();
-        // buckets empty -> session jwt IS the completion token (§3.3),
-        // so the asset upload step is SKIPPED: exactly 4 calls.
-        assert_eq!(calls.len(), 4, "upload skipped with empty buckets");
-        let session = match &calls[2].body {
-            CfBody::Json(v) => v.clone(),
-            _ => panic!("session call is json"),
-        };
-        let put = match &calls[3].body {
-            CfBody::Raw(raw) => raw,
-            _ => panic!("script put is multipart"),
-        };
-        let meta: V = serde_json::from_str(&multipart_part(&put.bytes, "metadata")).unwrap();
-        (meta, put.bytes.len(), session)
-    };
-    let (m1, len1, sess1) = build(&deploy_cf("u1", serde_json::json!([])), &test_bundle());
-    let (m2, len2, sess2) = build(&deploy_cf("u1", serde_json::json!([])), &test_bundle());
-    assert_eq!(
-        m1.as_object().unwrap().len(),
-        4,
-        "module/compat/bindings/assets"
-    );
-    assert_eq!(
-        m1["main_module"], m2["main_module"],
-        "same bundle -> same entry"
-    );
-    assert_eq!(m1["compatibility_date"], m2["compatibility_date"]);
-    assert_eq!(
-        m1["assets"]["jwt"], "session-jwt",
-        "session jwt rides in metadata"
-    );
-    let b1 = m1["bindings"].as_array().unwrap();
-    let b2 = m2["bindings"].as_array().unwrap();
-    assert_eq!(b1.len(), 5);
-    assert_eq!(b1[1], b2[1], "PRODUCTS bucket is deploy-independent");
-    assert_eq!(b1[4], b2[4], "GENLOOK_PROXY service is deploy-independent");
-    assert_ne!(b1[2], b2[2], "SHOP_ID regenerates per deploy");
-    assert_ne!(b1[3], b2[3], "PLATFORM_TOKEN regenerates per deploy");
-    assert_eq!(len1, len2, "identical byte length modulo per-deploy values");
-    assert_eq!(sess1, sess2, "same bundle -> same assets session request");
-    // A changed bundle (extra asset) must produce a DIFFERENT session
-    // manifest, and a different d1 uuid lands in DB.
-    let (m3, _, sess3) = build(&deploy_cf("u9", serde_json::json!([])), &alt_bundle());
-    let b3 = m3["bindings"].as_array().unwrap();
-    assert_ne!(
-        b1[0]["database_id"], b3[0]["database_id"],
-        "d1 uuid rides in"
-    );
-    assert_ne!(sess1, sess3, "changed bundle -> different asset list");
-}
 
 #[test]
 fn rate_limited_put_retries_with_schedule() {

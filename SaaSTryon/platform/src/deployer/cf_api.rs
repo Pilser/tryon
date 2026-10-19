@@ -14,7 +14,7 @@ API facts used (re-verified live 2026-10-19):
 - Assets upload is the one call NOT authenticated by the platform token:
   it carries the session JWT instead (`CfRequest.jwt`). */
 use serde_json::Value;
-use worker::{Env, Fetch, Headers, Method, Request, RequestInit};
+use worker::{Fetch, Headers, Method, Request, RequestInit};
 
 pub const BASE: &str = "https://api.cloudflare.com/client/v4";
 
@@ -22,6 +22,8 @@ pub const BASE: &str = "https://api.cloudflare.com/client/v4";
 pub const MAX_RETRIES: u32 = 3;
 
 // ------------------------------------------------------------ requests
+
+pub use super::cf_config::CfConfig;
 
 #[derive(Debug, Clone)]
 pub struct CfRequest {
@@ -249,44 +251,6 @@ pub trait Transport {
 
 pub struct FetchTransport {
     token: String,
-}
-
-/// Token pulled from the worker env (CLOUDFLARE_API_TOKEN; the account id is baked into every CfRequest path).
-#[derive(Debug, Clone)]
-pub struct CfConfig {
-    pub token: String,
-    pub account: String,
-    /// Optional `{{script}}.<sub>.workers.dev` prefix for the URL note
-    /// (B3; exact account subdomain lookup is a Phase D probe, Q8).
-    pub dev_subdomain: Option<String>,
-}
-
-impl CfConfig {
-    pub fn from_env(env: &Env) -> Result<CfConfig, String> {
-        let token = read_secret(env, "CLOUDFLARE_API_TOKEN")
-            .ok_or("missing CLOUDFLARE_API_TOKEN secret")?;
-        let account = read_secret(env, "CF_ACCOUNT_ID").ok_or("missing CF_ACCOUNT_ID var")?;
-        let dev_subdomain = read_secret(env, "CF_WORKERS_DEV_SUBDOMAIN");
-        Ok(CfConfig {
-            token,
-            account,
-            dev_subdomain,
-        })
-    }
-}
-
-fn read_secret(env: &Env, name: &str) -> Option<String> {
-    let v = env
-        .secret(name)
-        .map(|s| s.to_string())
-        .ok()
-        .filter(|s| !s.is_empty());
-    v.or_else(|| {
-        env.var(name)
-            .ok()
-            .map(|v| v.to_string())
-            .filter(|v| !v.is_empty())
-    })
 }
 
 impl FetchTransport {

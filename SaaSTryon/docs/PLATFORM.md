@@ -101,7 +101,7 @@ useful for manual debugging, but every flow the platform needs is API-first.
 
 ```
 Browser → shop.customer.com  (customer CNAME / custom hostname)
-       or amina.crowdy.app   (our wildcard subdomain)
+       or amina.latiforge.com   (our wildcard subdomain)
   → dispatcher Worker  (wildcard route */* on our zone)
       lookup hostname in KV → { shopId, scriptName, status }
       env.DISPATCHER.get(scriptName, {props:{shopId}},
@@ -283,7 +283,7 @@ trade-offs (shop cap, no egress interception). Verified facts:
 | B6 | Custom Domains: attachable via API (`/accounts/{account_id}/workers/domains`, permission `Workers Scripts Write/Read`); DNS + cert auto-issued. Cap **100 per zone**; `*`-wildcard custom domains NOT supported; hostname must be in a zone on OUR account; can't attach where a CNAME already exists. | docs `workers/platform/limits` (Routes and domains) + `workers/configuration/routing/custom-domains` + API reference pages |
 | B7 | Same API token rate limit on both paths: **1,200 req / 5 min** (per user/account token) + `retry-after`/`Ratelimit` headers. Deployer queue + backoff unchanged. | docs `fundamentals/api/reference/limits` |
 | B8 | D1 per-shop stays viable on plain Paid: **50,000 DBs/account** (expandable by request); free = 10 DBs AND since 2026-09-01 free-tier daily row-read/write enforcement (queries FAIL past the limit) → Free plan is staging-only, never for tenant shops. | docs `d1/platform/limits`; changelog 2026-09-01-d1-free-tier-limit-enforcement |
-| B9 | Outbound-worker egress interception + per-tenant CPU limits (`limits:{cpuMs}` in dispatch props) are **WfP-only**. Substitute (we own the shop code): at deploy time bake a service binding `GENLOOK_PROXY → platform genlook-proxy worker` into the shop script, or have the wasm call `https://platform.crowdy.app/genlook/*` with its per-shop token. Functionally equivalent metering; loses the "third-party code" safety net, which we don't need. | docs `workers/platform/pricing` (Service bindings); WfP outbound-worker docs |
+| B9 | Outbound-worker egress interception + per-tenant CPU limits (`limits:{cpuMs}` in dispatch props) are **WfP-only**. Substitute (we own the shop code): at deploy time bake a service binding `GENLOOK_PROXY → platform genlook-proxy worker` into the shop script, or have the wasm call `https://platform.latiforge.com/genlook/*` with its per-shop token. Functionally equivalent metering; loses the "third-party code" safety net, which we don't need. | docs `workers/platform/pricing` (Service bindings); WfP outbound-worker docs |
 | B10 | `worker_loaders` (Dynamic Workers) confirmed available on plain Paid (third-party issue; not WfP-gated) — but still ephemeral → remains preview-only per §4. | github.com/jokull/agent-cms/issues/53 |
 
 Three viable routes compared:
@@ -291,7 +291,7 @@ Three viable routes compared:
 | | WfP $25/mo | Plain Free | Plain Paid $5/mo ← START HERE |
 |---|---|---|---|
 | Shop cap | 1000 scripts, +$0.02/each | 100 total | 500 total |
-| Subdomain routing | dispatcher + KV (`*.crowdy.app`) | workers.dev per script | workers.dev per script + `/workers/domains` custom domains (100/zone) |
+| Subdomain routing | dispatcher + KV (`*.latiforge.com`) | workers.dev per script | workers.dev per script + `/workers/domains` custom domains (100/zone) |
 | Owner custom domains | CfS 50,000 hostnames | CfS (same flow) | CfS (same flow) |
 | Per-shop D1 | 50k ✓ | **10 ✗** | 50k ✓ |
 | Traffic included | 20 M req/mo | 100 k req/DAY account-wide | 10 M req/mo |
@@ -301,7 +301,7 @@ Three viable routes compared:
 
 So for our early scale the "bypass" is also cheaper: one $5/mo plan instead
 of $25. The WfP plan buys us: unlimited scripts (≈1100+ shops), KV-hostname
-wildcard routing under `crowdy.app` without per-shop route churn, untrusted
+wildcard routing under `latiforge.com` without per-shop route churn, untrusted
 isolation, outbound egress interception, and 2× the included traffic/CPU.
 
 **Decision D-P1 (finalised 2026-10-19): ONE backend only — the plain
@@ -357,7 +357,7 @@ path if manual cache surgery is ever needed (Q12).
 | D1 databases per account | 10 free / 50,000 paid (expandable to millions) | **1 shop = 1 D1 OK (needs Paid)** |
 | D1 DB size | 10 GB paid / 500 MB free | per shop is plenty |
 | Routes per zone | 1,000 | script mode: no wildcard route needed (per-shop custom domains); one route only if we add a router worker later |
-| Custom domains per zone (Worker custom domains) | 100 | **script mode uses these for `{{shop}}.crowdy.app`**; customer-owned domains still via CFfS (50,000 hostnames) |
+| Custom domains per zone (Worker custom domains) | 100 | **script mode uses these for `{{shop}}.latiforge.com`**; customer-owned domains still via CFfS (50,000 hostnames) |
 | env vars / bindings per script | 64 Free / 128 Paid (~5,000 bindings max) | 5-6 bindings per shop ≪ cap |
 | Workers KV namespaces per account | 1,000 (all plans) | shared namespaces, no per-tenant KV |
 
@@ -376,11 +376,11 @@ D1 per shop at deploy time, applies the shop schema, then binds `{type:
 
 ### 6.1 Subdomains via wildcard dispatcher (dispatch mode only — background)
 
-1. Zone `crowdy.app` in the SAME Cloudflare account as WfP.
+1. Zone `latiforge.com` in the SAME Cloudflare account as WfP.
 2. DNS: `*` CNAME/A → dummy origin (`A 192.0.2.0`, proxied orange).
 3. Route (Workers Routes): wildcard `*/*` on the zone → dispatcher.
-4. Dispatcher: `sub = hostname.split(".")[0]` → KV lookup `host:{sub}.crowdy.app`
-   → `DISPATCHER.get(scriptName, ...)`. `crowdy.app` itself (bare apex) is
+4. Dispatcher: `sub = hostname.split(".")[0]` → KV lookup `host:{sub}.latiforge.com`
+   → `DISPATCHER.get(scriptName, ...)`. `latiforge.com` itself (bare apex) is
    reserved by checking the subdomain count (2 dots) or an explicit exclude.
 
 `*.saas.com/*` route is also documented for subdomain-only setups; we use
@@ -400,7 +400,7 @@ Docs-recommended production pattern (hostname-routing page):
    - `POST /zones/{zone}/custom_hostnames`
      `{hostname, ssl: {method: "http" or "txt"}}` → returns validation
      target(s); response `id` stored against the shop.
-   - Owner adds `CNAME mystore.com → target.crowdy.app` (or TXT for DCV).
+   - Owner adds `CNAME mystore.com → target.latiforge.com` (or TXT for DCV).
    - Platform polls `GET /zones/{zone}/custom_hostnames/{id}` until
      `status: active` (validation statuses documented; backoff schedule is a
      7-day routine) — the deploy UI shows the state.
@@ -424,7 +424,7 @@ belongs to the dispatcher's account; the docs' template exposes tenants via
 PATH on the dispatcher). So `<script>.<account>.workers.dev` is NOT a tenant
 surface; only the dispatcher is. For preview URLs we don't rely on workers.dev
 at all — WfP is explicitly listed as unsupported for Worker preview URLs
-(changelog 2025-07-23). Preview = `<tenant>.crowdy.app` + dispatch flag or a
+(changelog 2025-07-23). Preview = `<tenant>.latiforge.com` + dispatch flag or a
 separate staging namespace script name.
 
 In script mode (§4.1) this inverts: every script DOES auto-get
@@ -432,7 +432,7 @@ In script mode (§4.1) this inverts: every script DOES auto-get
 the automatic preview surface for version URLs. The docs still mark
 workers.dev as "treated as a Free website ... not business-critical", so the
 plan treats workers.dev as the fallback/beta URL and attaches a Custom
-Domain (`{{shop}}.crowdy.app`) as the production URL (§6.4).
+Domain (`{{shop}}.latiforge.com`) as the production URL (§6.4).
 
 ### 6.4 Script-mode routing (v1 — what we build)
 
@@ -443,7 +443,7 @@ No dispatcher, no KV hot path:
    deploy time; shop never needs it published if custom domain is on.
 2. **Custom domain on OUR zone** (production URL): after successful script
    PUT, registrar calls `PUT /accounts/{id}/workers/domains`
-   `{zone_id, hostname: "{{sub}}.crowdy.app", service: "shop-<id8>",
+   `{zone_id, hostname: "{{sub}}.latiforge.com", service: "shop-<id8>",
    environment: "production"}` → DNS + cert auto-issued (B6). Platform D1
    `hostnames` row holds `cf_domain_id` + status; KV ROUTE_KV is pure
    bookkeeping for the platform dashboard (host→shop), never a runtime
@@ -466,7 +466,8 @@ No dispatcher, no KV hot path:
 | Genlook proxy (`genlook-proxy/`) | single small worker: shops call it with their per-shop token; it injects GENLOOK_API_KEY, meters per-shop credits, enforces tier limits | KV counters (REFS_KV), platform D1 (read), secrets: GENLOOK_API_KEY |
 | Shop workers (deployed copies) | existing tryon shop (Rust wasm + React dist), uploaded via script-PUT by the platform | DB (per-shop D1), PRODUCTS + tenant R2 (`shops/<id>/…`), ASSETS, GENLOOK_PROXY (service binding), SHOP_ID, PLATFORM_TOKEN |
 
-One Cloudflare account. `crowdy.app` zone hosts per-shop custom domains
+One Cloudflare account. `latiforge.com` zone hosts the control plane on
+the APEX (`latiforge.com`, with the landing page) and per-shop custom domains
 (§6.4) + the platform worker itself. Shops get their own D1 (isolation),
 share `tenant-images` R2 (key prefix `shops/<shopId>/…`) and the platform
 `BUNDLES` bucket holds the released shop artifacts (wasm + dist) the
@@ -517,7 +518,7 @@ deployer uploads from.
 users(id, email TEXT UNIQUE, contact TEXT, status,          -- pending|approved|suspended
       deploy_allowance INT DEFAULT 0, deploy_used INT DEFAULT 0,
       created_ms, approved_by, note)
-shops(id, owner_id, name, subdomain TEXT UNIQUE,          -- amina → amina.crowdy.app
+shops(id, owner_id, name, subdomain TEXT UNIQUE,          -- amina → amina.latiforge.com
       cluster_id TEXT UNIQUE,                              -- wfp script name
       status,                                              -- deploying|live|blocked|deleted
       tier TEXT,                                           -- starter|pro|…
@@ -550,11 +551,11 @@ authed user → "Deploy shop" (POST /platform/v1/shops
    SHOP_ID, PLATFORM_TOKEN], compat date} + asset upload session
    (workers.dev auto-URL comes with the script, B3/Q8)
 6. registrar (hostnames.rs): attach custom domain
-   {sub}.crowdy.app via PUT /workers/domains (B6, §6.4)
-7. KV bookkeeping: host:{sub}.crowdy.app -> {script, shopId}
+   {sub}.latiforge.com via PUT /workers/domains (B6, §6.4)
+7. KV bookkeeping: host:{sub}.latiforge.com -> {script, shopId}
    (dashboard only — NOT a hot routing path)
 8. record shop cluster_id (script name), audit, decrement allowance
-response → shop live at https://<sub>.crowdy.app
+response → shop live at https://<sub>.latiforge.com
 (fallback while cert pending: the script's workers.dev auto-URL)
 ```
 
@@ -642,7 +643,7 @@ gate).
 | Q7 | Live pricing surprise (e.g. asset upload pricing changed Oct 2026 per banner) | re-read the live pricing page before card charge |
 | Q8 | REST call to enable/disable the script's workers.dev route on create and on suspension (shape = `POST /scripts/{name}/subdomain {enabled}`?) | staging probe before first scripted deploy (B3 default is enabled — verify we can flip it) |
 | Q9 | Minimal API-token scopes for script-mode deploys (Workers Scripts Edit + D1 Edit + KV Edit + Zone/DNS? for `/workers/domains` custom domains) | trial token on the staging account; least-privilege per B2 |
-| Q10 | Whether `/workers/domains` requires the zone in the same account (B6 implies yes) and what happens while a cert is still provisioning for `{{shop}}.crowdy.app` (shop URL timing on first deploy) | staging probe in Phase D |
+| Q10 | Whether `/workers/domains` requires the zone in the same account (B6 implies yes) and what happens while a cert is still provisioning for `{{shop}}.latiforge.com` (shop URL timing on first deploy) | staging probe in Phase D |
 | Q11 | Script tags endpoint limits (`/scripts/{name}/tags`, PUT 2 tags per call?) vs inline tags in upload metadata | probe; keep 3-tag convention either way |
 | Q12 | Does zone-level purge-by-tag (C3) actually reach *static-asset* responses, or only zone-CDN/Worker-cache content? C4's redeploy+hashed-assets path is primary; tags are fallback | Phase F staging probe: add `Cache-Tag` via `_headers`, purge, observe `CF-Cache-Status` |
 | Q13 | Rust worker test harness for the platform crate (shop precedent: pure-logic unit tests via `ram-test`; D1/CF-API paths mocked behind traits; optional `workers-rs` miniflare integration later) | decide in Phase B; keep CI strategy aligned with existing crates |

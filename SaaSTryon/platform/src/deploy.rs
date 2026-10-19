@@ -28,9 +28,11 @@ pub struct DeployOut {
     pub ok: bool,
     pub shop_id: String,
     pub subdomain: String,
-    /// Where the shop is reachable right now (workers.dev fallback, B3;
-    /// the custom domain is attached separately by the Phase D registrar).
+    /// Where the shop is reachable: the custom domain
+    /// (`{sub}.latiforge.com`) when the attach worked, else the
+    /// workers.dev fallback (B3).
     pub url: Option<String>,
+    pub workers_dev_url: Option<String>,
 }
 
 /// Pure: body tier or the starter default (tested).
@@ -100,7 +102,8 @@ pub async fn handle_deploy(env: Env, req: &mut Request) -> Result<Response> {
             ok: true,
             shop_id: r.shop_id,
             subdomain: r.subdomain,
-            url: r.workers_dev_url,
+            url: r.custom_url.clone().or_else(|| r.workers_dev_url.clone()),
+            workers_dev_url: r.workers_dev_url,
         }),
         Err(e) => http::json_error(e.http_status(), error_code(&e), &e.to_string()),
     }

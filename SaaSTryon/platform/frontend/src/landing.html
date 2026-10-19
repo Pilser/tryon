@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Latiforge - run your own virtual try-on shop</title>
+<meta name="description" content="Latiforge turns your catalogue into a try-on shop: shoppers try the garment on their photo, you collect the order."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap"/></noscript>
+<style>
+/* The olive theme of the tryon kit, inline so the landing page ships
+   without a bundle: dark ground, lime accent, square-ish radii. */
+:root {
+  --bg: #12140c;
+  --surface: #1a1d13;
+  --line: #2c3122;
+  --lime: #b9d93c;
+  --complement: #8b6fe8;
+  --text: #eef0e2;
+  --muted: #a7ad93;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.55;
+}
+.wrap { max-width: 920px; margin: 0 auto; padding: 56px 20px 72px; }
+.eyebrow {
+  font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--lime); margin: 0 0 14px;
+}
+h1 {
+  font-family: Poppins, Inter, sans-serif; font-weight: 700;
+  font-size: clamp(30px, 6vw, 52px); line-height: 1.08; margin: 0 0 18px;
+}
+h1 em { color: var(--lime); font-style: normal; }
+.lead { font-size: 18px; color: var(--muted); margin: 0 0 30px; max-width: 62ch; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-bottom: 34px; }
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 20px;
+}
+.card h2 { font-family: Poppins, sans-serif; font-size: 16px; margin: 0 0 8px; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn {
+  display: inline-block; text-decoration: none; font-weight: 600; font-size: 15px;
+  padding: 12px 20px; border-radius: 10px; border: 1px solid var(--line);
+  background: transparent; color: var(--text); cursor: pointer;
+}
+.btn.primary { background: var(--lime); border-color: var(--lime); color: #171a0f; }
+.btn.secondary { color: var(--muted); }
+.btn.secondary:hover, .btn:hover { border-color: var(--lime); color: var(--text); }
+footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="eyebrow">Latiforge</p>
+  <h1>Run a try-on shop <em>without writing a shop</em>.</h1>
+  <p class="lead">
+    We deploy the storefront for you, wire the virtual try-on, and keep the
+    credits and the customers on your side of the counter. Your shop gets its
+    own address under latiforge.com.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Try-on built in</h2>
+      <p>Shoppers upload a photo and see the garment on themselves before they pay. No app, no studio.</p>
+    </div>
+    <div class="card">
+      <h2>Your domain, your catalogue</h2>
+      <p>Your name, your products, your prices. We run the infrastructure and keep it patched.</p>
+    </div>
+    <div class="card">
+      <h2>Pay per try-on</h2>
+      <p>Credits are metered per generation, so a quiet month costs a quiet month. Top up with a code.</p>
+    </div>
+  </div>
+
+  <div class="actions">
+    <a class="btn primary" href="/home.html">Open my platform</a>
+    <a class="btn" href="/signup.html">Request a shop</a>
+    <a class="btn secondary" href="/login.html">Sign in</a>
+  </div>
+
+  <footer>
+    Latiforge - virtual try-on shops on latiforge.com. Platform admin at
+    <a class="btn secondary" href="/admin.html" style="padding:0;border:0;background:none">/admin.html</a>.
+  </footer>
+</main>
+</body>
+</html>

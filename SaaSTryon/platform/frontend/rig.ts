@@ -33,7 +33,7 @@ const sessions = new Map<string, string>(); // session id -> user id
 
 const admins = (): PlatformUser => ({
   id: "u_admin", name: "Platform", shop_name: "SaaSTryon HQ",
-  email: "ops@crowdy.app", contact: "0700000000", status: "approved",
+  email: "ops@latiforge.com", contact: "0700000000", status: "approved",
   role: "admin", deploy_allowance: 0, deploy_used: 0,
 });
 const hex = (len: number): string =>

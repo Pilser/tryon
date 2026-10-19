@@ -15,6 +15,10 @@ use worker::Result;
 use crate::deployer::cf_api::{CfBody, CfRequest};
 use crate::store::{new_id, str_args, write};
 
+/// The zone we hand out shop hostnames under. The control plane owns the
+/// apex (latiforge.com); every shop gets `{sub}.latiforge.com`.
+pub const ZONE_NAME: &str = "latiforge.com";
+
 // ------------------------------------------------------- state machine
 
 /// Lifecycle of a custom hostname attach:
@@ -44,9 +48,10 @@ pub fn attach_request(zone_id: &str, hostname: &str, service: &str) -> Option<Cf
 }
 
 /// Pure: exactly one label under our zone, ≤63 chars, [a-z0-9-], not
-/// reserved. `{{shop}}.crowdy.app` only — no wildcards, no apex (B6).
+/// reserved. `{{shop}}.latiforge.com` only — no wildcards, no apex (B6):
+/// the apex belongs to the control plane (latiforge.com itself).
 pub fn valid_hostname(hostname: &str) -> bool {
-    let Some(label) = hostname.strip_suffix(".crowdy.app") else {
+    let Some(label) = hostname.strip_suffix(&format!(".{}", ZONE_NAME)) else {
         return false;
     };
     let label = label.strip_suffix('-').unwrap_or(label);
@@ -197,45 +202,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_crowdy_app_labels_pass_validation() {
-        assert!(valid_hostname("olive-shop.crowdy.app"));
-        assert!(valid_hostname("shop-1a2b3c4d.crowdy.app"));
+    fn only_latiforge_labels_pass_validation() {
+        assert!(valid_hostname("olive-shop.latiforge.com"));
+        assert!(valid_hostname("shop-1a2b3c4d.latiforge.com"));
         assert!(!valid_hostname("other.example.com"));
-        assert!(!valid_hostname("*.crowdy.app"));
-        assert!(!valid_hostname("crowdy.app"));
+        assert!(!valid_hostname("*.latiforge.com"));
+        assert!(!valid_hostname("latiforge.com"));
         // A trailing hyphen is tolerated by our own convention but an
         // empty label or uppercase is not.
-        assert!(!valid_hostname("-.crowdy.app"));
-        assert!(!valid_hostname("Olive-Shop.crowdy.app"));
+        assert!(!valid_hostname("-.latiforge.com"));
+        assert!(!valid_hostname("Olive-Shop.latiforge.com"));
         // 63 chars max for the label.
         let max = "a".repeat(63);
-        assert!(valid_hostname(&format!("{max}.crowdy.app")));
-        assert!(!valid_hostname(&format!("{}x.crowdy.app", "a".repeat(63))));
+        assert!(valid_hostname(&format!("{max}.latiforge.com")));
+        assert!(!valid_hostname(&format!(
+            "{}x.latiforge.com",
+            "a".repeat(63)
+        )));
     }
 
     #[test]
     fn attach_requests_are_well_formed_and_state_gated() {
-        let req = attach_request("zone123", "olive-shop.crowdy.app", "shop-1a2b3c4d")
+        let req = attach_request("zone123", "olive-shop.latiforge.com", "shop-1a2b3c4d")
             .expect("valid attach");
         assert!(req.path.contains("/workers/domains"));
         let CfBody::Json(v) = req.body else {
             panic!("expected json body");
         };
-        assert_eq!(v["hostname"], "olive-shop.crowdy.app");
+        assert_eq!(v["hostname"], "olive-shop.latiforge.com");
         assert_eq!(v["service"], "shop-1a2b3c4d");
         assert_eq!(v["environment"], "production");
 
         // Refusals: invalid hostname, empty ids.
         assert!(attach_request("zone", "nope.example.com", "shop").is_none());
-        assert!(attach_request("", "olive-shop.crowdy.app", "shop").is_none());
-        assert!(attach_request("zone", "olive-shop.crowdy.app", "").is_none());
+        assert!(attach_request("", "olive-shop.latiforge.com", "shop").is_none());
+        assert!(attach_request("zone", "olive-shop.latiforge.com", "").is_none());
     }
 
     #[test]
     fn workers_dev_urls_follow_the_script_name() {
         assert_eq!(
-            workers_dev_url("shop-1a2b3c4d", "crowdy"),
-            "shop-1a2b3c4d.crowdy.workers.dev"
+            workers_dev_url("shop-1a2b3c4d", "jerboa-ui"),
+            "shop-1a2b3c4d.jerboa-ui.workers.dev"
         );
     }
 }

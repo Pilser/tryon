@@ -62,5 +62,8 @@ for (const page of PAGES) {
     .replace("<!--bundle-->", entryOut[page] || `/_missing_${page}.js`);
   writeFileSync(path.join(dist, page + ".html"), html);
 }
+/* The apex (latiforge.com) is the landing page: a static shell, no
+   bundle needed - it is the first thing a visitor sees. */
+cpSync(path.join(here, "src", "landing.html"), path.join(dist, "index.html"));
 cpSync(path.join(here, "src", "_headers"), path.join(dist, "_headers"));
-console.log(`built dist/: ${PAGES.join(", ")}, css ${cssName}, _headers`);
+console.log(`built dist/: index(landing), ${PAGES.join(", ")}, css ${cssName}, _headers`);

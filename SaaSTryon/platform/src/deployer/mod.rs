@@ -19,7 +19,9 @@ route; today a second deploy of an existing subdomain fails in the
 store, which is the safe direction (nothing half-updated). */
 pub mod bundle;
 pub mod cf_api;
+pub mod cf_config;
 mod deploy_store;
+pub mod domain;
 mod provision;
 pub mod subdomain;
 
@@ -47,8 +49,10 @@ pub struct DeployResult {
     /// `shops` row status (live from the first upload - B2 is sync).
     pub status: &'static str,
     /// URL note when the account workers.dev subdomain is configured
-    /// (B3); the custom-domain plan is Phase D (§6.4).
+    /// (B3); the custom domain is the production URL (§6.4).
     pub workers_dev_url: Option<String>,
+    /// The shop's production URL: `https://{sub}.{zone}` (Phase D).
+    pub custom_url: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -268,6 +272,12 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
         .await
         .map_err(DeployError::from)?;
 
+    // Phase D: attach {sub}.latiforge.com to the new script so the shop
+    // is reachable on its own hostname (DNS + cert auto-issued, B6).
+    let custom_url = domain::attach_shop_domain(cf, cf_cfg, &input.subdomain, &script)
+        .await
+        .map_err(DeployError::from)?;
+
     // Steps 7-8: bookkeeping (§7.3; status live - first PUT is sync, B2).
     let row = ShopRow {
         id: shop_id.clone(),
@@ -309,6 +319,7 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
             .dev_subdomain
             .as_ref()
             .map(|sub| format!("https://{script}.{sub}.workers.dev")),
+        custom_url,
     })
 }
 
@@ -417,4 +428,5 @@ mod tests {
 }
 
 #[cfg(test)]
+mod e2e_idempotency_tests; // the redeploy-metadata case
 mod e2e_tests; // deployer/e2e_tests.rs - mocks + end-to-end flows

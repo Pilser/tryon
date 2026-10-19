@@ -80,7 +80,7 @@ export default function HomePage(): JSX.Element {
     void (async () => {
       try {
         const out = await deployShop(s.session_id, { subdomain: slug });
-        setLiveUrl(out.url || `https://${out.subdomain}.crowdy.app`);
+        setLiveUrl(out.url || `https://${out.subdomain}.latiforge.com`);
         setSub("");
         load();
       } catch (e) {
@@ -162,7 +162,7 @@ export default function HomePage(): JSX.Element {
               />
               <p className={cx(u.inlineNote)}>
                 Customers will reach your shop at{" "}
-                <strong>{sub.trim() || "your-shop"}.crowdy.app</strong>.
+                <strong>{sub.trim() || "your-shop"}.latiforge.com</strong>.
               </p>
               {deployError ? <p className={cx(u.inlineNote)}>{deployError}</p> : null}
               {liveUrl ? (

@@ -18,7 +18,7 @@ compatibility_date = "2026-01-01"
 [[d1_databases]]
 binding = "PLATFORM_DB"
 database_name = "tryon-platform-db"
-database_id = "replace-me"
+database_id = "dff2b97c-3051-42db-b3f7-72b51823952b"
 
 # The wasm module (worker-build output: build/index.js + index_bg.wasm)
 # must be uploaded as a compiled wasm module, not as text.

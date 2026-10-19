@@ -54,7 +54,13 @@ frontend/pwa/**
 !SaaSTryon/
 !SaaSTryon/**
 # platform frontend: local build + deploys never tracked
+# CI-built wasm bundle (never committed; the release workflow ships it)
+SaaSTryon/platform/build/
+SaaSTryon/platform/build/**
 SaaSTryon/platform/frontend/node_modules/
+# CI-built wasm bundle (never committed; the release workflow ships it)
+SaaSTryon/platform/build/
+SaaSTryon/platform/build/**
 SaaSTryon/platform/frontend/node_modules/**
 SaaSTryon/platform/frontend/dist/
 SaaSTryon/platform/frontend/dist/**

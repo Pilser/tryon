@@ -9,7 +9,7 @@ pub const RESERVED_SUBDOMAINS: &[&str] = &[
     "api",
     "admin",
     "platform",
-    "crowdy",
+    "latiforge",
     "shop",
     "tryon",
     "mail",

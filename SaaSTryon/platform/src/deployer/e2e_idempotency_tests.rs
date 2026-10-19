@@ -48,7 +48,7 @@ fn idempotent_metadata_across_two_deploys() {
     );
     let b1 = m1["bindings"].as_array().unwrap();
     let b2 = m2["bindings"].as_array().unwrap();
-    assert_eq!(b1.len(), 4, "DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN");
+    assert_eq!(b1.len(), 5, "DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN/ASSETS");
     assert_eq!(b1[1], b2[1], "PRODUCTS bucket is deploy-independent");
     assert_ne!(b1[2], b2[2], "SHOP_ID regenerates per deploy");
     assert_ne!(b1[3], b2[3], "PLATFORM_TOKEN regenerates per deploy");

@@ -213,10 +213,18 @@ mod tests {
             meta.get("assets").is_some(),
             "assets present when jwt given"
         );
-        let no_assets = MultipartBuilder::metadata_json("worker.js", "2026-10-19", &bindings, None);
-        assert!(!no_assets.contains("\"assets\""), "no jwt -> no assets key");
+        // No jwt -> no assets object in the metadata (the ASSETS binding
+        // in the binding list is a different thing).
+        let no_assets: Value = serde_json::from_str(&MultipartBuilder::metadata_json(
+            "worker.js",
+            "2026-10-19",
+            &bindings,
+            None,
+        ))
+        .unwrap();
+        assert!(no_assets.get("assets").is_none(), "no jwt -> no assets key");
         let b = meta["bindings"].as_array().unwrap();
-        assert_eq!(b.len(), 4, "exact 4 bindings (no service binding)");
+        assert_eq!(b.len(), 5, "exact 5 bindings (no service binding)");
         let blob = meta.to_string();
         assert!(
             !blob.contains("GENLOOK_API_KEY"),

@@ -104,8 +104,24 @@ fn basename(key: &str) -> String {
 }
 
 /// sha256, first 32 hex chars - the assets-session hash (§3.3).
-pub fn asset_hash(bytes: &[u8]) -> String {
-    hex::encode(Sha256::digest(bytes))[..32].to_string()
+/// The asset hash Cloudflare expects: the first 32 hex chars of
+/// sha256(base64(content) + extension) - the extension without the dot
+/// (/workers/static-assets/direct-upload, updated 2026-08-10).
+pub fn asset_hash(path: &str, bytes: &[u8]) -> String {
+    use base64::Engine as _;
+    use sha2::Digest as _;
+    let ext = path
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .rsplit_once('.')
+        .map(|(_, e)| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+    let mut h = Sha256::new();
+    h.update(b64.as_bytes());
+    h.update(ext.as_bytes());
+    hex::encode(h.finalize())[..32].to_string()
 }
 
 pub fn full_sha256(bytes: &[u8]) -> String {
@@ -162,7 +178,7 @@ impl BundleData {
         for (path, bytes) in &self.assets {
             manifest.insert(
                 normalize_asset_path(path),
-                json!({ "hash": asset_hash(bytes), "size": bytes.len() }),
+                json!({ "hash": asset_hash(path, bytes), "size": bytes.len() }),
             );
         }
         Value::Object(manifest)
@@ -267,10 +283,13 @@ mod tests {
 
     #[test]
     fn asset_hash_is_32_hex() {
-        let h = asset_hash(b"hello");
+        let h = asset_hash("/a/b.js", b"hello");
         assert_eq!(h.len(), 32);
-        assert_eq!(h, asset_hash(b"hello"));
-        assert_ne!(h, asset_hash(b"hellO"));
+        assert_eq!(h, asset_hash("/a/b.js", b"hello"));
+        assert_ne!(h, asset_hash("/a/b.js", b"hellO"));
+        // The extension is part of the hash, and the path is not.
+        assert_ne!(h, asset_hash("/a/b.css", b"hello"));
+        assert_eq!(h, asset_hash("/x/y/z.js", b"hello"));
     }
 
     /// verify(): promised shas are re-checked; empty sha string = skip

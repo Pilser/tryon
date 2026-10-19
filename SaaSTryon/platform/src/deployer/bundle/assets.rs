@@ -135,7 +135,7 @@ fn group_missing(flat: &[String]) -> Vec<Vec<String>> {
 
 fn resolve_hash(hash: &str, data: &BundleData) -> Result<(String, Vec<u8>), CfError> {
     for (path, bytes) in &data.assets {
-        if asset_hash(bytes) == hash {
+        if asset_hash(&path, bytes) == hash {
             return Ok((normalize_asset_path(path), bytes.clone()));
         }
     }
@@ -194,7 +194,7 @@ mod tests {
 
     fn bundle_with_asset() -> BundleData {
         let bytes = b"<html>x</html>".to_vec();
-        let h = asset_hash(&bytes);
+        let h = asset_hash("/probe.html", &bytes);
         let manifest: BundleManifest = serde_json::from_str(&format!(
             r#"{{ "schema": "st-bundle/1", "wasm": {{"key": "shop.wasm"}},
                  "glue": {{"key": "worker.js"}}, "schema_sql": {{"key": "schema.sql"}},
@@ -236,7 +236,7 @@ mod tests {
     /// platform token), answered by the completion jwt (step 3's value).
     #[test]
     fn upload_carries_session_jwt_not_platform_token() {
-        let h0 = asset_hash(b"<html>x</html>");
+        let h0 = asset_hash("/probe.html", b"<html>x</html>");
         let (out, seen) = block_on(run_stage(&format!(
             r#"{{"result":{{"jwt":"sess-1","buckets":[["{h0}"]]}}}}"#
         )));

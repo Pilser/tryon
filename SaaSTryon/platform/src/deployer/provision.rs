@@ -56,6 +56,11 @@ pub fn bindings_for(id8: &str, d1_uuid: &str, platform_token: &str) -> Vec<Value
             "name": "PLATFORM_TOKEN",
             "text": platform_token,
         }),
+        // The shop serves its own frontend from the uploaded assets.
+        json!({
+            "type": "assets",
+            "name": "ASSETS",
+        }),
     ]
 }
 
@@ -136,8 +141,8 @@ mod tests {
         let b = bindings_for("a1b2c3d4", "db-uuid", "deploy_6183ab26911057e6");
         assert_eq!(
             b.len(),
-            4,
-            "exactly DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN (no service binding)"
+            5,
+            "exactly DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN/ASSETS (no service binding)"
         );
         assert_eq!(b[0]["type"], "d1");
         assert_eq!(b[0]["name"], "DB");
@@ -150,6 +155,8 @@ mod tests {
         assert_eq!(b[2]["text"], "a1b2c3d4");
         assert_eq!(b[3]["type"], "secret_text");
         assert_eq!(b[3]["name"], "PLATFORM_TOKEN");
+        assert_eq!(b[4]["type"], "assets");
+        assert_eq!(b[4]["name"], "ASSETS");
         // The Genlook key never reaches a shop script, and neither does
         // a service binding: the platform proxies over HTTP.
         let blob = serde_json::to_string(&b).unwrap();

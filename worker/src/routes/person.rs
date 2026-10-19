@@ -38,7 +38,6 @@ pub fn check_file_part(mime: &str, len: usize) -> Result<(), &'static str> {
 /// forwarded untouched, so Genlook's boundary and any extra fields
 /// (`keepForDays`, `externalUserId`) survive.
 pub async fn handle_upload(mut req: Request, env: Env) -> worker::Result<Response> {
-    let key = gl::api_key(&env)?;
     let ct = req.headers().get("content-type")?.unwrap_or_default();
     let len = req
         .headers()
@@ -61,6 +60,19 @@ pub async fn handle_upload(mut req: Request, env: Env) -> worker::Result<Respons
     if bytes.len() > MAX_BYTES {
         return crate::routes::errors::bad_request("UPLOAD_TOO_LARGE", "upload over 10 MB");
     }
+    // Platform tenants route Genlook through the platform proxy (metered
+    // against their credits); plain shops talk to Genlook directly.
+    if crate::routes::platform::configured(&env) {
+        return crate::routes::platform::genlook_forward(
+            &env,
+            Method::Post,
+            "images/upload",
+            Some(&ct),
+            Some(bytes),
+        )
+        .await;
+    }
+    let key = gl::api_key(&env)?;
     gl::forward(
         &key,
         Method::Post,

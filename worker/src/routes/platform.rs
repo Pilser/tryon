@@ -107,9 +107,57 @@ pub async fn handle_redeem(mut req: Request, env: Env) -> Result<Response> {
     crate::routes::errors::json_error(if status == 401 { 401 } else { 400 }, "REDEEM_FAILED", &msg)
 }
 
+/// Pure: the platform proxy URL for a Genlook relative path (tested).
+pub fn genlook_proxy_url(platform_base: &str, path: &str) -> String {
+    format!(
+        "{}/api/v1/shop/genlook/{}",
+        platform_base.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    )
+}
+
+/// Forwards one Genlook call through the platform proxy, where the call
+/// is metered against the shop's `tryon_tokens` credits. `path` is
+/// relative to the Genlook base (`images/upload`, `try-on/sync`,
+/// `generations/<id>`). Only used when `configured()` — a plain shop
+/// keeps talking to Genlook directly with its own key.
+pub async fn genlook_forward(
+    env: &Env,
+    method: Method,
+    path: &str,
+    content_type: Option<&str>,
+    body: Option<Vec<u8>>,
+) -> Result<Response> {
+    let mut headers = Headers::new();
+    headers.set("authorization", &format!("Bearer {}", secret(env)))?;
+    if let Some(ct) = content_type {
+        headers.set("content-type", ct)?;
+    }
+    let mut init = RequestInit::new();
+    init.with_method(method);
+    init.with_headers(headers);
+    init.with_body(body.map(|b| js_sys::Uint8Array::from(b.as_slice()).into()));
+    let url = genlook_proxy_url(&base(env), path);
+    Fetch::Request(Request::new_with_init(&url, &init)?)
+        .send()
+        .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn proxy_url_joins_without_double_slashes() {
+        assert_eq!(
+            genlook_proxy_url("https://platform.example", "images/upload"),
+            "https://platform.example/api/v1/shop/genlook/images/upload"
+        );
+        assert_eq!(
+            genlook_proxy_url("https://platform.example/", "/try-on/sync"),
+            "https://platform.example/api/v1/shop/genlook/try-on/sync"
+        );
+    }
 
     #[test]
     fn codes_are_exactly_four_digits() {

@@ -1,0 +1,152 @@
+/* outbound.rs - the Genlook proxy for tenant shops (Phase E). A tenant
+shop calls `/api/v1/shop/genlook/<path>` with Bearer = its cluster
+secret; we meter one `tryon_tokens` credit per call (atomic
+check-and-decrement that fails closed when the D1 meta counter is
+unknown), then forward to Genlook with the platform's key. The shop
+never sees the platform key. A Genlook 5xx (or a transport error)
+refunds the credit; a 4xx consumes it — the attempt was metered
+capacity, the payload was the shop's fault. */
+use worker::{Env, Error, Fetch, Headers, Method, Request, RequestInit, Response, Result};
+
+use crate::{auth, http, shops, store};
+
+/// Production base. `GENLOOK_BASE` overrides it for local dev — same
+/// contract as the shop's `genlook_api.rs`.
+pub const BASE: &str = "https://api.genlook.app/tryon/v1";
+
+/// Pure resolution of the base URL so the override is testable.
+pub fn resolve_base(override_url: Option<String>) -> String {
+    match override_url {
+        Some(v) if !v.trim().is_empty() => v.trim().trim_end_matches('/').to_string(),
+        _ => BASE.to_string(),
+    }
+}
+
+pub fn base(env: &Env) -> String {
+    resolve_base(env.var("GENLOOK_BASE").ok().map(|v| v.to_string()))
+}
+
+/// The platform's own Genlook key. Missing secret = hard error, never a
+/// silent unauthenticated call.
+fn api_key(env: &Env) -> Result<String> {
+    let k = env
+        .var("GENLOOK_API_KEY")
+        .map(|v| v.to_string())
+        .unwrap_or_default();
+    if k.is_empty() {
+        return Err(Error::RustError("missing GENLOOK_API_KEY secret".into()));
+    }
+    Ok(k)
+}
+
+/// Pure: the Genlook URL a proxied shop call maps to (tested).
+pub fn genlook_target(base: &str, path: &str) -> String {
+    format!(
+        "{}/{}",
+        base.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    )
+}
+
+/// `GET|POST /api/v1/shop/genlook/<path>` — shop-authenticated Genlook
+/// proxy with per-shop credit metering. `path` is the remainder of the
+/// Genlook API path (e.g. `images/upload`, `try-on/sync`,
+/// `generations/<id>`), passed through verbatim.
+pub async fn handle_genlook(env: Env, req: &mut Request, path: String) -> Result<Response> {
+    let Some(token) = auth::bearer(req.headers()) else {
+        return http::unauthorized();
+    };
+    let db = store::db(&env)?;
+    let Some(shop) = shops::shop_by_token(&db, &token).await? else {
+        return http::unauthorized();
+    };
+    let now = auth::now_ms();
+
+    // Meter first: the atomic UPDATE only fires when the balance is >= 1,
+    // so an empty shop is refused before any Genlook spend happens.
+    let paid = shops::consume_credit(&db, &shop.id, now).await?;
+    if !paid {
+        return http::json_error(
+            402,
+            "NO_CREDITS",
+            "try-on balance empty — redeem a platform code in settings",
+        );
+    }
+
+    let method = req.method();
+    let ct = req
+        .headers()
+        .get("content-type")
+        .unwrap_or_default()
+        .unwrap_or_default();
+    let bytes = req
+        .bytes()
+        .await
+        .map_err(|e| Error::RustError(e.to_string()))?;
+    let body = match method {
+        Method::Post => Some(bytes),
+        _ => None,
+    };
+
+    let mut headers = Headers::new();
+    headers.set("x-api-key", &api_key(&env)?)?;
+    if !ct.is_empty() {
+        headers.set("content-type", &ct)?;
+    }
+    let mut init = RequestInit::new();
+    init.with_method(method);
+    init.with_headers(headers);
+    init.with_body(body.map(|b| js_sys::Uint8Array::from(b.as_slice()).into()));
+
+    let upstream = Request::new_with_init(&genlook_target(&base(&env), &path), &init)?;
+    let resp = match Fetch::Request(upstream).send().await {
+        Ok(r) => r,
+        // Transport failure: refund so the shop is not charged for a call
+        // Genlook never saw.
+        Err(e) => {
+            let _ = shops::grant_credits(&db, &shop.id, 1, now).await;
+            return Err(e);
+        }
+    };
+    if resp.status_code() >= 500 {
+        // Genlook-side outage: refund. A 4xx keeps the charge — metered
+        // capacity was used, the payload was the caller's fault.
+        shops::grant_credits(&db, &shop.id, 1, now).await?;
+    }
+    Ok(resp)
+}
+
+// --------------------------------------------------------------- tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn base_override_wins_only_when_non_empty() {
+        assert_eq!(resolve_base(None), BASE);
+        assert_eq!(resolve_base(Some(String::new())), BASE);
+        assert_eq!(resolve_base(Some("   ".into())), BASE);
+        assert_eq!(
+            resolve_base(Some("http://127.0.0.1:8899/tryon/v1".into())),
+            "http://127.0.0.1:8899/tryon/v1"
+        );
+        // A trailing slash on the override must not double up.
+        assert_eq!(
+            genlook_target(&resolve_base(Some("http://x/y/".into())), "z"),
+            "http://x/y/z"
+        );
+    }
+
+    #[test]
+    fn target_joins_without_double_slashes() {
+        assert_eq!(
+            genlook_target("https://api.genlook.app/tryon/v1", "images/upload"),
+            "https://api.genlook.app/tryon/v1/images/upload"
+        );
+        assert_eq!(
+            genlook_target("https://api.genlook.app/tryon/v1/", "/try-on/sync"),
+            "https://api.genlook.app/tryon/v1/try-on/sync"
+        );
+    }
+}

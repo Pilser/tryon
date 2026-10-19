@@ -113,7 +113,6 @@ fn bad_request_for(input: &SyncIn) -> Option<&'static str> {
 /// allowance answers 402 `QUOTA_EXCEEDED` before Genlook is called, so no
 /// credit is ever wasted on a blocked device.
 pub async fn handle_sync(mut req: Request, env: Env) -> worker::Result<Response> {
-    let key = gl::api_key(&env)?;
     let input: SyncIn = req
         .json()
         .await
@@ -138,14 +137,28 @@ pub async fn handle_sync(mut req: Request, env: Env) -> worker::Result<Response>
         &input.person_image_id,
     );
     let bytes = serde_json::to_vec(&body).map_err(|e| worker::Error::RustError(e.to_string()))?;
-    let resp = gl::forward(
-        &key,
-        Method::Post,
-        &format!("{}/try-on/sync", gl::base(&env)),
-        Some("application/json"),
-        Some(bytes),
-    )
-    .await?;
+    // Platform tenants route through the metered proxy; plain shops call
+    // Genlook directly with their own key.
+    let resp = if crate::routes::platform::configured(&env) {
+        crate::routes::platform::genlook_forward(
+            &env,
+            Method::Post,
+            "try-on/sync",
+            Some("application/json"),
+            Some(bytes),
+        )
+        .await?
+    } else {
+        let key = gl::api_key(&env)?;
+        gl::forward(
+            &key,
+            Method::Post,
+            &format!("{}/try-on/sync", gl::base(&env)),
+            Some("application/json"),
+            Some(bytes),
+        )
+        .await?
+    };
     // Only a generation that Genlook accepted may consume an allowance.
     // (The body is passed through untouched, so the gid is not logged here.)
     let status = resp.status_code();
@@ -157,6 +170,16 @@ pub async fn handle_sync(mut req: Request, env: Env) -> worker::Result<Response>
 
 /// `GET /api/generations/:id` — poll a PENDING try-on.
 pub async fn handle_generation(env: Env, id: &str) -> worker::Result<Response> {
+    if crate::routes::platform::configured(&env) {
+        return crate::routes::platform::genlook_forward(
+            &env,
+            Method::Get,
+            &format!("generations/{id}"),
+            None,
+            None,
+        )
+        .await;
+    }
     let key = gl::api_key(&env)?;
     gl::forward(
         &key,

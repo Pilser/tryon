@@ -285,6 +285,9 @@ pub async fn handle_redeem(env: Env, req: &mut Request) -> Result<Response> {
     let redeemed = store::redeem_shop_token(&db, &body.code, &shop.id, now)
         .await
         .map_err(|e| worker::Error::RustError(format!("redeem failed: {}", e)))?;
+    // One token = one tryon credit for now (Phase E). If tokens ever carry
+    // a face value, store it on the shop_tokens row and read it here.
+    store::grant_credits(&db, &shop.id, 1, now).await?;
     store::append_audit(&db, &shop.id, "tokens.redeem", &body.code, "", now).await?;
     Response::from_json(&serde_json::json!({ "token": redeemed, "shop_id": shop.id }))
 }

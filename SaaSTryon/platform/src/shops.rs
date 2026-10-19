@@ -231,6 +231,45 @@ pub async fn grant_credits(db: &D1Database, shop_id: &str, amount: i64, now_ms: 
     .await
 }
 
+// ------------------------------------------------- credit metering (E)
+
+/// The shop's tryon_tokens balance (granted minus used); 0 when the row
+/// does not exist yet.
+pub async fn credits_left(db: &D1Database, shop_id: &str) -> Result<i64> {
+    #[derive(Deserialize)]
+    struct Row {
+        granted_total: i64,
+        used_total: i64,
+    }
+    let row = db
+        .prepare(
+            "SELECT granted_total, used_total FROM credits WHERE shop_id = ? AND product = 'tryon_tokens'",
+        )
+        .bind(&str_args([shop_id]))?
+        .first::<Row>(None)
+        .await?;
+    Ok(row.map(|r| r.granted_total - r.used_total).unwrap_or(0))
+}
+
+/// Atomic check-and-decrement for the Genlook proxy: the conditional
+/// UPDATE only fires when balance >= 1, so concurrent calls cannot drive
+/// the balance negative. Returns false when the shop is out of credits
+/// (or when the D1 meta counter is unknown — we fail closed, never
+/// spending platform money on a guess).
+pub async fn consume_credit(db: &D1Database, shop_id: &str, now_ms: i64) -> Result<bool> {
+    let res = db
+        .prepare(
+            "UPDATE credits SET used_total = used_total + 1, updated_ms = ? WHERE shop_id = ? AND product = 'tryon_tokens' AND granted_total - used_total >= 1",
+        )
+        .bind(&[JsValue::from(now_ms as f64), shop_id.into()])?
+        .run()
+        .await?;
+    // D1 quirk: no rows_affected(); meta().changes is Option<usize> —
+    // None means unknown, treated as "not applied" so we fail closed.
+    let changed = res.meta()?.and_then(|m| m.changes).unwrap_or(0);
+    Ok(changed > 0)
+}
+
 // --------------------------------------------------------------- tests
 
 #[cfg(test)]

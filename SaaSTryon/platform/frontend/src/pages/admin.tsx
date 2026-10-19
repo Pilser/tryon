@@ -11,12 +11,16 @@ import {
   adminAllowance,
   adminApprove,
   adminCancelToken,
+  adminCreditApprove,
+  adminCreditReject,
+  adminCreditRequests,
   adminMintTokens,
   adminReject,
   adminSuspend,
   adminReactivate,
   adminTokens,
   adminUsers,
+  type CreditRequest,
   type PlatformUser,
   type ShopToken,
 } from "../api";
@@ -25,12 +29,13 @@ import { TokenCard } from "../components/token-card";
 import { TokensTab } from "../components/token-rows";
 import { base as b, boot, cx, pf, ui as u } from "../kit";
 
-type Tab = "pending" | "approved" | "tokens";
+type Tab = "pending" | "approved" | "tokens" | "credits";
 
 export default function AdminPage(): JSX.Element {
   const [admin, setAdmin] = useState<string | null>(null);
   const [users, setUsers] = useState<PlatformUser[] | null>(null);
   const [tokens, setTokens] = useState<ShopToken[] | null>(null);
+  const [credits, setCredits] = useState<CreditRequest[] | null>(null);
   const [allow, setAllow] = useState<Record<string, string>>({});
   const [issued, setIssued] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<Tab>("pending");
@@ -43,13 +48,15 @@ export default function AdminPage(): JSX.Element {
     setBusy(true);
     void (async () => {
       try {
-        const [p, a, t] = await Promise.all([
+        const [p, a, t, c] = await Promise.all([
           adminUsers(token, "pending"),
           adminUsers(token, "approved"),
           adminTokens(token),
+          adminCreditRequests(token),
         ]);
         setUsers([...p.users, ...a.users]);
         setTokens(t.tokens);
+        setCredits(c.requests);
         setAdmin(token);
       } catch (e) {
         setError(e instanceof ApiError ? e.message : "Could not load users - offline?");
@@ -75,6 +82,22 @@ export default function AdminPage(): JSX.Element {
         setBusy(false);
       }
     })();
+
+  /* Approve = grant the requested credits in one step; reject closes it. */
+  const decideCredit = (id: string, approve: boolean): void => {
+    const token = admin;
+    if (!token) return;
+    run(async () => {
+      if (approve) {
+        const out = await adminCreditApprove(token, id);
+        setNote(`Granted ${out.granted} credits to shop ${out.shop_id}.`);
+      } else {
+        await adminCreditReject(token, id);
+        setNote("Request rejected.");
+      }
+      setCredits((prev) => (prev ? prev.filter((r) => r.id !== id) : prev));
+    });
+  };
 
   if (!admin) {
     return (
@@ -148,6 +171,13 @@ export default function AdminPage(): JSX.Element {
         >
           Tokens ({tokens ? tokens.filter((t) => t.status === "active").length : 0})
         </button>
+        <button
+          className={cx(pf.tab, tab === "credits" && pf.tabOn)}
+          type="button"
+          onClick={() => setTab("credits")}
+        >
+          Credit requests ({credits ? credits.length : 0})
+        </button>
       </div>
       {tab === "tokens" && tokens ? (
         <TokensTab
@@ -173,7 +203,44 @@ export default function AdminPage(): JSX.Element {
           }
         />
       ) : null}
-      {tab !== "tokens" ? (
+      {tab === "credits" ? (
+        <div className={cx(u.card)}>
+          <p className={cx(u.cardTitle)}>
+            Credit requests ({credits ? credits.length : 0})
+          </p>
+          {!credits || credits.length === 0 ? (
+            <p className={cx(u.rowSub)}>No pending requests. Shops ask from their dashboard.</p>
+          ) : (
+            credits.map((r) => (
+              <div key={r.id}>
+                <p className={cx(u.rowSub)}>
+                  Shop {r.shop_id} asks for <strong>{r.requested}</strong> credits
+                  {r.reason ? ` - ${r.reason}` : ""}.
+                </p>
+                <div className={cx(u.btnRow)}>
+                  <button
+                    className={cx(b.btn, b.btnPrimary, u.btnGrow)}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => decideCredit(r.id, true)}
+                  >
+                    Approve and grant
+                  </button>
+                  <button
+                    className={cx(b.btn, b.btnDanger, u.btnGrow)}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => decideCredit(r.id, false)}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
+      {tab === "pending" || tab === "approved" ? (
       <div className={cx(u.cardFlush)}>
         <div className={cx(u.cardHead)}>
           <p className={cx(u.cardTitle)}>{tab === "pending" ? "Requests" : "Approved shops"}</p>

@@ -168,3 +168,31 @@ export const adminMintTokens = (
 
 export const adminCancelToken = (adminToken: string, code: string): Promise<{ token: ShopToken }> =>
   call("POST", "/api/v1/admin/tokens/cancel", { code }, adminToken);
+
+/** Phase G manual billing gate: pending credit requests from shops. */
+export interface CreditRequest {
+  id: string;
+  shop_id: string;
+  requested: number;
+  reason: string;
+  status: string;
+  created_ms: number;
+}
+
+export const adminCreditRequests = (
+  adminToken: string,
+): Promise<{ requests: CreditRequest[] }> =>
+  call("GET", "/api/v1/admin/credits", undefined, adminToken);
+
+export const adminCreditApprove = (
+  adminToken: string,
+  id: string,
+): Promise<{ ok: boolean; granted: number; shop_id: string }> =>
+  call("POST", "/api/v1/admin/credits/approve", { id }, adminToken);
+
+export const adminCreditReject = (
+  adminToken: string,
+  id: string,
+  reason?: string,
+): Promise<{ ok: boolean }> =>
+  call("POST", "/api/v1/admin/credits/reject", { id, reason }, adminToken);

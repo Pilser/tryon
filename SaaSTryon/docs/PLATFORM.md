@@ -7,17 +7,18 @@ with their "last updated" dates so future readers can re-verify. Written
 
 ## 0. One-paragraph summary
 
-Cloudflare's multi-tenant stack fits this product exactly: a **dispatch
-namespace** holds every deployed shop as a "user Worker" (unlimited count,
-isolated), one **dynamic dispatch Worker** behind a `*/*` wildcard route
-routes every hostname — our subdomains *and* shop owners' custom domains —
-to the right shop via a KV lookup, an **outbound Worker** intercepts every
-outgoing `fetch()` a shop makes (so the Genlook API key never ships inside a
-shop and every call is counted/limited per shop), and a plain control-plane
-Worker does signup → admin approval → deploy. The whole stack is Workers +
-D1 + KV + R2; no servers. WfP costs **$25/month** plus usage ($0.30/M
-requests, $0.02/M CPU-ms, $0.02/script beyond 1000); custom hostnames cost
-$0.10/hostname/month beyond 100 included on any plan.
+Cloudflare's multi-tenant stack fits this product exactly: shops run as
+**deployed Workers with their own hostnames**, a control-plane Worker does
+signup → admin approval → deploy, and Genlook calls go through a platform
+proxy (key never in shop code). Two deploy backends behind one interface
+(D-P1, §4.1): **ScriptTarget** on a plain Workers account ($5/mo — starts
+today, 500-shop cap, workers.dev auto-subdomains + per-shop custom domains,
+Genlook proxy reached via baked service binding) and **DispatchTarget** on
+Workers for Platforms ($25/mo — dispatch namespace + dynamic dispatch
+Worker + outbound Worker + `*/*` wildcard KV routing, unlimited shops) when
+scale or isolation demands it. Usage prices are identical on both
+($0.30/M requests, $0.02/M CPU-ms); custom hostnames cost $0.10/hostname/
+month beyond 100 included on any plan.
 
 ---
 
@@ -248,6 +249,72 @@ routing (each run validates identity); Workers for Platforms is the
 dedicated "customer deploys an app with its own hostname" product. We keep
 Dynamic Workers on file for the preview/playground feature (§9 Phase G).
 
+### 4.1 Can the $25/month WfP plan be bypassed? — YES (verified 2026-10-19)
+
+Question asked outright: can one platform Worker deploy other Workers
+automatically using just an API access token, WITHOUT the $25 Workers for
+Platforms subscription? Answer: **yes, via the plain Workers script API** —
+with real trade-offs (mainly shop cap and egress interception). Verified
+facts:
+
+| # | Fact | Source |
+|---|---|---|
+| B1 | Dispatch-namespace endpoints (`GET/POST /accounts/{id}/workers/dispatch/namespaces`, upload-into-namespace) are **hard-gated**: accounts without the WfP subscription fail with `code 10121 no_access_to_dispatch_namespaces` — "You can purchase it within the Cloudflare dashboard ... if you are an Enterprise customer please contact your account team". This path CANNOT be bypassed. | answeroverflow.com/m/1250070557475467 (wrangler `dispatch-namespace list` → 10121); terraform-provider issue #5504 (same message verbatim); alchemy.run WfP page ("paid add-on ... entitlement error") |
+| B2 | The plain script API (`PUT /accounts/{id}/workers/scripts/{name}` with metadata: bindings, tags) works on Free and $5 Paid accounts — **no entitlement gate**. A platform Worker can call it at runtime with a scoped API token (exactly the publisher-template pattern: `CLOUDFLARE_API_TOKEN` secret + `fetch("https://api.cloudflare.com/...")`). | worker-publisher-template `scripts/deploy-wfp.ts`; wrangler deploys to free accounts daily |
+| B3 | Every deployed script **auto-gets** `{{name}}.{{account-subdomain}}.workers.dev` when created (renames follow the name). Free per-shop subdomain, no dispatcher needed. Name limits (≤63 chars, `[a-z0-9-]`) — our `shop-<id8>` convention already fits. | docs `workers/configuration/routing/workers-dev` |
+| B4 | Script caps: **100 (Free) / 500 (Paid)**; docs footnote: "building a platform where end customers deploy their own sites → use Workers for Platforms, which runs an unlimited number of user Workers". | docs `workers/platform/limits` (Number of Workers + footnote 1) |
+| B5 | Workers Paid = **$5/mo**: 10 M requests + 30 M CPU-ms included, overage prices IDENTICAL to WfP ($0.30/M req, $0.02/M CPU-ms). Static-asset requests are free. Service bindings between our own workers bill as ONE request. | docs `workers/platform/pricing` |
+| B6 | Custom Domains: attachable via API (`/accounts/{account_id}/workers/domains`, permission `Workers Scripts Write/Read`); DNS + cert auto-issued. Cap **100 per zone**; `*`-wildcard custom domains NOT supported; hostname must be in a zone on OUR account; can't attach where a CNAME already exists. | docs `workers/platform/limits` (Routes and domains) + `workers/configuration/routing/custom-domains` + API reference pages |
+| B7 | Same API token rate limit on both paths: **1,200 req / 5 min** (per user/account token) + `retry-after`/`Ratelimit` headers. Deployer queue + backoff unchanged. | docs `fundamentals/api/reference/limits` |
+| B8 | D1 per-shop stays viable on plain Paid: **50,000 DBs/account** (expandable by request); free = 10 DBs AND since 2026-09-01 free-tier daily row-read/write enforcement (queries FAIL past the limit) → Free plan is staging-only, never for tenant shops. | docs `d1/platform/limits`; changelog 2026-09-01-d1-free-tier-limit-enforcement |
+| B9 | Outbound-worker egress interception + per-tenant CPU limits (`limits:{cpuMs}` in dispatch props) are **WfP-only**. Substitute (we own the shop code): at deploy time bake a service binding `GENLOOK_PROXY → platform genlook-proxy worker` into the shop script, or have the wasm call `https://platform.crowdy.app/genlook/*` with its per-shop token. Functionally equivalent metering; loses the "third-party code" safety net, which we don't need. | docs `workers/platform/pricing` (Service bindings); WfP outbound-worker docs |
+| B10 | `worker_loaders` (Dynamic Workers) confirmed available on plain Paid (third-party issue; not WfP-gated) — but still ephemeral → remains preview-only per §4. | github.com/jokull/agent-cms/issues/53 |
+
+Three viable routes compared:
+
+| | WfP $25/mo | Plain Free | Plain Paid $5/mo ← START HERE |
+|---|---|---|---|
+| Shop cap | 1000 scripts, +$0.02/each | 100 total | 500 total |
+| Subdomain routing | dispatcher + KV (`*.crowdy.app`) | workers.dev per script | workers.dev per script + `/workers/domains` custom domains (100/zone) |
+| Owner custom domains | CfS 50,000 hostnames | CfS (same flow) | CfS (same flow) |
+| Per-shop D1 | 50k ✓ | **10 ✗** | 50k ✓ |
+| Traffic included | 20 M req/mo | 100 k req/DAY account-wide | 10 M req/mo |
+| 100 shops × 2 M req | $25 + ~$54 req+CPU ≈ **$79/mo** | impossible | $5 + ~$52 ≈ **$57/mo** |
+| Untrusted isolation | yes | n/a | n/a (we ship the code) |
+| Rolling deploys | all-at-once | gradual (versions) possible | gradual (versions) possible |
+
+So for our early scale the "bypass" is also cheaper: one $5/mo plan instead
+of $25. The WfP plan buys us: unlimited scripts (≈1100+ shops), KV-hostname
+wildcard routing under `crowdy.app` without per-shop route churn, untrusted
+isolation, outbound egress interception, and 2× the included traffic/CPU.
+
+**Decision D-P1: the deployer gets two backends behind one interface** —
+`ScriptTarget` (plain account, default; phases B–F build on this) and
+`DispatchTarget` (WfP) — so switching later is a config change, not a
+rewrite. CF-API client, D1-per-shop provisioner, bundle loader, and
+metering are shared. Switch to WfP (buy in dashboard, self-serve per B1)
+when any of: (a) ~400 shops (approaching 500 cap), (b) >100 custom domains
+per zone, (c) seller-hosted third-party shop code (need untrusted mode).
+
+What changes in script mode per phase:
+- **Phase C**: deploy `shop-<id8>` as a normal script (multipart PUT) with
+  bindings: per-shop `DB` (D1), shared `IMAGES` (R2 `{bucket_name:
+  "tenant-images"}`), `GENLOOK_PROXY` service binding, `SHOP_ID` +
+  `PLATFORM_TOKEN` vars. Tags via `/scripts/{name}/tags` (2 per call limits
+  apply; keep the 3-tag convention). Verify `workers.dev` enablement via
+  `/scripts/{name}/subdomain` endpoint at deploy time (Q8).
+- **Phase D** shrinks: no runtime dispatcher needed. Platform registrar
+  attaches Custom Domains (`PUT /workers/domains`) for
+  `{{shop}}.crowdy.app` when a shop deploys; KV ROUTE_KV store becomes
+  dashboard bookkeeping (host→shop) instead of a hot routing path. workers.dev
+  auto-URL is the built-in fallback.
+- **Phase E**: genlook-proxy is a plain sibling Worker with KV credit
+  counters; shops reach it via the service binding metered as 1 request.
+- **Phase G**: unchanged CfS flow for customer-owned domains (owner adds
+  CNAME → `target.crowdy.app`).
+- Free-plan note: usable as a **staging target** (100 scripts, but 100 k
+  req/day + 10 D1 caps make tenant shops impossible there).
+
 ---
 
 ## 5. Limits to respect (all from the WfP limits page unless noted)
@@ -329,6 +396,13 @@ surface; only the dispatcher is. For preview URLs we don't rely on workers.dev
 at all — WfP is explicitly listed as unsupported for Worker preview URLs
 (changelog 2025-07-23). Preview = `<tenant>.crowdy.app` + dispatch flag or a
 separate staging namespace script name.
+
+In ScriptTarget mode (§4.1) this inverts: every script DOES auto-get
+`{{name}}.{{sub}}.workers.dev` (B3) — it becomes the default tenant URL plus
+the automatic preview surface for version URLs. The docs still mark
+workers.dev as "treated as a Free website ... not business-critical", so the
+plan treats workers.dev as the fallback/beta URL and attaches a Custom
+Domain (`{{shop}}.crowdy.app`) as the production URL.
 
 ---
 
@@ -454,6 +528,10 @@ gate).
 | Q5 | `keep_bindings` semantics when re-adding the FULL binding set each deploy | tests in staging namespace; always send full set + keep_bindings |
 | Q6 | Asset hash salting needed only if tenant-special themes ever arrive | revisit if themes ship |
 | Q7 | Live pricing surprise (e.g. asset upload pricing changed Oct 2026 per banner) | re-read the live pricing page before card charge |
+| Q8 | REST call to ENABLE `workers.dev` for a freshly uploaded script script (wrangler relies on config; API shape = `POST /scripts/{name}/subdomain {enabled}`?) | probe on staging account before first scripted deploy |
+| Q9 | Minimal API-token scopes for script-mode deploys (Workers Scripts Edit + D1 Edit + KV Edit + Zone/DNS? for `/workers/domains` custom domains) | trial token on the staging account; least-privilege per B2 |
+| Q10 | Whether `/workers/domains` requires the zone in the same account (B6 implies yes) and what happens for shops with a pending cert on `{{shop}}.crowdy.app` | staging probe in Phase D |
+| Q11 | Script tags endpoint limits (`/scripts/{name}/tags`, PUT 2 tags per call?) vs namespace upload's inline tags | probe; keep 3-tag convention either way |
 
 ## 9. Build order (phases)
 
@@ -461,8 +539,8 @@ gate).
 |---|---|---|
 | A (done) | This doc + folder scaffold + template cloned | doc review |
 | B | `platform/`: wrangler config, D1 migrations, signup/login/approval/allowance (admin UI pages using tryon design language), REST contracts frozen | vitest-pool-workers: ≥5 tests (signup, pending, approve, allowance gate, auth guard) |
-| C | `platform/deploy`: bundle loader, D1-per-shop provisioner, CF API client with queue+backoff, tags; local mock of CF endpoints | unit tests on manifest parsing, idempotent deploy vs mock; live smoke deploy only once account set up (ask before spending) |
-| D | `edge/` dispatcher: hostname routing, suspension, tier limits, "Worker not found"→404, props `{shopId}` + outbound `tenant` | vitest stub dispatch worker (pattern from `-example-templates` AGENTS.md) + live namespace test |
+| C | `platform/deploy`: bundle loader, D1-per-shop provisioner, CF API client with queue+backoff, tags; `DeploymentTarget` interface with `ScriptTarget` first (§4.1 D-P1), `DispatchTarget` later; local mock of CF endpoints | unit tests on manifest parsing, idempotent deploy vs mock; live smoke deploy only once account set up (ask before spending) |
+| D | `edge/` — script mode = hostname registrar (`PUT /workers/domains` + KV bookkeeping); dispatch mode = runtime dispatcher, kept behind the target interface | vitest stubs + staging probe (Q8/Q10) |
 | E | `outbound/`: Genlook allow-list + key injection + per-shop metering + credits rewriting | unit; staging namespace end-to-end |
 | F | tryon shop changes: acceptance of `SHOP_ID` prop, R2 key prefixes `shops/<id>/`, Settings card → platform API calls; deploy UI in platform | browser probes; frontend commit per usual tryon rules |
 | G | Custom domains (CFfS) self-serve + "buy tokens" flow behind admin/manual billing flag | API contract + staging hostname |

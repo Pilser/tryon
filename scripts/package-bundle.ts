@@ -27,8 +27,12 @@ const outDir = path.resolve(process.argv[3] ?? path.join(repoRoot, "bundle-out")
    file name, and the bundle wants it called shop.wasm. */
 const glueSrc = path.join(repoRoot, "worker", "build", "index.js");
 const wasmSrc = path.join(repoRoot, "worker", "build", "index_bg.wasm");
-const frontendDist = path.join(repoRoot, "frontend", "dist");
+/* The whole frontend dir is the shop's static surface: the HTML shells
+   (index/product/studio/dashboard), _redirects, the built js/css and
+   the imgpipe wasm. node_modules never ships. */
+const frontendDist = path.join(repoRoot, "frontend");
 const schemaSrc = path.join(repoRoot, "worker", "build", "shop-schema.sql");
+const SKIP_DIRS = new Set(["node_modules", "dist-astro", ".git"]);
 
 for (const p of [glueSrc, wasmSrc, frontendDist, schemaSrc]) {
   if (!existsSync(p)) {
@@ -53,13 +57,16 @@ const sha256 = (file: string): string =>
 const assets: Array<{ key: string; path: string; sha256: string }> = [];
 const walk = (dir: string, prefix: string): void => {
   for (const name of readdirSync(dir).sort()) {
+    if (SKIP_DIRS.has(name)) continue;
     const full = path.join(dir, name);
     if (statSync(full).isDirectory()) {
       walk(full, `${prefix}${name}/`);
       continue;
     }
     const rel = `${prefix}${name}`;
-    cpSync(full, path.join(outDir, "assets", rel));
+    const dest = path.join(outDir, "assets", rel);
+    mkdirSync(path.dirname(dest), { recursive: true });
+    cpSync(full, dest);
     assets.push({ key: `assets/${rel}`, path: `/${rel}`, sha256: sha256(full) });
   }
 };

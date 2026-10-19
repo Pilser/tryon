@@ -47,6 +47,14 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
         (Method::Post, ["admin", "allowance"]) => admin::handle_allowance(env, &mut req).await,
         (Method::Post, ["admin", "suspend"]) => admin::handle_suspend(env, &mut req).await,
         (Method::Post, ["admin", "reactivate"]) => admin::handle_reactivate(env, &mut req).await,
+        (Method::Get, ["admin", "tokens"]) => admin::handle_list_tokens(env, &req).await,
+        (Method::Post, ["admin", "tokens", "mint"]) => {
+            admin::handle_mint_tokens(env, &mut req).await
+        }
+        (Method::Post, ["admin", "tokens", "cancel"]) => {
+            admin::handle_cancel_token(env, &mut req).await
+        }
+        (Method::Post, ["shop", "tokens", "redeem"]) => auth::handle_redeem(env, &mut req).await,
         (Method::Get, ["health"]) => Response::from_json(&serde_json::json!({ "ok": true })),
         _ => json_error(404, "NOT_FOUND", "unknown /api/v1 command"),
     }

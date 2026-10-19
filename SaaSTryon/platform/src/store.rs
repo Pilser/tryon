@@ -9,8 +9,14 @@ use worker::{Error, Result};
 
 use crate::auth::{random_hex, Session};
 
-/// The migration applied by [`ensure_schema`].
-pub const INIT_SQL: &str = include_str!("../migrations/0001_init.sql");
+/// The migrations applied by [`ensure_schema`], in order.
+pub const MIGRATIONS: [&str; 2] = [
+    include_str!("../migrations/0001_init.sql"),
+    include_str!("../migrations/0002_shop_tokens.sql"),
+];
+
+/// Kept for callers that referenced the first migration directly.
+pub const INIT_SQL: &str = MIGRATIONS[0];
 
 /// Bind for this worker (`[[d1_databases]]` in wrangler.toml).
 pub const DB_BINDING: &str = "PLATFORM_DB";
@@ -25,15 +31,20 @@ pub fn db(env: &worker::Env) -> Result<D1Database> {
 /// to call on cold start; idempotent on every call.
 pub async fn ensure_schema(env: &worker::Env) -> Result<()> {
     let db = db(env)?;
-    for stmt in INIT_SQL.split(";\n") {
-        let stmt = stmt.trim();
-        if stmt.is_empty() {
-            continue;
+    for (rev, sql) in MIGRATIONS.iter().enumerate() {
+        for stmt in sql.split(";\n") {
+            let stmt = stmt.trim();
+            if stmt.is_empty() {
+                continue;
+            }
+            db.exec(stmt).await.map_err(|e| {
+                let shown: String = stmt.chars().take(64).collect();
+                Error::RustError(format!(
+                    "schema migration {:04} failed at {shown:?}: {e}",
+                    rev + 1
+                ))
+            })?;
         }
-        db.exec(stmt).await.map_err(|e| {
-            let shown: String = stmt.chars().take(64).collect();
-            Error::RustError(format!("schema migration 0001 failed at {shown:?}: {e}"))
-        })?;
     }
     Ok(())
 }
@@ -282,4 +293,169 @@ async fn write(db: &D1Database, sql: &str, binds: Vec<JsValue>) -> Result<()> {
     // Success = no Err; D1 meta counters are never trusted for logic.
     let _ = db.prepare(sql).bind(&binds)?.run().await?;
     Ok(())
+}
+
+// ------------------------------------------------------ shop tokens (E)
+
+/// A 4-digit code the admin prints and a shop redeems to top up credits.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShopToken {
+    pub code: String,
+    pub shop_id: Option<String>,
+    pub status: String, // active | used | cancelled
+    pub created_ms: i64,
+    pub redeemed_ms: Option<i64>,
+    pub redeemed_by: Option<String>,
+    pub cancelled_ms: Option<i64>,
+    pub note: String,
+}
+
+/// Mints `count` unique 4-digit codes. Codes are drawn with rejection
+/// sampling against existing rows so collisions (10 000 space) retry;
+/// `existing` codes from this batch are also avoided via the DB PK.
+pub async fn mint_shop_tokens(
+    db: &D1Database,
+    count: usize,
+    note: &str,
+    now_ms: i64,
+) -> Result<Vec<ShopToken>> {
+    let mut minted = Vec::with_capacity(count);
+    for _ in 0..count {
+        let code = loop {
+            let c = format!(
+                "{:04}",
+                (random_hex(2).parse::<u16>().unwrap_or(0) % 10_000)
+            );
+            let exists: Option<ShopToken> = token_by_code(db, &c).await?;
+            if exists.is_none() {
+                break c;
+            }
+        };
+        write(
+            db,
+            "INSERT INTO shop_tokens (code,shop_id,status,created_ms,note) VALUES (?,NULL,'active',?,?)",
+            str_args([&code, &note]),
+        )
+        .await?;
+        minted.push(ShopToken {
+            code,
+            shop_id: None,
+            status: "active".into(),
+            created_ms: now_ms,
+            redeemed_ms: None,
+            redeemed_by: None,
+            cancelled_ms: None,
+            note: note.into(),
+        });
+    }
+    Ok(minted)
+}
+
+const TOKEN_SELECT_ALL: &str =
+    "SELECT code,shop_id,status,created_ms,redeemed_ms,redeemed_by,cancelled_ms,note FROM shop_tokens";
+
+pub async fn token_by_code(db: &D1Database, code: &str) -> Result<Option<ShopToken>> {
+    db.prepare(&format!("{TOKEN_SELECT_ALL} WHERE code = ?"))
+        .bind(&str_args([code]))?
+        .first::<ShopToken>(None)
+        .await
+}
+
+/// Lists tokens newest first, optionally filtered by status
+/// (`active`/`used`/`cancelled`).
+pub async fn list_shop_tokens(db: &D1Database, status: Option<&str>) -> Result<Vec<ShopToken>> {
+    let (sql, binds) = match status {
+        Some(s) => (
+            format!("{TOKEN_SELECT_ALL} WHERE status = ? ORDER BY created_ms DESC LIMIT 500"),
+            str_args([s]),
+        ),
+        None => (
+            format!("{TOKEN_SELECT_ALL} ORDER BY created_ms DESC LIMIT 500"),
+            Vec::new(),
+        ),
+    };
+    db.prepare(sql).bind(&binds)?.all().await?.results()
+}
+
+/// Redeems a token: only `active` tokens succeed; the shop is stamped and
+/// the row flips to `used`. Returns Err on missing/cancelled/used tokens.
+pub async fn redeem_shop_token(
+    db: &D1Database,
+    code: &str,
+    shop_id: &str,
+    now_ms: i64,
+) -> Result<ShopToken> {
+    let Some(tok) = token_by_code(db, code).await? else {
+        return Err(Error::RustError("no such token".into()));
+    };
+    if tok.status != "active" {
+        return Err(Error::RustError(format!("token is {}", tok.status)));
+    }
+    write(
+        db,
+        "UPDATE shop_tokens SET shop_id = ?, status = 'used', redeemed_ms = ?, redeemed_by = ? WHERE code = ?",
+        vec![
+            shop_id.into(),
+            JsValue::from(now_ms as f64),
+            shop_id.into(),
+            code.into(),
+        ],
+    )
+    .await?;
+    token_by_code(db, code)
+        .await?
+        .ok_or_else(|| Error::RustError("token vanished after redeem".into()))
+}
+
+/// Cancels an unused token (admin action, before a shop redeems it).
+pub async fn cancel_shop_token(db: &D1Database, code: &str, now_ms: i64) -> Result<ShopToken> {
+    let Some(tok) = token_by_code(db, code).await? else {
+        return Err(Error::RustError("no such token".into()));
+    };
+    if tok.status != "active" {
+        return Err(Error::RustError(format!("token is {}", tok.status)));
+    }
+    write(
+        db,
+        "UPDATE shop_tokens SET status = 'cancelled', cancelled_ms = ? WHERE code = ?",
+        vec![JsValue::from(now_ms as f64), code.into()],
+    )
+    .await?;
+    token_by_code(db, code)
+        .await?
+        .ok_or_else(|| Error::RustError("token vanished after cancel".into()))
+}
+
+// ------------------------------------------------------------- shops (E)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Shop {
+    pub id: String,
+    pub owner_id: String,
+    pub name: String,
+    pub subdomain: String,
+    pub cluster_id: String,
+    pub status: String,
+    pub tier: String,
+    pub depot_version: String,
+    pub created_ms: i64,
+}
+
+const SHOP_SELECT_ALL: &str =
+    "SELECT id,owner_id,name,subdomain,cluster_id,status,tier,depot_version,created_ms FROM shops";
+
+/// Finds a shop by its cluster token — the per-shop secret bound at deploy
+/// time and used as the Bearer credential when the shop calls the platform.
+pub async fn shop_by_token(db: &D1Database, token: &str) -> Result<Option<Shop>> {
+    db.prepare(&format!("{SHOP_SELECT_ALL} WHERE cluster_id = ?"))
+        .bind(&str_args([token]))?
+        .first::<Shop>(None)
+        .await
+}
+
+pub async fn shop_by_id(db: &D1Database, id: &str) -> Result<Option<Shop>> {
+    db.prepare(&format!("{SHOP_SELECT_ALL} WHERE id = ?"))
+        .bind(&str_args([id]))?
+        .first::<Shop>(None)
+        .await
 }

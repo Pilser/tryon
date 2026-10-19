@@ -7,7 +7,7 @@ verifies via the Bearer session. */
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use worker::d1::D1Database;
-use worker::{Error, Headers, Response, Result};
+use worker::{Env, Error, Headers, Request, Response, Result};
 
 use crate::{cfg, http, store};
 
@@ -252,4 +252,39 @@ mod tests {
         assert!(session_expired(1_000, 1_000)); // now == expires: expired
         assert!(session_expired(1_000, 1_001));
     }
+}
+
+// ---------------------------------------------------- shop redemption (E)
+
+#[derive(Deserialize)]
+pub struct RedeemIn {
+    pub code: String,
+}
+
+/// `POST /api/v1/shop/tokens/redeem {code}` — a shop turns a 4-digit
+/// platform token into tryon_tokens credit. Auth: the shop's
+/// PLATFORM_TOKEN as Bearer; the shop identity is looked up by the
+/// cluster_id the deployer bound it with (shops table). Missing/cancelled/
+/// used tokens are rejected; success flips the token to `used` and stamps
+/// the shop.
+pub async fn handle_redeem(env: Env, req: &mut Request) -> Result<Response> {
+    let Some(token) = bearer(req.headers()) else {
+        return crate::http::unauthorized();
+    };
+    let Some(body) = crate::http::json_body::<RedeemIn>(req).await else {
+        return crate::http::bad_request("BAD_JSON", "expected {code}");
+    };
+    let db = store::db(&env)?;
+    let now = now_ms();
+    // Shops authenticate with the PLATFORM_TOKEN secret bound at deploy
+    // time; the shops table row is found by matching that secret. Phase F
+    // will pass shop_id explicitly once the shop runtime carries it.
+    let Some(shop) = store::shop_by_token(&db, &token).await? else {
+        return crate::http::unauthorized();
+    };
+    let redeemed = store::redeem_shop_token(&db, &body.code, &shop.id, now)
+        .await
+        .map_err(|e| worker::Error::RustError(format!("redeem failed: {}", e)))?;
+    store::append_audit(&db, &shop.id, "tokens.redeem", &body.code, "", now).await?;
+    Response::from_json(&serde_json::json!({ "token": redeemed, "shop_id": shop.id }))
 }

@@ -361,3 +361,79 @@ mod tests {
         assert!(!valid_allowance(MAX_ALLOWANCE + 1));
     }
 }
+
+// ---------------------------------------------------- token management (E)
+
+#[derive(Deserialize)]
+struct MintTokensIn {
+    count: i64,
+    #[serde(default)]
+    note: String,
+}
+
+#[derive(Deserialize)]
+struct CancelTokenIn {
+    code: String,
+}
+
+/// `GET /api/v1/admin/tokens?status=active|used|cancelled|all`
+pub async fn handle_list_tokens(env: Env, req: &Request) -> Result<Response> {
+    if !is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let status = req
+        .url()
+        .ok()
+        .and_then(|u| {
+            u.query_pairs()
+                .find(|(k, _)| k == "status")
+                .map(|(_, v)| v.into_owned())
+        })
+        .filter(|s| !s.is_empty() && s != "all");
+    let db = store::db(&env)?;
+    let tokens = store::list_shop_tokens(&db, status.as_deref()).await?;
+    Response::from_json(&json!({ "tokens": tokens }))
+}
+
+/// `POST /api/v1/admin/tokens/mint {count, note?}` -> {tokens:[...]}
+pub async fn handle_mint_tokens(env: Env, req: &mut Request) -> Result<Response> {
+    if !is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let Some(body) = http::json_body::<MintTokensIn>(req).await else {
+        return http::bad_request("BAD_JSON", "expected {count, note?}");
+    };
+    if !(1..=100).contains(&body.count) {
+        return http::bad_request("BAD_COUNT", "count must be 1..=100");
+    }
+    let db = store::db(&env)?;
+    let now = auth::now_ms();
+    let tokens = store::mint_shop_tokens(&db, body.count as usize, &body.note, now).await?;
+    store::append_audit(
+        &db,
+        "admin",
+        "tokens.mint",
+        "",
+        &format!("count={}", body.count),
+        now,
+    )
+    .await?;
+    Response::from_json(&json!({ "tokens": tokens }))
+}
+
+/// `POST /api/v1/admin/tokens/cancel {code}` -> {token}
+pub async fn handle_cancel_token(env: Env, req: &mut Request) -> Result<Response> {
+    if !is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let Some(body) = http::json_body::<CancelTokenIn>(req).await else {
+        return http::bad_request("BAD_JSON", "expected {code}");
+    };
+    let db = store::db(&env)?;
+    let now = auth::now_ms();
+    let token = store::cancel_shop_token(&db, &body.code, now)
+        .await
+        .map_err(|e| worker::Error::RustError(format!("cancel failed: {}", e)))?;
+    store::append_audit(&db, "admin", "tokens.cancel", &body.code, "", now).await?;
+    Response::from_json(&json!({ "token": token }))
+}

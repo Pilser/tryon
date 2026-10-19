@@ -46,3 +46,10 @@ frontend/imgpipe/**
 # vendored ionic camera UI (rebuilt by build.ts)
 frontend/pwa/
 frontend/pwa/**
+
+# WfP reference implementation (read-only clone of cloudflare/templates)
+-example-templates/
+
+# SaaSTryon platform (research docs + control plane code)
+!SaaSTryon/
+!SaaSTryon/**

@@ -113,7 +113,10 @@ jobs:
       - name: build platform wasm (worker-build)
         working-directory: SaaSTryon/platform
         run: |
-          cargo install worker-build --locked
+          # worker-build >= 0.7 refuses worker < 0.8.7; this repo pins
+          # the worker crate at 0.5, so the 0.1.x line is the one that
+          # builds it (it has no worker version gate).
+          cargo install worker-build --version 0.1.14 --locked
           worker-build --release
       - uses: oven-sh/setup-bun@v2
       - name: install (frozen lockfile)
@@ -175,7 +178,10 @@ jobs:
       - name: worker bundle (worker-build -> build/worker/shim.mjs)
         if: steps.creds.outputs.ok == 'true'
         run: |
-          cargo install worker-build --locked
+          # worker-build >= 0.7 refuses worker < 0.8.7; this repo pins
+          # the worker crate at 0.5, so the 0.1.x line is the one that
+          # builds it (it has no worker version gate).
+          cargo install worker-build --version 0.1.14 --locked
           worker-build --release
       - name: deploy
         if: steps.creds.outputs.ok == 'true'

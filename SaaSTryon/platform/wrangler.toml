@@ -35,6 +35,12 @@ binding = "ASSETS"
 not_found_handling = "none"
 run_worker_first = ["/api/*"]
 
-# Phase C/D add: ROUTE_KV (hostname bookkeeping, dashboard-only) and an
-# [[r2_buckets]] binding = "BUNDLES" (released shop artifacts the deployer
-# uploads from). Nothing to configure yet.
+# Released shop bundles the deployer uploads a shop from
+# (bundles/<id>/manifest.json + shop.wasm + worker.js + schema + assets).
+# R2 must be enabled on the account first (Dashboard -> R2).
+[[r2_buckets]]
+binding = "BUNDLES"
+bucket_name = "tryon-bundles"
+
+# Phase D add: ROUTE_KV (hostname bookkeeping, dashboard-only).
+# Nothing to configure yet.

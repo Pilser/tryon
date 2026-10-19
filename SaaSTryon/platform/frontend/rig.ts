@@ -108,7 +108,10 @@ async function api(req: Request, url: URL): Promise<Response> {
           user.deploy_allowance = Math.max(0, Math.min(100, Number(body.deploy_allowance) || 0));
           return json({ user: pub(user) });
         case "suspend":
-          user.status = body.reactivate ? "approved" : "suspended";
+          user.status = "suspended";
+          return json({ user: pub(user) });
+        case "reactivate":
+          user.status = "approved";
           return json({ user: pub(user) });
         default:
           return json({ message: "not found" }, 404);

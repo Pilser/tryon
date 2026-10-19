@@ -122,9 +122,8 @@ export const adminAllowance = (
 ): Promise<{ user: PlatformUser }> =>
   call("POST", "/api/v1/admin/allowance", { user_id: userId, deploy_allowance: deployAllowance }, adminToken);
 
-export const adminSuspend = (
-  adminToken: string,
-  userId: string,
-  reactivate: boolean,
-): Promise<{ user: PlatformUser }> =>
-  call("POST", "/api/v1/admin/suspend", { user_id: userId, ...(reactivate ? { reactivate } : {}) }, adminToken);
+export const adminSuspend = (adminToken: string, userId: string): Promise<{ user: PlatformUser }> =>
+  call("POST", "/api/v1/admin/suspend", { user_id: userId }, adminToken);
+
+export const adminReactivate = (adminToken: string, userId: string): Promise<{ user: PlatformUser }> =>
+  call("POST", "/api/v1/admin/reactivate", { user_id: userId }, adminToken);

@@ -11,6 +11,7 @@ import {
   adminApprove,
   adminReject,
   adminSuspend,
+  adminReactivate,
   adminUsers,
   type PlatformUser,
 } from "../api";
@@ -183,7 +184,9 @@ export default function AdminPage(): JSX.Element {
                     }
                     onToggle={() =>
                       run(
-                        () => adminSuspend(admin, x.id, x.status === "suspended"),
+                        x.status === "suspended"
+                          ? () => adminReactivate(admin, x.id)
+                          : () => adminSuspend(admin, x.id),
                         () =>
                           setNote(
                             x.status === "suspended"

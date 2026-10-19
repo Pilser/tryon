@@ -172,16 +172,22 @@ jobs:
       - name: frontend build (esbuild + stylex)
         working-directory: frontend
         run: bun build.ts
-      - name: shop wasm (worker-build -> build/index.js + index_bg.wasm)
+      - name: shop wasm (worker-build -> worker/build/index.js + index_bg.wasm)
         run: |
           cargo install worker-build --version 0.1.14 --locked
           curl -sL -o /tmp/wbg.tar.gz https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl.tar.gz
           tar xzf /tmp/wbg.tar.gz -C /tmp
           export WASM_BINDGEN_BIN=/tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen
+          # worker-build wants the package manifest, not the workspace
+          # one, so it runs inside worker/ (the wrangler.toml rides along
+          # for the name and the compatibility date).
+          cp wrangler.toml worker/wrangler.toml
+          cd worker
           worker-build --release
       - name: shop D1 schema (shop-schema.sql)
         run: |
-          cargo run --release -p tryon-worker --bin ddl_dump > build/shop-schema.sql
+          mkdir -p worker/build
+          cargo run --release -p tryon-worker --bin ddl_dump > worker/build/shop-schema.sql
       - name: package the bundle
         run: bun scripts/package-bundle.ts "${{ github.ref_name }}"
       - name: upload the bundle to R2 (the platform deploys from here)

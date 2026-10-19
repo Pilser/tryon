@@ -25,10 +25,10 @@ const outDir = path.resolve(process.argv[3] ?? path.join(repoRoot, "bundle-out")
 
 /* The wasm-bindgen output of worker-build: the glue imports the wasm by
    file name, and the bundle wants it called shop.wasm. */
-const glueSrc = path.join(repoRoot, "build", "index.js");
-const wasmSrc = path.join(repoRoot, "build", "index_bg.wasm");
+const glueSrc = path.join(repoRoot, "worker", "build", "index.js");
+const wasmSrc = path.join(repoRoot, "worker", "build", "index_bg.wasm");
 const frontendDist = path.join(repoRoot, "frontend", "dist");
-const schemaSrc = path.join(repoRoot, "build", "shop-schema.sql");
+const schemaSrc = path.join(repoRoot, "worker", "build", "shop-schema.sql");
 
 for (const p of [glueSrc, wasmSrc, frontendDist, schemaSrc]) {
   if (!existsSync(p)) {

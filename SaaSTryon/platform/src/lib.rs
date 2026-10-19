@@ -31,7 +31,7 @@ static SCHEMA_READY: AtomicBool = AtomicBool::new(false);
 #[event(fetch)]
 async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     if !SCHEMA_READY.load(Ordering::Relaxed) {
-        store::ensure_schema(env.clone()).await?;
+        store::ensure_schema(&env).await?;
         SCHEMA_READY.store(true, Ordering::Relaxed);
     }
     http::route(req, env).await

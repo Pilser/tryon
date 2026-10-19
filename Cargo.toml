@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["worker", "shared", "imgpipe"]
+members = ["worker", "shared", "imgpipe", "SaaSTryon/platform"]
 
 [profile.release]
 lto = "thin"

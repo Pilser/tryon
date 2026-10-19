@@ -1,0 +1,31 @@
+name = "tryon-platform"
+# The wasm/shim pair is built in CI (repo AGENTS.md §3 — never built or run
+# locally). `main` below is the post-build entry asset wrangler expects;
+# adjust together with the build step when the wasm pipeline lands.
+main = "dist/platform.js"
+compatibility_date = "2026-01-01"
+
+# Secrets (set via `wrangler secret put`; never in [vars]):
+#   ADMIN_TOKEN           bearer guarding /api/v1/admin/* (fail-closed when unset)
+#   CLOUDFLARE_API_TOKEN  reserved for the Phase C deployer (script-PUT), not read yet
+
+# Platform control-plane database. Schema: migrations/0001_init.sql,
+# applied idempotently by store::ensure_schema().
+# Create with `wrangler d1 create tryon-platform-db`, then paste database_id.
+[[d1_databases]]
+binding = "PLATFORM_DB"
+database_name = "tryon-platform-db"
+database_id = "replace-me"
+
+# The platform UI is static (SaaSTryon/platform/frontend -> dist/, built by
+# the frontend phase). Assets-first routing: pages never invoke the worker;
+# only /api/* reaches it. Needs wrangler >= 4 (array run_worker_first).
+[assets]
+directory = "./frontend/dist"
+binding = "ASSETS"
+not_found_handling = "none"
+run_worker_first = ["/api/*"]
+
+# Phase C/D add: ROUTE_KV (hostname bookkeeping, dashboard-only) and an
+# [[r2_buckets]] binding = "BUNDLES" (released shop artifacts the deployer
+# uploads from). Nothing to configure yet.

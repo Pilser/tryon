@@ -1,0 +1,18 @@
+[package]
+name = "tryon-platform"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+worker = { version = "0.5", features = ["d1"] }
+wasm-bindgen = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+hex = "0.4"
+# `js` feature is inert on the test host (native getrandom used there) and
+# switches to crypto.getRandomValues when compiled for the wasm worker.
+getrandom = { version = "0.2", features = ["js"] }

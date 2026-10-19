@@ -1,7 +1,10 @@
 /* lib.rs - the SaaSTryon control-plane worker.
 Entry point + module declarations only; every domain lives in its own
 file (`http.rs` router, `auth.rs` token/sessions, `admin.rs` approval,
-`store.rs` D1, `cfg.rs` validation, `deployer/` per-shop deploy flow). */
+`store.rs` D1, `cfg.rs` validation, `shops.rs` shops/tokens/credits,
+`hostnames.rs` domain state, `deploy.rs` + `deployer/` per-shop deploy
+flow, `outbound.rs` the metered Genlook proxy, `credits.rs` the manual
+billing gate). */
 pub mod admin;
 pub mod auth;
 pub mod cfg;

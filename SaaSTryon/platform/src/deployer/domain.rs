@@ -11,13 +11,20 @@ use worker::Method;
 use super::cf_api::{call_with_retry, CfBody, CfConfig, CfError, CfRequest, Transport};
 
 /// Pure: the attach request for one shop hostname (tested).
-pub fn attach_request(zone_id: &str, hostname: &str, service: &str) -> Option<CfRequest> {
-    if zone_id.is_empty() || hostname.is_empty() || service.is_empty() {
+pub fn attach_request(
+    account: &str,
+    zone_id: &str,
+    hostname: &str,
+    service: &str,
+) -> Option<CfRequest> {
+    if account.is_empty() || zone_id.is_empty() || hostname.is_empty() || service.is_empty() {
         return None;
     }
     Some(CfRequest {
         method: Method::Put,
-        path: "/workers/domains".to_string(),
+        // The account id belongs in the path (every CF call is
+        // account-scoped; a bare /workers/domains has no route).
+        path: format!("/accounts/{account}/workers/domains"),
         body: CfBody::Json(json!({
             "zone_id": zone_id,
             "hostname": hostname,
@@ -40,7 +47,7 @@ pub async fn attach_shop_domain(
         return Ok(None);
     };
     let hostname = cfg.shop_hostname(subdomain);
-    let Some(req) = attach_request(&zone_id, &hostname, service) else {
+    let Some(req) = attach_request(&cfg.account, &zone_id, &hostname, service) else {
         return Ok(None);
     };
     call_with_retry(cf, req).await?;
@@ -68,8 +75,9 @@ mod tests {
 
     #[test]
     fn empty_pieces_refuse_the_attach() {
-        assert!(attach_request("", "a.latiforge.com", "shop-1").is_none());
-        assert!(attach_request("zone1", "", "shop-1").is_none());
-        assert!(attach_request("zone1", "a.latiforge.com", "").is_none());
+        assert!(attach_request("", "zone1", "a.latiforge.com", "shop-1").is_none());
+        assert!(attach_request("acc1", "", "a.latiforge.com", "shop-1").is_none());
+        assert!(attach_request("acc1", "zone1", "", "shop-1").is_none());
+        assert!(attach_request("acc1", "zone1", "a.latiforge.com", "").is_none());
     }
 }

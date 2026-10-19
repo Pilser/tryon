@@ -53,3 +53,8 @@ frontend/pwa/**
 # SaaSTryon platform (research docs + control plane code)
 !SaaSTryon/
 !SaaSTryon/**
+# platform frontend: local build + deploys never tracked
+SaaSTryon/platform/frontend/node_modules/
+SaaSTryon/platform/frontend/node_modules/**
+SaaSTryon/platform/frontend/dist/
+SaaSTryon/platform/frontend/dist/**

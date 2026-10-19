@@ -31,6 +31,12 @@ binding = "DB"
 database_name = "tryon-db"
 database_id = "replace-me"
 
+# The wasm module (worker-build output: build/index.js + index_bg.wasm)
+# must be uploaded as a compiled wasm module, not as text.
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+
 [build]
 command = "cargo install worker-build && worker-build --release"
 

@@ -20,6 +20,12 @@ binding = "PLATFORM_DB"
 database_name = "tryon-platform-db"
 database_id = "replace-me"
 
+# The wasm module (worker-build output: build/index.js + index_bg.wasm)
+# must be uploaded as a compiled wasm module, not as text.
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+
 # The platform UI is static (SaaSTryon/platform/frontend -> dist/, built by
 # the frontend phase). Assets-first routing: pages never invoke the worker;
 # only /api/* reaches it. Needs wrangler >= 4 (array run_worker_first).

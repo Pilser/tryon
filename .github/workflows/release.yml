@@ -117,6 +117,11 @@ jobs:
           # the worker crate at 0.5, so the 0.1.x line is the one that
           # builds it (it has no worker version gate).
           cargo install worker-build --version 0.1.14 --locked
+          # The CLI must match the wasm-bindgen in Cargo.lock (0.2.129);
+          # worker-build 0.1.14 would otherwise use its own 0.2.105.
+          curl -sL -o /tmp/wbg.tar.gz https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl.tar.gz
+          tar xzf /tmp/wbg.tar.gz -C /tmp
+          export WASM_BINDGEN_BIN=/tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen
           worker-build --release
       - uses: oven-sh/setup-bun@v2
       - name: install (frozen lockfile)
@@ -182,6 +187,11 @@ jobs:
           # the worker crate at 0.5, so the 0.1.x line is the one that
           # builds it (it has no worker version gate).
           cargo install worker-build --version 0.1.14 --locked
+          # The CLI must match the wasm-bindgen in Cargo.lock (0.2.129);
+          # worker-build 0.1.14 would otherwise use its own 0.2.105.
+          curl -sL -o /tmp/wbg.tar.gz https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl.tar.gz
+          tar xzf /tmp/wbg.tar.gz -C /tmp
+          export WASM_BINDGEN_BIN=/tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen
           worker-build --release
       - name: deploy
         if: steps.creds.outputs.ok == 'true'

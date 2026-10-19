@@ -5,6 +5,7 @@
    (dash-tokens.ts, dash-users.ts) - this file owns state, chrome and the
    owner-only actions that are not tab specific. */
 import {
+  redeemPlatformToken,
   saveSettings,
   studioCredits,
   studioUsage,
@@ -152,6 +153,16 @@ function settingsTab(d: UsageOut): string {
         gets a photo.</p>
     </div>
     <div class="${cx(u.card)}">
+      <p class="${cx(u.cardTitle)}">Platform tokens</p>
+      <p class="${cx(s.body)}">Running on the SaaSTryon platform? The platform admin hands you
+        4-digit codes - fill one in here and its try-on credits land on this shop's balance.</p>
+      <div class="${cx(s.form)}">
+        <input class="${cx(s.num)}" id="dash-redeem" inputmode="numeric" maxlength="4"
+          placeholder="e.g. 0421" aria-label="platform token code"/>
+        <button class="btn primary" id="dash-redeem-btn" type="button">Redeem code</button>
+      </div>
+    </div>
+    <div class="${cx(u.card)}">
       <p class="${cx(u.cardTitle)}">Shop details</p>
       <p class="${cx(u.rowSub)}">Shop name, WhatsApp number, logo and catalog live in the
         <a class="btn secondary" href="/app/studio.html?owner=1">Studio</a>.</p>
@@ -223,6 +234,16 @@ function wire(box: HTMLElement): void {
     try {
       await saveSettings(ownerToken(), v);
       note("Allowance saved: " + n(v) + " free try-ons per device.");
+    } catch (e) {
+      fail(e instanceof Error ? e.message : String(e));
+    }
+  })());
+  box.querySelector("#dash-redeem-btn")?.addEventListener("click", () => void (async () => {
+    const v = (el("dash-redeem") as HTMLInputElement | null)?.value.trim() || "";
+    if (!v) { fail("Fill in the 4-digit code first."); return; }
+    try {
+      const out = await redeemPlatformToken(ownerToken(), v);
+      note(out.message || "Code redeemed.");
     } catch (e) {
       fail(e instanceof Error ? e.message : String(e));
     }

@@ -227,6 +227,14 @@ export const purgeTokens = (
 export const saveSettings = (token: string, freeTries: number): Promise<{ free_tries: number }> =>
   ownerPost("/api/studio/settings", { free_tries: freeTries }, token);
 
+/** Redeem a 4-digit SaaSTryon platform code (Settings tab). The shop
+  * worker forwards it to the platform; the platform owns the balance. */
+export const redeemPlatformToken = (
+  token: string,
+  code: string,
+): Promise<{ ok: boolean; message?: string }> =>
+  ownerPost("/api/studio/tokens/redeem", { code }, token);
+
 export const deviceBlock = (token: string, deviceId: string, blocked: boolean): Promise<unknown> =>
   ownerPost("/api/studio/devices/block", { device_id: deviceId, blocked }, token);
 

@@ -127,3 +127,31 @@ export const adminSuspend = (adminToken: string, userId: string): Promise<{ user
 
 export const adminReactivate = (adminToken: string, userId: string): Promise<{ user: PlatformUser }> =>
   call("POST", "/api/v1/admin/reactivate", { user_id: userId }, adminToken);
+
+/* ------------------------------------------------------- shop tokens --- */
+
+/* 4-digit platform codes: the admin mints and prints them, a shop
+   redeems one to top up its tryon_tokens balance. */
+export interface ShopToken {
+  code: string;
+  shop_id: string | null;
+  status: "active" | "used" | "cancelled";
+  created_ms: number;
+  redeemed_ms: number | null;
+  redeemed_by: string | null;
+  cancelled_ms: number | null;
+  note: string;
+}
+
+export const adminTokens = (adminToken: string, status?: string): Promise<{ tokens: ShopToken[] }> =>
+  call("GET", `/api/v1/admin/tokens${status ? `?status=${status}` : ""}`, undefined, adminToken);
+
+export const adminMintTokens = (
+  adminToken: string,
+  count: number,
+  note?: string,
+): Promise<{ tokens: ShopToken[] }> =>
+  call("POST", "/api/v1/admin/tokens/mint", { count, ...(note ? { note } : {}) }, adminToken);
+
+export const adminCancelToken = (adminToken: string, code: string): Promise<{ token: ShopToken }> =>
+  call("POST", "/api/v1/admin/tokens/cancel", { code }, adminToken);

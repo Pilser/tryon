@@ -1,29 +1,36 @@
 /* pages/admin.tsx - the approval console. ADMIN_TOKEN gate (the shop
-   dashboard's #db-token pattern), then two tabs: pending requests
+   dashboard's #db-token pattern), then three tabs: pending requests
    (approve with a deploy allowance - the minted plat_ sign-in token
-   shows in the row - or a red reject) and approved/suspended (allowance
-   edits + suspend/reactivate). The admin token is kept in memory only. */
+   shows in the row - or a red reject), approved/suspended (allowance
+   edits + suspend/reactivate), and tokens (mint 4-digit shop codes,
+   cancel unclaimed ones). The admin token is kept in memory only. */
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ApiError,
   adminAllowance,
   adminApprove,
+  adminCancelToken,
+  adminMintTokens,
   adminReject,
   adminSuspend,
   adminReactivate,
+  adminTokens,
   adminUsers,
   type PlatformUser,
+  type ShopToken,
 } from "../api";
 import { ApprovedRow, PendingRow } from "../components/user-row";
 import { TokenCard } from "../components/token-card";
+import { TokensTab } from "../components/token-rows";
 import { base as b, boot, cx, pf, ui as u } from "../kit";
 
-type Tab = "pending" | "approved";
+type Tab = "pending" | "approved" | "tokens";
 
 export default function AdminPage(): JSX.Element {
   const [admin, setAdmin] = useState<string | null>(null);
   const [users, setUsers] = useState<PlatformUser[] | null>(null);
+  const [tokens, setTokens] = useState<ShopToken[] | null>(null);
   const [allow, setAllow] = useState<Record<string, string>>({});
   const [issued, setIssued] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<Tab>("pending");
@@ -36,11 +43,13 @@ export default function AdminPage(): JSX.Element {
     setBusy(true);
     void (async () => {
       try {
-        const [p, a] = await Promise.all([
+        const [p, a, t] = await Promise.all([
           adminUsers(token, "pending"),
           adminUsers(token, "approved"),
+          adminTokens(token),
         ]);
         setUsers([...p.users, ...a.users]);
+        setTokens(t.tokens);
         setAdmin(token);
       } catch (e) {
         setError(e instanceof ApiError ? e.message : "Could not load users - offline?");
@@ -132,7 +141,39 @@ export default function AdminPage(): JSX.Element {
         >
           Approved ({approved.length})
         </button>
+        <button
+          className={cx(pf.tab, tab === "tokens" && pf.tabOn)}
+          type="button"
+          onClick={() => setTab("tokens")}
+        >
+          Tokens ({tokens ? tokens.filter((t) => t.status === "active").length : 0})
+        </button>
       </div>
+      {tab === "tokens" && tokens ? (
+        <TokensTab
+          tokens={tokens}
+          busy={busy}
+          onMint={(count, note) =>
+            run(
+              async () => {
+                const res = await adminMintTokens(admin, count, note || undefined);
+                setTokens([...(tokens || []), ...res.tokens]);
+                setNote(`Minted ${res.tokens.length} tokens: ${res.tokens.map((t) => t.code).join(" ")}`);
+              },
+            )
+          }
+          onCancel={(code) =>
+            run(
+              async () => {
+                const res = await adminCancelToken(admin, code);
+                setTokens((tokens || []).map((t) => (t.code === code ? res.token : t)));
+                setNote(`Cancelled ${code}.`);
+              },
+            )
+          }
+        />
+      ) : null}
+      {tab !== "tokens" ? (
       <div className={cx(u.cardFlush)}>
         <div className={cx(u.cardHead)}>
           <p className={cx(u.cardTitle)}>{tab === "pending" ? "Requests" : "Approved shops"}</p>
@@ -202,6 +243,7 @@ export default function AdminPage(): JSX.Element {
           )}
         </div>
       </div>
+      ) : null}
     </main>
   );
 }

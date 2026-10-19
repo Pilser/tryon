@@ -7,6 +7,7 @@ pub mod ids;
 pub mod owner;
 pub mod person;
 pub mod photos;
+pub mod platform;
 pub mod products;
 pub mod quota;
 pub mod shop;

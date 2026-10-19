@@ -1,0 +1,122 @@
+/* routes/platform.rs - the only place that talks to the SaaSTryon
+platform. Phase E: a shop redeems a 4-digit platform code in its
+dashboard settings; the shop worker forwards it to the platform's
+`/api/v1/shop/tokens/redeem` with the shop's PLATFORM_TOKEN secret and
+passes the JSON verdict back. Not configured = clear 501, never a silent
+call. The platform URL is `PLATFORM_URL` (unset in the plain shop, which
+talks to Genlook directly). */
+use serde::{Deserialize, Serialize};
+use worker::{Env, Fetch, Headers, Method, Request, RequestInit, Response, Result};
+
+pub fn base(env: &Env) -> String {
+    env.var("PLATFORM_URL")
+        .map(|v| v.to_string())
+        .unwrap_or_default()
+        .trim()
+        .trim_end_matches('/')
+        .to_string()
+}
+
+/// Configured = both a URL and the per-shop secret exist.
+pub fn configured(env: &Env) -> bool {
+    !base(env).is_empty()
+        && !env
+            .var("PLATFORM_TOKEN")
+            .map(|v| v.to_string())
+            .unwrap_or_default()
+            .is_empty()
+}
+
+/// The Bearer the platform expects: the cluster secret bound at deploy
+/// time (`shops.cluster_id` on the platform side).
+pub fn secret(env: &Env) -> String {
+    env.var("PLATFORM_TOKEN")
+        .map(|v| v.to_string())
+        .unwrap_or_default()
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct RedeemIn {
+    pub code: String,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct RedeemOut {
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub balance: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+/// Pure 4-digit code check (tested): exactly four ASCII digits.
+pub fn valid_code(code: &str) -> bool {
+    code.len() == 4 && code.chars().all(|c| c.is_ascii_digit())
+}
+
+/// `POST /api/studio/tokens/redeem {code}` — owner-gated. Forwards to the
+/// platform and reports the verdict; the shop keeps no ledger of its own
+/// (the platform's `credits` table is the one balance that matters).
+pub async fn handle_redeem(mut req: Request, env: Env) -> Result<Response> {
+    if !crate::routes::owner::authorized(&req, &env) {
+        return crate::routes::errors::unauthorized();
+    }
+    let input: RedeemIn = req
+        .json()
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let code = input.code.trim().to_string();
+    if !valid_code(&code) {
+        return crate::routes::errors::json_error(400, "BAD_CODE", "enter the 4-digit code");
+    }
+    if !configured(&env) {
+        return crate::routes::errors::json_error(
+            501,
+            "PLATFORM_NOT_CONFIGURED",
+            "this shop does not run on the platform yet",
+        );
+    }
+    let url = format!("{}/api/v1/shop/tokens/redeem", base(&env));
+    let mut headers = Headers::new();
+    headers.set("authorization", &format!("Bearer {}", secret(&env)))?;
+    headers.set("content-type", "application/json")?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post);
+    init.with_headers(headers);
+    init.with_body(Some(
+        js_sys::Uint8Array::from(serde_json::to_vec(&RedeemIn { code })?.as_slice()).into(),
+    ));
+    let mut upstream = Fetch::Request(Request::new_with_init(&url, &init)?)
+        .send()
+        .await?;
+    let status = upstream.status_code();
+    let text = upstream.text().await?;
+    if (200..300).contains(&status) {
+        // The platform answers {token, shop_id}; the shop only needs to
+        // know it worked.
+        return Response::from_json(&RedeemOut {
+            ok: true,
+            balance: None,
+            message: Some("Code redeemed - your try-on balance was topped up.".into()),
+        });
+    }
+    let msg = serde_json::from_str::<serde_json::Value>(&text)
+        .ok()
+        .and_then(|v| v.get("message").and_then(|m| m.as_str()).map(String::from))
+        .unwrap_or_else(|| "the platform rejected that code".into());
+    crate::routes::errors::json_error(if status == 401 { 401 } else { 400 }, "REDEEM_FAILED", &msg)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codes_are_exactly_four_digits() {
+        assert!(valid_code("0421"));
+        assert!(!valid_code("421"));
+        assert!(!valid_code("04215"));
+        assert!(!valid_code("04a1"));
+        assert!(!valid_code(""));
+    }
+}

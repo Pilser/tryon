@@ -6,6 +6,7 @@ pub mod admin;
 pub mod auth;
 pub mod cfg;
 pub mod deployer;
+pub mod hostnames;
 pub mod http;
 pub mod outbound;
 pub mod shops;

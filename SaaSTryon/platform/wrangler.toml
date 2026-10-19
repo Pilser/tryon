@@ -8,6 +8,9 @@ compatibility_date = "2026-01-01"
 # Secrets (set via `wrangler secret put`; never in [vars]):
 #   ADMIN_TOKEN           bearer guarding /api/v1/admin/* (fail-closed when unset)
 #   CLOUDFLARE_API_TOKEN  reserved for the Phase C deployer (script-PUT), not read yet
+# Auth for live wrangler commands lives OUTSIDE this file: repo-root .env
+# (gitignored) exports CLOUDFLARE_API_TOKEN — see .env comments for the
+# sourcing one-liner. This file is tracked by git, so never paste a token here.
 
 # Platform control-plane database. Schema: migrations/0001_init.sql,
 # applied idempotently by store::ensure_schema().

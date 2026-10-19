@@ -148,7 +148,10 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
             }
             crate::routes::person::check_file_part(&f.type_(), bytes.len())
                 .map_err(|e| worker::Error::RustError(e.to_string()))?;
-            let key = slot_key(&id, slot, &f.name());
+            let key = crate::tenant::apply_prefix(
+                &crate::tenant::r2_prefix(&env),
+                &slot_key(&id, slot, &f.name()),
+            );
             bucket
                 .put(key.clone(), bytes)
                 .http_metadata(HttpMetadata {

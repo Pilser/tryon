@@ -4,6 +4,7 @@ in the routes modules, storage in `store.rs` and `routes/genlook_api.rs`. */
 pub mod genlook;
 pub mod routes;
 pub mod store;
+pub mod tenant;
 
 pub use genlook::{GenlookClient, GenlookError};
 pub use store::{ProductStore, ShopStore};

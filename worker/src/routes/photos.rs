@@ -54,15 +54,30 @@ pub fn photo_key(device_id: &str, created_ms: i64, rand: u32, mime: &str) -> Str
 
 /// A key we are willing to read or delete: it must live under the people
 /// prefix and stay inside its folder (no traversal, no product images).
+/// Tenant shops namespace keys under `shops/<shop-id>/…`, so the
+/// namespace is stripped for validation and kept in the returned key.
 pub fn clean_stored_key(raw: &str) -> Option<String> {
     let key = raw.trim();
-    if !key.starts_with(PHOTO_PREFIX) || key.len() > 200 {
+    if key.len() > 200 {
+        return None;
+    }
+    let logical = match key.strip_prefix("shops/") {
+        Some(rest) => {
+            let (shop, tail) = rest.split_once('/')?;
+            if shop.is_empty() {
+                return None;
+            }
+            tail
+        }
+        None => key,
+    };
+    if !logical.starts_with(PHOTO_PREFIX) {
         return None;
     }
     if key.contains("..") || key.ends_with('/') {
         return None;
     }
-    let body = &key[PHOTO_PREFIX.len()..];
+    let body = &logical[PHOTO_PREFIX.len()..];
     let (device, rest) = body.split_once('/')?;
     if device.is_empty() || rest.is_empty() || rest.contains('/') {
         return None;
@@ -140,7 +155,10 @@ pub async fn handle_backup(mut req: Request, env: Env) -> worker::Result<Respons
     let db = device::db(&env)?;
     let now = device::now_ms();
     let rand = (js_sys::Math::random() * (u32::MAX as f64)) as u32;
-    let key = photo_key(&id, now, rand, &mime);
+    let key = crate::tenant::apply_prefix(
+        &crate::tenant::r2_prefix(&env),
+        &photo_key(&id, now, rand, &mime),
+    );
     bucket(&env)?
         .put(key.clone(), bytes.clone())
         .http_metadata(HttpMetadata {
@@ -398,6 +416,17 @@ mod tests {
         assert!(clean_stored_key("people/a1b2c3d4/sub/dir.jpg").is_none());
         assert!(clean_stored_key("people//x.jpg").is_none());
         assert!(clean_stored_key("people/a1b2c3d4/x y.jpg").is_none());
+    }
+
+    #[test]
+    fn tenant_namespaced_keys_validate_after_the_prefix() {
+        // Tenant shops store people photos under `shops/<id>/people/…`.
+        assert!(clean_stored_key("shops/ab12cd34/people/a1b2c3d4/1760000000000-7.jpg").is_some());
+        // The namespace does not widen what is readable.
+        assert!(clean_stored_key("shops/ab12cd34/products/coat-01.jpg").is_none());
+        assert!(clean_stored_key("shops//people/a1b2c3d4/1-7.jpg").is_none());
+        assert!(clean_stored_key("shops/ab12cd34/people/../../etc/passwd").is_none());
+        assert!(clean_stored_key("shops/ab12cd34").is_none());
     }
 
     #[test]

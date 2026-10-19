@@ -130,7 +130,10 @@ pub async fn handle_save(mut req: Request, env: Env) -> Result<Response> {
         if !bytes.is_empty() {
             crate::routes::person::check_file_part(&f.type_(), bytes.len())
                 .map_err(|e| worker::Error::RustError(e.to_string()))?;
-            let key = crate::routes::studio::shop_logo_key(&f.name());
+            let key = crate::tenant::apply_prefix(
+                &crate::tenant::r2_prefix(&env),
+                &crate::routes::studio::shop_logo_key(&f.name()),
+            );
             bucket
                 .put(key.clone(), bytes)
                 .http_metadata(HttpMetadata {

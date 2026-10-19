@@ -7,6 +7,15 @@ SHOP_NAME = "TryOn & Shop"
 SHOP_CURRENCY = "UGX"
 R2_PUBLIC_BASE = ""
 
+# Phase F tenant wiring (set by the SaaSTryon deployer via script-PUT
+# metadata when this shop runs on the platform; absent = plain shop):
+#   SHOP_ID         namespaces every R2 key under `shops/<id>/…`
+#   PLATFORM_TOKEN  Bearer for the platform API (token redeem, metered
+#                   Genlook proxy). The deployer binds it as a secret.
+#   GENLOOK_PROXY   optional service binding to the outbound proxy; the
+#                   HTTP path (PLATFORM_URL) is the fallback used today.
+# Plain shops never see these and keep calling Genlook directly.
+
 # Secrets (set via `wrangler secret put`): GENLOOK_API_KEY, OWNER_TOKEN, OWNER_WHATSAPP
 # SHOP_CURRENCY is the shop default for new bundles (dropdown in the studio);
 # any code from shared/src/currency.rs, UGX when unset.

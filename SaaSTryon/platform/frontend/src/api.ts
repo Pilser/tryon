@@ -97,6 +97,19 @@ export interface MeOut {
 export const me = (sessionId: string): Promise<MeOut> =>
   call("GET", "/api/v1/me", undefined, sessionId);
 
+export interface DeployOut {
+  ok: boolean;
+  shop_id: string;
+  subdomain: string;
+  url: string | null;
+}
+
+/** One deploy uses 1 from the owner's allowance (402 when exhausted). */
+export const deployShop = (
+  sessionId: string,
+  input: { subdomain: string; shop_name?: string; tier?: string },
+): Promise<DeployOut> => call("POST", "/api/v1/deploy", input, sessionId);
+
 /* ------------------------------------------------------------ admin --- */
 
 export const adminUsers = (

@@ -27,7 +27,7 @@ HTTP status (mirrors the shop's `routes/errors.rs` shape). */
 use serde::de::DeserializeOwned;
 use worker::{Env, Method, Request, Response, Result};
 
-use crate::{admin, auth, outbound};
+use crate::{admin, auth, deploy, outbound};
 
 /// Everything under `/api/v1/*`; anything else is a static asset.
 pub async fn route(mut req: Request, env: Env) -> Result<Response> {
@@ -55,6 +55,8 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
             admin::handle_cancel_token(env, &mut req).await
         }
         (Method::Post, ["shop", "tokens", "redeem"]) => auth::handle_redeem(env, &mut req).await,
+        // Phase F: the owner-facing deploy form.
+        (Method::Post, ["deploy"]) => deploy::handle_deploy(env, &mut req).await,
         // Phase E: the metered Genlook proxy for tenant shops.
         (Method::Get, ["shop", "genlook", rest @ ..]) => {
             outbound::handle_genlook(env, &mut req, rest.join("/")).await

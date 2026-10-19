@@ -2,25 +2,30 @@
    the token-card login (shop dashboard pattern, tryon.platform.v1 key);
    with one it is the owner's allowance numbers - and the admin console
    entry when the signed-in seat is the admin role. */
-import { useCallback, useEffect, useState, type JSX } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type JSX } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ApiError,
   type MeOut,
   clearSession,
+  deployShop,
   loadSession,
   login,
   me,
   saveSession,
 } from "../api";
 import { TokenCard } from "../components/token-card";
-import { base as b, boot, cx, ui as u } from "../kit";
+import { base as b, boot, cx, pf, ui as u } from "../kit";
 
 export default function HomePage(): JSX.Element {
   const [view, setView] = useState<"loading" | "gate" | "ready">("loading");
   const [data, setData] = useState<MeOut | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [sub, setSub] = useState("");
+  const [deploying, setDeploying] = useState(false);
+  const [deployError, setDeployError] = useState("");
+  const [liveUrl, setLiveUrl] = useState("");
 
   const load = useCallback(() => {
     const s = loadSession();
@@ -56,6 +61,34 @@ export default function HomePage(): JSX.Element {
       } catch (e) {
         setError(e instanceof ApiError ? e.message : "Could not sign in - offline?");
         setBusy(false);
+      }
+    })();
+  }
+
+  function submitDeploy(ev: FormEvent): void {
+    ev.preventDefault();
+    const s = loadSession();
+    if (!s) return;
+    const slug = sub.trim().toLowerCase();
+    if (!slug) {
+      setDeployError("Pick the address your customers will type.");
+      return;
+    }
+    setDeploying(true);
+    setDeployError("");
+    setLiveUrl("");
+    void (async () => {
+      try {
+        const out = await deployShop(s.session_id, { subdomain: slug });
+        setLiveUrl(out.url || `https://${out.subdomain}.crowdy.app`);
+        setSub("");
+        load();
+      } catch (e) {
+        setDeployError(
+          e instanceof ApiError ? e.message : "Deploy failed - the platform did not answer.",
+        );
+      } finally {
+        setDeploying(false);
       }
     })();
   }
@@ -111,9 +144,40 @@ export default function HomePage(): JSX.Element {
           <div className={cx(u.card)}>
             <h2 className={cx(u.cardTitle)}>Deploy shop</h2>
             <p className={cx(u.rowSub)}>
-              Shop deploys start in the next phase - each one uses 1 from your
-              allowance, so {left} deploy{left === 1 ? "" : "s"} remain before a top-up.
+              Each deploy uses 1 from your allowance, so {left} deploy
+              {left === 1 ? "" : "s"} remain before a top-up.
             </p>
+            <form onSubmit={submitDeploy}>
+              <label className={cx(pf.label)} htmlFor="dp-sub">
+                Shop address
+              </label>
+              <input
+                id="dp-sub"
+                className={cx(pf.field)}
+                value={sub}
+                onChange={(e) => setSub(e.target.value)}
+                placeholder="amina-studio"
+                autoComplete="off"
+                disabled={deploying || left < 1}
+              />
+              <p className={cx(u.inlineNote)}>
+                Customers will reach your shop at{" "}
+                <strong>{sub.trim() || "your-shop"}.crowdy.app</strong>.
+              </p>
+              {deployError ? <p className={cx(u.inlineNote)}>{deployError}</p> : null}
+              {liveUrl ? (
+                <p className={cx(u.inlineNote)}>Shop is live: {liveUrl}</p>
+              ) : null}
+              <div className={cx(u.btnRow)}>
+                <button
+                  className={cx(b.btn, b.btnPrimary, u.btnGrow)}
+                  type="submit"
+                  disabled={deploying || left < 1 || !sub.trim()}
+                >
+                  {deploying ? "Deploying..." : left < 1 ? "Allowance exhausted" : "Deploy shop"}
+                </button>
+              </div>
+            </form>
           </div>
           {data.user.role === "admin" ? (
             <div className={cx(u.btnRow)}>

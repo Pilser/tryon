@@ -5,6 +5,7 @@ file (`http.rs` router, `auth.rs` token/sessions, `admin.rs` approval,
 pub mod admin;
 pub mod auth;
 pub mod cfg;
+pub mod deploy;
 pub mod deployer;
 pub mod hostnames;
 pub mod http;

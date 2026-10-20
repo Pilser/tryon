@@ -408,15 +408,14 @@ pub async fn activity(
         Some(_) => "SELECT id, actor, action, subject, meta, created_ms FROM audit WHERE subject = ? ORDER BY created_ms DESC LIMIT ?",
         None => "SELECT id, actor, action, subject, meta, created_ms FROM audit ORDER BY created_ms DESC LIMIT ?",
     };
-    let mut q = db.prepare(sql);
-    q = match shop_id {
-        Some(s) => q.bind(&str_args([s]))?,
-        None => q,
-    };
-    q.bind(&[wasm_bindgen::JsValue::from(limit as f64)])?
-        .all()
-        .await?
-        .results()
+    // D1's bind() REPLACES the parameter list, so every placeholder has
+    // to be bound in ONE call.
+    let mut binds: Vec<wasm_bindgen::JsValue> = Vec::new();
+    if let Some(s) = shop_id {
+        binds.push(wasm_bindgen::JsValue::from(s));
+    }
+    binds.push(wasm_bindgen::JsValue::from(limit as f64));
+    db.prepare(sql).bind(&binds)?.all().await?.results()
 }
 
 // --------------------------------------------------------------- tests

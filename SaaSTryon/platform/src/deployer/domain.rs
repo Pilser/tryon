@@ -36,7 +36,9 @@ pub fn attach_request(
 }
 
 /// Attaches `{sub}.{zone}` to the shop script and returns its public
-/// URL. `Ok(None)` when no zone is configured (workers.dev only).
+/// URL. A hostname that is still attached to one of our old shop
+/// scripts is freed first (a redeploy puts the name on a new script),
+/// and the orphan script is deleted.
 pub async fn attach_shop_domain(
     cf: &impl Transport,
     cfg: &CfConfig,
@@ -47,11 +49,74 @@ pub async fn attach_shop_domain(
         return Ok(None);
     };
     let hostname = cfg.shop_hostname(subdomain);
+
+    // Free the name if an older shop script still holds it.
+    if let Some(old) = free_hostname(cf, &cfg.account, &hostname).await? {
+        if old != service && old.starts_with("shop-") {
+            // The old script is ours and is now unreachable.
+            let _ = call_with_retry(
+                cf,
+                CfRequest {
+                    method: Method::Delete,
+                    path: format!("/accounts/{}/workers/scripts/{}", cfg.account, old),
+                    body: CfBody::Empty,
+                    jwt: None,
+                },
+            )
+            .await;
+        }
+    }
+
     let Some(req) = attach_request(&cfg.account, &zone_id, &hostname, service) else {
         return Ok(None);
     };
     call_with_retry(cf, req).await?;
     Ok(Some(format!("https://{hostname}")))
+}
+
+/// Frees a hostname that is still attached to one of our shop scripts.
+/// Returns the script that held it.
+async fn free_hostname(
+    cf: &impl Transport,
+    account: &str,
+    hostname: &str,
+) -> Result<Option<String>, CfError> {
+    let domains = call_with_retry(
+        cf,
+        CfRequest {
+            method: Method::Get,
+            path: format!("/accounts/{account}/workers/domains"),
+            body: CfBody::Empty,
+            jwt: None,
+        },
+    )
+    .await?;
+    let domains = super::cf_api::result_of(&domains);
+    for d in domains.as_array().cloned().unwrap_or_default() {
+        if d.get("hostname").and_then(|h| h.as_str()) != Some(hostname) {
+            continue;
+        }
+        let Some(id) = d.get("id").and_then(|i| i.as_str()) else {
+            continue;
+        };
+        let service = d
+            .get("service")
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_string();
+        call_with_retry(
+            cf,
+            CfRequest {
+                method: Method::Delete,
+                path: format!("/accounts/{account}/workers/domains/{id}"),
+                body: CfBody::Empty,
+                jwt: None,
+            },
+        )
+        .await?;
+        return Ok(Some(service));
+    }
+    Ok(None)
 }
 
 #[cfg(test)]
@@ -61,9 +126,9 @@ mod tests {
 
     #[test]
     fn attach_request_carries_zone_hostname_and_service() {
-        let req =
-            attach_request("zone1", "amina.latiforge.com", "shop-1a2b3c4d").expect("valid attach");
-        assert!(req.path.contains("/workers/domains"));
+        let req = attach_request("acc1", "zone1", "amina.latiforge.com", "shop-1a2b3c4d")
+            .expect("valid attach");
+        assert_eq!(req.path, "/accounts/acc1/workers/domains");
         let CfBody::Json(v) = req.body else {
             panic!("expected a json body");
         };

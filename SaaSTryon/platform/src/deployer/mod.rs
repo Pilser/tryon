@@ -297,7 +297,7 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
                 .await?
                 .ok_or_else(|| {
                     DeployError::store(
-                        "the shop's database is gone - delete the shop and deploy again".into(),
+                        "the shop's database is gone - delete the shop and deploy again",
                     )
                 })?;
             (id8, row.id.clone(), row.cluster_id.clone(), d1)

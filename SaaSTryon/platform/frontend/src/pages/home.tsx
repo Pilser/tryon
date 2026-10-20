@@ -7,12 +7,15 @@ import { createRoot } from "react-dom/client";
 import {
   ApiError,
   type MeOut,
+  applyLanding,
+  attachShopDomain,
   clearSession,
   deployShop,
   loadSession,
   login,
   me,
   saveSession,
+  uploadLandingFile,
 } from "../api";
 import { TokenCard } from "../components/token-card";
 import { base as b, boot, cx, pf, ui as u } from "../kit";
@@ -26,6 +29,12 @@ export default function HomePage(): JSX.Element {
   const [deploying, setDeploying] = useState(false);
   const [deployError, setDeployError] = useState("");
   const [liveUrl, setLiveUrl] = useState("");
+  const [domain, setDomain] = useState("");
+  const [domainBusy, setDomainBusy] = useState(false);
+  const [domainNote, setDomainNote] = useState("");
+  const [landingFiles, setLandingFiles] = useState<string[]>([]);
+  const [landingBusy, setLandingBusy] = useState(false);
+  const [landingNote, setLandingNote] = useState("");
 
   const load = useCallback(() => {
     const s = loadSession();
@@ -89,6 +98,65 @@ export default function HomePage(): JSX.Element {
         );
       } finally {
         setDeploying(false);
+      }
+    })();
+  }
+
+  function submitDomain(ev: FormEvent): void {
+    ev.preventDefault();
+    const s = loadSession();
+    if (!s) return;
+    setDomainBusy(true);
+    setDomainNote("");
+    void (async () => {
+      try {
+        const out = await attachShopDomain(s.session_id, domain.trim());
+        setDomainNote(`Live on ${out.url} (zone ${out.zone}).`);
+        setDomain("");
+      } catch (e) {
+        setDomainNote(e instanceof ApiError ? e.message : "Could not attach that domain.");
+      } finally {
+        setDomainBusy(false);
+      }
+    })();
+  }
+
+  function uploadLanding(files: FileList | null): void {
+    const s = loadSession();
+    if (!s || !files || files.length === 0) return;
+    setLandingBusy(true);
+    setLandingNote("");
+    const list = Array.from(files);
+    void (async () => {
+      const done: string[] = [];
+      for (const f of list) {
+        try {
+          const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
+          const out = await uploadLandingFile(s.session_id, rel, f);
+          done.push(out.path);
+        } catch (e) {
+          setLandingNote(e instanceof ApiError ? e.message : "Upload failed.");
+        }
+      }
+      setLandingFiles(done);
+      setLandingBusy(false);
+      if (done.length) setLandingNote(`${done.length} file(s) uploaded - publish when ready.`);
+    })();
+  }
+
+  function publishLanding(): void {
+    const s = loadSession();
+    if (!s) return;
+    setLandingBusy(true);
+    setLandingNote("");
+    void (async () => {
+      try {
+        const out = await applyLanding(s.session_id);
+        setLandingNote(`Published ${out.files} file(s). The landing page is live at the shop root.`);
+      } catch (e) {
+        setLandingNote(e instanceof ApiError ? e.message : "Could not publish the landing page.");
+      } finally {
+        setLandingBusy(false);
       }
     })();
   }
@@ -179,6 +247,76 @@ export default function HomePage(): JSX.Element {
               </div>
             </form>
           </div>
+          {liveUrl ? (
+            <>
+              <div className={cx(u.card)}>
+                <h2 className={cx(u.cardTitle)}>Your own domain</h2>
+                <p className={cx(u.rowSub)}>
+                  Point a domain you own at this shop. Add this Cloudflare
+                  account as a collaborator on that domain's zone, then type
+                  the domain here - the certificate is issued for you.
+                </p>
+                <form onSubmit={submitDomain}>
+                  <label className={cx(pf.label)} htmlFor="dp-domain">
+                    Your domain
+                  </label>
+                  <input
+                    id="dp-domain"
+                    className={cx(pf.field)}
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    placeholder="myshop.com"
+                    autoComplete="off"
+                    disabled={domainBusy}
+                  />
+                  {domainNote ? (
+                    <p className={cx(u.inlineNote)}>{domainNote}</p>
+                  ) : null}
+                  <div className={cx(u.btnRow)}>
+                    <button
+                      className={cx(b.btn, b.btnPrimary, u.btnGrow)}
+                      type="submit"
+                      disabled={domainBusy || !domain.trim()}
+                    >
+                      {domainBusy ? "Attaching..." : "Attach domain"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+              <div className={cx(u.card)}>
+                <h2 className={cx(u.cardTitle)}>Landing page</h2>
+                <p className={cx(u.rowSub)}>
+                  Upload the dist folder of your own landing page. It is
+                  served at the root of your shop, the shop itself stays at
+                  /app. List your products in it with the feed:
+                  <br />
+                  <code>/api/feed</code> returns JSON with a card per
+                  product and the link to its page.
+                </p>
+                <div className={cx(pf.fieldRow)}>
+                  <input
+                    id="dp-landing"
+                    className={cx(pf.field)}
+                    type="file"
+                    multiple
+                    onChange={(e) => void uploadLanding(e.target.files)}
+                    disabled={landingBusy}
+                  />
+                </div>
+                {landingNote ? <p className={cx(u.inlineNote)}>{landingNote}</p> : null}
+                <div className={cx(u.btnRow)}>
+                  <button
+                    className={cx(b.btn, b.btnPrimary, u.btnGrow)}
+                    type="button"
+                    disabled={landingBusy || !landingFiles.length}
+                    onClick={() => void publishLanding()}
+                  >
+                    {landingBusy ? "Publishing..." : "Publish landing page"}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : null}
           {data.user.role === "admin" ? (
             <div className={cx(u.btnRow)}>
               <a className={cx(b.btn, b.btnSecondary, u.btnGrow)} href="admin.html">

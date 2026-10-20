@@ -24,17 +24,21 @@ pub struct Shop {
     pub tier: String,
     pub depot_version: String,
     pub created_ms: i64,
+    /// The Bearer the shop uses for the platform API. NOT the script
+    /// name (that one is public - it is the DNS label).
+    #[serde(default)]
+    pub platform_token: Option<String>,
 }
 
 const SHOP_COLS: &str =
-    "id,owner_id,name,subdomain,cluster_id,status,tier,depot_version,created_ms";
+    "id,owner_id,name,subdomain,cluster_id,status,tier,depot_version,created_ms,platform_token";
 
-/// Finds a shop by its cluster token — the per-shop secret bound at
+/// Finds a shop by its platform token — the per-shop secret bound at
 /// deploy time and used as the Bearer credential when the shop calls
-/// the platform.
+/// the platform (token redeem, the metered Genlook proxy).
 pub async fn shop_by_token(db: &D1Database, token: &str) -> Result<Option<Shop>> {
     db.prepare(&format!(
-        "SELECT {SHOP_COLS} FROM shops WHERE cluster_id = ?"
+        "SELECT {SHOP_COLS} FROM shops WHERE platform_token = ?"
     ))
     .bind(&str_args([token]))?
     .first::<Shop>(None)
@@ -46,6 +50,16 @@ pub async fn shop_by_id(db: &D1Database, id: &str) -> Result<Option<Shop>> {
         .bind(&str_args([id]))?
         .first::<Shop>(None)
         .await
+}
+
+/// The owner's shop (a customer has one shop on the platform).
+pub async fn shop_by_owner(db: &D1Database, owner_id: &str) -> Result<Option<Shop>> {
+    db.prepare(&format!(
+        "SELECT {SHOP_COLS} FROM shops WHERE owner_id = ? ORDER BY created_ms DESC LIMIT 1"
+    ))
+    .bind(&str_args([owner_id]))?
+    .first::<Shop>(None)
+    .await
 }
 
 // ---------------------------------------------------------- shop tokens

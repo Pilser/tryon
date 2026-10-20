@@ -174,15 +174,21 @@ impl BundleData {
 
     /// `{"/path": {"hash": .., "size": ..}}` for the session call.
     pub fn assets_manifest(&self) -> Value {
-        let mut manifest = serde_json::Map::new();
-        for (path, bytes) in &self.assets {
-            manifest.insert(
-                normalize_asset_path(path),
-                json!({ "hash": asset_hash(path, bytes), "size": bytes.len() }),
-            );
-        }
-        Value::Object(manifest)
+        assets_manifest(&self.assets)
     }
+}
+
+/// The Cloudflare asset manifest for a set of files:
+/// `{"/path": {"hash": .., "size": ..}}`.
+pub fn assets_manifest(assets: &[(String, Vec<u8>)]) -> Value {
+    let mut manifest = serde_json::Map::new();
+    for (path, bytes) in assets {
+        manifest.insert(
+            normalize_asset_path(path),
+            json!({ "hash": asset_hash(path, bytes), "size": bytes.len() }),
+        );
+    }
+    Value::Object(manifest)
 }
 
 // ------------------------------------------------- async R2 loading

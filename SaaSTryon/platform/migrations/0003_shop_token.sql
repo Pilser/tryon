@@ -1,0 +1,12 @@
+-- SaaSTryon platform schema, rev 0003: the per-shop platform token and
+-- the customer domain (Phase G).
+--
+-- `platform_token` is the Bearer the shop uses for the platform API
+-- (token redeem, the metered Genlook proxy). It is NOT the script name:
+-- the script name is public (it is the DNS label), so the token has to
+-- be its own secret.
+--
+-- ALTER TABLE is not idempotent in SQLite, so the migrator tolerates
+-- "duplicate column name" and keeps going (the column is already there
+-- on the second cold start).
+ALTER TABLE shops ADD COLUMN platform_token TEXT;

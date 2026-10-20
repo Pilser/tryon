@@ -33,6 +33,12 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get("/studio", |_, _| moved("/app/studio.html?owner=1"))
         .get("/healthz", |_, _| routes::health::response())
         // Catalogue
+        .options_async("/api/feed", |_, _| async move {
+            routes::feed::handle_preflight()
+        })
+        .get_async("/api/feed", |req, ctx| async move {
+            routes::feed::handle_feed(&req, &ctx.env).await
+        })
         .get_async("/api/products", |req, ctx| async move {
             let q = req
                 .url()

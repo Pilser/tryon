@@ -27,7 +27,7 @@ HTTP status (mirrors the shop's `routes/errors.rs` shape). */
 use serde::de::DeserializeOwned;
 use worker::{Env, Method, Request, Response, Result};
 
-use crate::{admin, auth, credits, deploy, outbound};
+use crate::{admin, auth, credits, deploy, domain, landing, outbound};
 
 /// Everything under `/api/v1/*`; anything else is a static asset.
 pub async fn route(mut req: Request, env: Env) -> Result<Response> {
@@ -55,6 +55,11 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
             admin::handle_cancel_token(env, &mut req).await
         }
         (Method::Post, ["shop", "tokens", "redeem"]) => auth::handle_redeem(env, &mut req).await,
+        // Phase G: the customer's own domain and landing page.
+        (Method::Post, ["shop", "domain"]) => domain::handle_domain(env, &mut req).await,
+        (Method::Post, ["shop", "landing", "file"]) => landing::handle_upload(env, req).await,
+        (Method::Post, ["shop", "landing", "apply"]) => landing::handle_apply(env, &mut req).await,
+        (Method::Get, ["shop", "landing"]) => landing::handle_list(env, &req).await,
         // Phase G: manual billing gate for extra tryon_tokens.
         (Method::Post, ["shop", "credits", "request"]) => {
             credits::handle_shop_request(env, &mut req).await

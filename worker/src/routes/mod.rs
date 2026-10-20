@@ -1,6 +1,7 @@
 pub mod categories;
 pub mod device;
 pub mod errors;
+pub mod feed;
 pub mod genlook_api;
 pub mod health;
 pub mod ids;

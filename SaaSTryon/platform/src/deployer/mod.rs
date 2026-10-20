@@ -214,6 +214,10 @@ pub struct ShopRow {
     /// The deployed bundle id (rollback re-PUTs, §7.3).
     pub depot_version: String,
     pub created_ms: i64,
+    /// The Bearer the shop uses for the platform API. The script name is
+    /// public (it is the DNS label), so the token is its own secret and
+    /// lives in the shops row.
+    pub platform_token: String,
 }
 
 // ------------------------------------------------------ orchestration
@@ -288,6 +292,7 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
         tier: input.tier.clone(),
         depot_version: input.bundle_id.clone(),
         created_ms: input.now_ms,
+        platform_token: token.clone(),
     };
     store.record_shop(&row).await.map_err(DeployError::store)?;
     store

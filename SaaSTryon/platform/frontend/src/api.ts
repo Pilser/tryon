@@ -80,6 +80,24 @@ async function call<T>(
   return data as T;
 }
 
+/** A multipart call (the browser sets the boundary, so no content-type). */
+async function callForm<T>(
+  path: string,
+  form: FormData,
+  bearer?: string,
+): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) },
+    body: form,
+  });
+  const data = (await res.json().catch(() => ({}))) as { message?: string };
+  if (!res.ok) {
+    throw new ApiError(res.status, data.message || `request failed (${res.status})`);
+  }
+  return data as T;
+}
+
 /* ------------------------------------------------------------ user --- */
 
 export const signup = (input: { email: string; contact: string; shop_name?: string }): Promise<{ status: string }> =>
@@ -109,6 +127,49 @@ export const deployShop = (
   sessionId: string,
   input: { subdomain: string; shop_name?: string; tier?: string },
 ): Promise<DeployOut> => call("POST", "/api/v1/deploy", input, sessionId);
+
+/* ---------------------------------------------- shop: domain + landing */
+
+export interface ShopDomainOut {
+  ok: boolean;
+  hostname: string;
+  url: string;
+  zone: string;
+}
+
+/** Attach the customer's own domain (their zone must be in this account). */
+export const attachShopDomain = (sessionId: string, domain: string): Promise<ShopDomainOut> =>
+  call("POST", "/api/v1/shop/domain", { domain }, sessionId);
+
+export interface LandingOut {
+  ok: boolean;
+  files: string[];
+  url: string;
+}
+
+export const listLanding = (sessionId: string): Promise<LandingOut> =>
+  call("GET", "/api/v1/shop/landing", undefined, sessionId);
+
+/** One file of the customer's dist (path is its place in the dist). */
+export const uploadLandingFile = (
+  sessionId: string,
+  path: string,
+  file: File,
+): Promise<{ ok: boolean; path: string; files: number }> => {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return callForm(
+    `/api/v1/shop/landing/file?path=${encodeURIComponent(path)}`,
+    form,
+    sessionId,
+  );
+};
+
+/** Publish: the landing files become the shop's root assets. */
+export const applyLanding = (
+  sessionId: string,
+): Promise<{ ok: boolean; files: number; url: string }> =>
+  call("POST", "/api/v1/shop/landing/apply", {}, sessionId);
 
 /* ------------------------------------------------------------ admin --- */
 

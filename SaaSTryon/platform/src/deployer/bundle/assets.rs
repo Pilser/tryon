@@ -75,12 +75,24 @@ pub async fn stage_assets(
     data: &BundleData,
     b: &MultipartBuilder,
 ) -> Result<StageOutcome, CfError> {
+    stage_asset_set(cf, account, script_name, &data.assets, b).await
+}
+
+/// The same flow for an explicit asset set - the landing page re-upload
+/// serves the app assets AND the customer's landing files in one go.
+pub async fn stage_asset_set(
+    cf: &impl Transport,
+    account: &str,
+    script_name: &str,
+    assets: &[(String, Vec<u8>)],
+    b: &MultipartBuilder,
+) -> Result<StageOutcome, CfError> {
     let session = call_with_retry(
         cf,
         CfRequest {
             method: worker::Method::Post,
             path: asset_session_path(account, script_name),
-            body: CfBody::Json(json!({ "manifest": data.assets_manifest() })),
+            body: CfBody::Json(json!({ "manifest": super::assets_manifest(assets) })),
             jwt: None,
         },
     )
@@ -106,7 +118,7 @@ pub async fn stage_assets(
             CfRequest {
                 method: worker::Method::Post,
                 path: ASSET_UPLOAD_PATH.replace("{account}", account),
-                body: CfBody::Raw(upload_body_for(b, &group, data)),
+                body: CfBody::Raw(upload_body_for(b, &group, assets)),
                 jwt: Some(session_jwt.clone()),
             },
         )
@@ -133,22 +145,23 @@ fn group_missing(flat: &[String]) -> Vec<Vec<String>> {
     vec![one]
 }
 
-fn resolve_hash(hash: &str, data: &BundleData) -> Result<(String, Vec<u8>), CfError> {
-    for (path, bytes) in &data.assets {
-        if asset_hash(&path, bytes) == hash {
-            return Ok((normalize_asset_path(path), bytes.clone()));
+fn resolve_hash_in(hash: &str, assets: &[(String, Vec<u8>)]) -> Option<(String, Vec<u8>)> {
+    for (path, bytes) in assets {
+        if asset_hash(path, bytes) == hash {
+            return Some((normalize_asset_path(path), bytes.clone()));
         }
     }
-    Err(CfError::transport(
-        0,
-        format!("session requested unknown asset hash {hash}"),
-    ))
+    None
 }
 
-fn upload_body_for(b: &MultipartBuilder, hashes: &[String], data: &BundleData) -> RawBody {
+fn upload_body_for(
+    b: &MultipartBuilder,
+    hashes: &[String],
+    assets: &[(String, Vec<u8>)],
+) -> RawBody {
     let mut files = Vec::new();
     for h in hashes {
-        if let Ok((path, bytes)) = resolve_hash(h, data) {
+        if let Some((path, bytes)) = resolve_hash_in(h, assets) {
             files.push((h.clone(), base64_encode(&bytes), mime_for_path(&path)));
         }
     }

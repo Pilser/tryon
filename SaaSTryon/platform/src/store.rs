@@ -14,9 +14,10 @@ pub use crate::shops::{
 };
 
 /// The migrations applied by [`ensure_schema`], in order.
-pub const MIGRATIONS: [&str; 2] = [
+pub const MIGRATIONS: [&str; 3] = [
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_shop_tokens.sql"),
+    include_str!("../migrations/0003_shop_token.sql"),
 ];
 
 /// Kept for callers that referenced the first migration directly.
@@ -63,6 +64,12 @@ pub async fn ensure_schema(env: &worker::Env) -> Result<()> {
             // batch on ";" and then chokes on the pieces it cannot parse
             // (a trailing ";" becomes an empty statement).
             db.prepare(stmt).run().await.map_err(|e| {
+                // "duplicate column name" = an ALTER that already ran on
+                // an earlier cold start. SQLite has no ADD COLUMN IF NOT
+                // EXISTS, so this is the idempotency guard.
+                if e.to_string().contains("duplicate column name") {
+                    return;
+                }
                 let shown: String = stmt.chars().take(64).collect();
                 Error::RustError(format!(
                     "schema migration {:04} failed at {shown:?}: {e}",

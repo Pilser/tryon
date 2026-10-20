@@ -17,4 +17,3 @@ CREATE TABLE IF NOT EXISTS shop_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_shop_tokens_shop
     ON shop_tokens (shop_id, status);
-;

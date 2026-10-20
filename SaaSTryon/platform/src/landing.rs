@@ -210,6 +210,16 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
     };
     let transport = crate::deployer::cf_api::FetchTransport::new(cfg.clone());
 
+    // The landing files first (they only need a borrow), then the bundle
+    // (which takes the bucket).
+    let landing = match landing_files(&bucket, &shop.id).await {
+        Ok(f) => f,
+        Err(e) => return http::json_error(500, "LANDING", &e.to_string()),
+    };
+    if landing.is_empty() {
+        return http::json_error(400, "NO_FILES", "upload a landing file first");
+    }
+    let landing_count = landing.len();
     // The app assets (bundle) + the landing files.
     let bundle = match (R2BundleSource { bucket })
         .load_bundle(&shop.depot_version)
@@ -218,13 +228,6 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         Ok(b) => b,
         Err(e) => return http::json_error(500, "NO_BUNDLE", &e),
     };
-    let landing = match landing_files(&bucket, &shop.id).await {
-        Ok(f) => f,
-        Err(e) => return http::json_error(500, "LANDING", &e.to_string()),
-    };
-    if landing.is_empty() {
-        return http::json_error(400, "NO_FILES", "upload a landing file first");
-    }
     let mut assets = bundle.assets.clone();
     assets.extend(landing);
 
@@ -279,13 +282,13 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         &shop.id,
         "landing.apply",
         &shop.cluster_id,
-        &format!("{} files", landing.len()),
+        &format!("{} files", landing_count),
         auth::now_ms(),
     )
     .await?;
     Response::from_json(&json!({
         "ok": true,
-        "files": landing.len(),
+        "files": landing_count,
         "uploaded": staged.uploaded_parts,
         "url": format!("https://{}.latiforge.com", shop.subdomain),
     }))

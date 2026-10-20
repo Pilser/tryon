@@ -90,13 +90,15 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
     if title.is_empty() {
         return crate::routes::errors::bad_request("TITLE_REQUIRED", "title required");
     }
+    // The table has to exist for BOTH paths: a new category (no id)
+    // used to skip the DDL and die with "no such table: categories".
+    crate::store::exec_one(&db, crate::routes::studio::CATEGORIES_DDL)
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
     // Update path: keep the existing image unless a new file arrives.
     let mut id = form.get_field("id").unwrap_or_default().trim().to_string();
     let mut existing = None;
     if !id.is_empty() {
-        crate::store::exec_one(&db, crate::routes::studio::CATEGORIES_DDL)
-            .await
-            .map_err(|e| worker::Error::RustError(e.to_string()))?;
         let old: Option<CategoryRow> = db
             .prepare("SELECT id,title,image_url FROM categories WHERE id=?")
             .bind(&[JsValue::from(id.clone())])

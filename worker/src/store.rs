@@ -7,10 +7,7 @@ use tryon_shared::models::{Product, ProductFilter, ShopSettings};
 /// with an empty second statement and the whole call fails with
 /// "incomplete input" (SQLITE_ERROR). `prepare().run()` sends the
 /// statement as it is, so every DDL call in the shop goes through here.
-pub async fn exec_one(
-    db: &worker::d1::D1Database,
-    sql: &str,
-) -> Result<(), worker::Error> {
+pub async fn exec_one(db: &worker::d1::D1Database, sql: &str) -> Result<(), worker::Error> {
     db.prepare(sql)
         .run()
         .await

@@ -15,11 +15,31 @@ What lives in the account `499e8080f5fe32106d9043044fea6f72`
 |---|---|---|
 | `latiforge.com` | the platform (custom domain) | SaaSTryon control plane + landing page |
 | `amira-boutique-2.latiforge.com` | the shop script (custom domain) | a deployed tenant shop |
-| `jerboai.latiforge.com` | CNAME `jerboa-ui.pages.dev` | **Jerboa** tenant portal (Pages project `jerboa-ui`) |
 | `campusplan.latiforge.com` | CNAME `latiforge-campusplan.pages.dev` | staff access page (Pages project) |
 | `jerboapi.latiforge.com` | A `13.140.191.30` | the Jerboa API - a **VPS**, not Cloudflare |
 | `portainer.latiforge.com` | A `13.140.191.30` | Portainer on the same VPS |
 | `webmin.latiforge.com` | A `13.140.191.30` | Webmin on the same VPS |
+
+**Deleted 2026-10-20** (at the owner's request): the Pages project
+`jerboa-ui` and its custom domain `jerboai.latiforge.com` (CNAME ->
+`jerboa-ui.pages.dev`). Order matters:
+
+```bash
+# 1. the CNAME in the zone (scoped token with DNS edit is enough)
+DELETE /zones/{zone}/dns_records/{record_id}
+# 2. detach the custom domain from the project (global key only)
+DELETE /accounts/{acc}/pages/projects/jerboa-ui/domains/jerboai.latiforge.com
+# 3. delete the project (global key only)
+DELETE /accounts/{acc}/pages/projects/jerboa-ui
+```
+
+Step 3 without step 2 fails with `8000028 "you must first delete all
+custom domains associated with your project"`. The Pages project was an
+ad-hoc upload of 3 files with **no source maps**, so the build output in
+`.local-rig/jerboa/` (3 builds, beautified) is the only copy - the
+original sources were never in Cloudflare. The **Jerboa API on the VPS
+(jerboapi.latiforge.com) was not touched**; only the Pages front end and
+its DNS record are gone.
 
 ## Workers scripts (Workers only, not Pages)
 

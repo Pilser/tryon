@@ -11,9 +11,9 @@ use serde::Deserialize;
 use serde_json::json;
 use worker::{Env, FormEntry, Request, Response, Result};
 
+use crate::deployer::bundle::{BundleSource, R2BundleSource};
 use crate::deployer::cf_api::{call_with_retry, CfBody, CfConfig, CfRequest, Transport};
-use crate::deployer::{domain, provision, DeployInputs, DeployResult};
-use crate::deployer::{BundleSource, R2BundleSource};
+use crate::deployer::{d1_name, domain, DeployInputs, DeployResult};
 use crate::{admin, auth, http, shops, store};
 
 /// Where the bundles live in the BUNDLES bucket.
@@ -134,7 +134,7 @@ pub async fn handle_delete(env: Env, req: &Request, id: &str) -> Result<Response
         let prefix = format!("shops/{id8}/");
         if let Ok(objects) = bucket.list().prefix(&prefix).execute().await {
             for o in objects.objects() {
-                let _ = bucket.delete(&o.key()).execute().await;
+                let _ = bucket.delete(&o.key()).await;
             }
             removed.push(format!("images under {prefix}"));
         }
@@ -145,7 +145,7 @@ pub async fn handle_delete(env: Env, req: &Request, id: &str) -> Result<Response
         let prefix = format!("landings/{}/", shop.id);
         if let Ok(objects) = bucket.list().prefix(&prefix).execute().await {
             for o in objects.objects() {
-                let _ = bucket.delete(&o.key()).execute().await;
+                let _ = bucket.delete(&o.key()).await;
             }
         }
     }
@@ -185,7 +185,7 @@ pub async fn handle_delete(env: Env, req: &Request, id: &str) -> Result<Response
     {
         let list = crate::deployer::cf_api::result_of(&databases);
         for d in list.as_array().cloned().unwrap_or_default() {
-            if d.get("name").and_then(|n| n.as_str()) == Some(provision::d1_name(&id8).as_str()) {
+            if d.get("name").and_then(|n| n.as_str()) == Some(d1_name(&id8).as_str()) {
                 if let Some(uuid) = d.get("uuid").and_then(|u| u.as_str()) {
                     let _ = call_with_retry(
                         &transport,

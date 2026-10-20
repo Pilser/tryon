@@ -343,7 +343,21 @@ function ShopCard(props: {
         >
           Open feed
         </a>
+        <a
+          className={cx(b.btn, b.btnSecondary, u.btnGrow)}
+          href={`${host}/app/studio.html?owner=1`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open studio
+        </a>
       </div>
+      {props.shop.owner_token ? (
+        <p className={cx(u.meta)}>
+          Studio token (the studio page asks for it):{" "}
+          <code>{props.shop.owner_token}</code>
+        </p>
+      ) : null}
     </div>
   );
 }

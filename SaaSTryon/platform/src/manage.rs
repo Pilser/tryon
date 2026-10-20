@@ -37,6 +37,14 @@ pub struct MintIn {
     pub note: Option<String>,
 }
 
+/// A code the owner claims for their shop.
+#[derive(Deserialize)]
+pub struct ClaimIn {
+    pub code: String,
+    #[serde(default)]
+    pub shop_id: Option<String>,
+}
+
 // ------------------------------------------------------------- settings
 
 /// `PATCH /api/v1/admin/shops/{id}` - the shop's settings.
@@ -441,6 +449,99 @@ pub async fn handle_owner_bundles(env: Env, req: &Request) -> Result<Response> {
     }
     let ids = list_bundles(&env).await?;
     Response::from_json(&json!({ "bundles": ids }))
+}
+
+/// `POST /api/v1/shop/tokens/claim {code}` - the owner takes a code the
+/// admin gave them: it becomes bound to their shop and buys credits.
+pub async fn handle_owner_claim(env: Env, req: &mut Request) -> Result<Response> {
+    let db = store::db(&env)?;
+    let Some(session) = auth::verify_session(&db, req.headers()).await? else {
+        return http::unauthorized();
+    };
+    let Some(body) = http::json_body::<ClaimIn>(req).await else {
+        return http::bad_request("BAD_JSON", "expected {code}");
+    };
+    let code = body.code.trim().to_string();
+    if !shops::valid_code(&code) {
+        return http::bad_request("BAD_CODE", "that is not a 4-digit code");
+    }
+    let Some(shop) = shops::owned_shop(&db, &session.user_id, body.shop_id.as_deref()).await?
+    else {
+        return http::json_error(404, "NO_SHOP", "deploy a shop first");
+    };
+    let now = auth::now_ms();
+    let claimed = match shops::redeem_shop_token(&db, &code, &shop.id, now).await {
+        Ok(t) => t,
+        Err(e) => {
+            let msg = e.to_string();
+            let code = if msg.contains("unknown token") {
+                "UNKNOWN_TOKEN"
+            } else {
+                "TOKEN_USED"
+            };
+            return http::json_error(400, code, "that code cannot be claimed");
+        }
+    };
+    shops::grant_credits(&db, &shop.id, 1, now).await?;
+    store::append_audit(&db, &shop.id, "tokens.claim", &code, "", now).await?;
+    Response::from_json(&json!({ "ok": true, "token": claimed, "shop_id": shop.id }))
+}
+
+/// `POST /api/v1/admin/bundles/{version}/deploy-all` - every shop moves
+/// to that bundle.
+pub async fn handle_bundle_deploy_all(env: Env, req: &Request, version: &str) -> Result<Response> {
+    if !admin::is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let db = store::db(&env)?;
+    let mut results = Vec::new();
+    for shop in shops::all_shops(&db).await? {
+        let res = match deploy_shop(&env, &shop, version).await {
+            Ok(r) => {
+                let body: serde_json::Value =
+                    serde_json::from_str(&r.body().unwrap_or_default()).unwrap_or(json!({}));
+                json!({ "shop_id": shop.id, "ok": true, "url": body.get("url") })
+            }
+            Err(e) => json!({ "shop_id": shop.id, "ok": false, "error": e.to_string() }),
+        };
+        results.push(res);
+    }
+    Response::from_json(&json!({ "ok": true, "version": version, "results": results }))
+}
+
+/// `POST /api/v1/admin/shops/{id}/owner-token` - a new studio token.
+/// The token is a secret of the shop script, so this redeploys the shop
+/// (the data stays).
+pub async fn handle_rotate_owner_token(env: Env, req: &Request, id: &str) -> Result<Response> {
+    if !admin::is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let db = store::db(&env)?;
+    let Some(shop) = shops::shop_by_id(&db, id).await? else {
+        return http::not_found("no such shop");
+    };
+    let bundle = if shop.depot_version.is_empty() {
+        list_bundles(&env)
+            .await?
+            .last()
+            .cloned()
+            .unwrap_or_default()
+    } else {
+        shop.depot_version.clone()
+    };
+    if bundle.is_empty() {
+        return http::json_error(400, "NO_BUNDLE", "no bundle to redeploy from");
+    }
+    let res = deploy_shop(&env, &shop, &bundle).await?;
+    let body: serde_json::Value =
+        serde_json::from_str(&res.body().unwrap_or_default()).unwrap_or(json!({}));
+    let fresh = shops::shop_by_id(&db, id).await?;
+    Response::from_json(&json!({
+        "ok": true,
+        "shop_id": id,
+        "owner_token": fresh.and_then(|s| s.owner_token),
+        "url": body.get("url"),
+    }))
 }
 
 /// `POST /api/v1/admin/shops/{id}/redeploy {bundle_id}` - one shop on a

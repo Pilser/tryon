@@ -111,7 +111,9 @@ async fn shop_view(
         landing_files: landing,
         activity_count,
         owner_token: if with_owner {
-            None
+            // The admin manages the shop, so the admin sees the studio
+            // token (and can rotate it).
+            shop.owner_token.clone()
         } else {
             shop.owner_token.clone()
         },

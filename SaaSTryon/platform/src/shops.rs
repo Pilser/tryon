@@ -139,6 +139,11 @@ pub fn new_code() -> String {
 
 const TOKEN_COLS: &str = "code,shop_id,status,created_ms,redeemed_ms,redeemed_by,cancelled_ms,note";
 
+/// Pure: a platform code is exactly four ASCII digits (tested).
+pub fn valid_code(code: &str) -> bool {
+    code.len() == 4 && code.chars().all(|c| c.is_ascii_digit())
+}
+
 /// Mints `count` unique codes, retrying per-code on primary-key
 /// collision. Returns the freshly minted rows in mint order.
 pub async fn mint_shop_tokens(

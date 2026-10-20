@@ -626,7 +626,49 @@ curl -s -X POST "$PLATFORM/api/v1/admin/credits/reject" \
   --data '{"id":"cr_1a2b3c4d5e6f7081","reason":"out of stock"}'
 ```
 
-### 1.7 Dashboard views
+### 1.7b Admin: the control plane over a shop (Phase H)
+
+Every endpoint below is ADMIN_TOKEN only and takes the shop id in the
+path (`shops.id`, e.g. `shop_327a7e32`).
+
+| Endpoint | Body | Answer |
+|---|---|---|
+| `PATCH /api/v1/admin/shops/{id}` | `{name?, tier?, status?}` | `{ok, id, name, tier, status}` |
+| `DELETE /api/v1/admin/shops/{id}` | — | `{ok, deleted, removed:[...]}` |
+| `POST /api/v1/admin/shops/{id}/redeploy` | `{bundle_id}` | `{ok, shop_id, url}` |
+| `POST /api/v1/admin/shops/{id}/tokens` | `{count?, note?}` | `{ok, tokens:[ShopToken]}` |
+| `POST /api/v1/admin/tokens/{code}/delete` | — | `{ok, deleted}` |
+| `GET /api/v1/admin/bundles` | — | `{bundles:["v0.9.52", ...]}` |
+| `POST /api/v1/admin/bundles?version=<label>` | multipart, every file under the field name `file` (the file name is its path inside the bundle) | `{ok, version, files:[...]}` |
+
+**`DELETE` is total**: the Worker script, the per-shop D1, the custom
+domains, the shop's images in the shared bucket, its landing files and
+its rows (shops, hostnames, credits, codes, credit requests, audit) are
+all removed. There is no undo — the UI asks for the shop name to be
+typed before it fires.
+
+A **redeploy** re-sends the script of the shop and keeps its database,
+its images and its data; only the bundle changes. The owner can do the
+same for their own shop:
+
+| Endpoint | Auth | Body |
+|---|---|---|
+| `GET /api/v1/shop/bundles` | owner session | — |
+| `POST /api/v1/shop/redeploy` | owner session | `{bundle_id}` |
+| `POST /api/v1/shop/tokens` | owner session | `{count?, note?}` — a code that belongs to the shop from the start |
+
+**Codes** (the 4-digit platform codes) move in three steps:
+
+| Action | Endpoint | Effect |
+|---|---|---|
+| mint for a shop | `POST /api/v1/admin/shops/{id}/tokens` (admin) or `POST /api/v1/shop/tokens` (owner) | the code is bound to the shop from the start (it can no longer be redeemed by someone else) |
+| freeze | `POST /api/v1/admin/tokens/cancel` | status `cancelled` — the row stays, the code stops working |
+| delete | `POST /api/v1/admin/tokens/{code}/delete` | the row is gone for good |
+
+A shop's codes are listed with `GET /api/v1/admin/tokens` (each row
+carries `shop_id`), and the owner sees theirs in the shop card.
+
+### 1.8 Dashboard views
 
 #### `GET /api/v1/shops`
 

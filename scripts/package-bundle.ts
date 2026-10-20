@@ -71,6 +71,10 @@ const seen = new Set<string>();
 for (const { dir, match } of INCLUDE) {
   const base = path.join(frontendRoot, dir);
   if (!existsSync(base)) continue;
+  /* The asset path mirrors the file's place in the wrangler assets dir
+     (./frontend): dist/main.js is served at /dist/main.js, and the shop
+     asks for /app/dist/main.js (the _redirects rewrite). */
+  const root = dir === "." ? "" : dir;
   const walk = (full: string, rel: string): void => {
     for (const name of readdirSync(full).sort()) {
       const child = path.join(full, name);
@@ -87,7 +91,7 @@ for (const { dir, match } of INCLUDE) {
       assets.push({ key: `assets/${childRel}`, path: `/${childRel}`, sha256: sha256(child) });
     }
   };
-  walk(base, "");
+  walk(base, root);
 }
 
 const manifest = {

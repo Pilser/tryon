@@ -211,10 +211,13 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
     let transport = crate::deployer::cf_api::FetchTransport::new(cfg.clone());
 
     // The app assets (bundle) + the landing files.
-    let bundle = R2BundleSource { bucket }
+    let bundle = match (R2BundleSource { bucket })
         .load_bundle(&shop.depot_version)
         .await
-        .map_err(|e| http::json_error(500, "NO_BUNDLE", &e))?;
+    {
+        Ok(b) => b,
+        Err(e) => return http::json_error(500, "NO_BUNDLE", &e),
+    };
     let landing = match landing_files(&bucket, &shop.id).await {
         Ok(f) => f,
         Err(e) => return http::json_error(500, "LANDING", &e.to_string()),
@@ -242,7 +245,7 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         .ok_or_else(|| worker::Error::RustError("shop has no platform token".into()))?;
 
     let mp = MultipartBuilder::new();
-    let staged = crate::deployer::bundle::stage_asset_set(
+    let staged = match crate::deployer::bundle::stage_asset_set(
         &transport,
         &cfg.account,
         &shop.cluster_id,
@@ -250,7 +253,10 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         &mp,
     )
     .await
-    .map_err(|e| http::json_error(502, "ASSETS", &e.to_string()))?;
+    {
+        Ok(s) => s,
+        Err(e) => return http::json_error(502, "ASSETS", &e.to_string()),
+    };
 
     let bindings = bindings_for(&id8, &d1_uuid, &token);
     let put = ScriptPut {
@@ -264,9 +270,9 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         wasm: &bundle.wasm,
         glue: &bundle.glue,
     };
-    call_with_retry(&transport, put.request(&mp))
-        .await
-        .map_err(|e| http::json_error(502, "CF_FAILED", &e.to_string()))?;
+    if let Err(e) = call_with_retry(&transport, put.request(&mp)).await {
+        return http::json_error(502, "CF_FAILED", &e.to_string());
+    }
 
     store::append_audit(
         &db,

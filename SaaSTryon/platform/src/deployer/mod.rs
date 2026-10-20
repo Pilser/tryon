@@ -39,7 +39,7 @@ pub use bundle::{
 };
 pub use cf_api::{CfBody, CfConfig, CfError, CfRequest, CfResponse};
 pub use deploy_store::{D1Store, DeployStore};
-pub use provision::{bindings_for, d1_name, script_name, split_stmts};
+pub use provision::{bindings_for, d1_name, public_base, script_name, split_stmts};
 
 // --------------------------------------------------------------- types
 

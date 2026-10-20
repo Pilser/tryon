@@ -265,7 +265,7 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         &id8,
         &d1_uuid,
         &token,
-        &crate::deployer::provision::public_base(&format!("{}.{}", shop.subdomain, cfg.zone_name)),
+        &crate::deployer::public_base(&format!("{}.{}", shop.subdomain, cfg.zone_name)),
     );
     let put = ScriptPut {
         account: &cfg.account,

@@ -145,7 +145,65 @@ What the platform does for that one call:
 No CI, no local build per shop. The allowance gate returns 402 when the
 owner is out of deploys (admin sets it: `POST /api/v1/admin/allowance`).
 
-## 5. Verify
+## 4b. Phase G: the shop's own domain, landing page and feed
+
+All three are **owner-authenticated** (`Bearer <session_id>` from
+`POST /api/v1/login`) and touch one shop only.
+
+**Their own domain (free path, no Cloudflare for SaaS):**
+
+```bash
+curl -s -X POST https://latiforge.com/api/v1/shop/domain \
+  -H "authorization: Bearer $SESSION" -H 'content-type: application/json' \
+  --data '{"domain":"myshop.com"}'
+```
+
+The customer adds this Cloudflare account as a **collaborator** on the
+zone that owns the domain (free plan). The platform looks the zone up,
+refuses anything that is not in our account (`409 ZONE_NOT_OURS`), and
+attaches the hostname with `PUT /accounts/{id}/workers/domains` - DNS
+and the certificate are created by Cloudflare.
+
+**Landing page at the root (the shop stays at `/app`):**
+
+```bash
+# one file at a time, the path is its place in the dist
+curl -s -X POST "https://latiforge.com/api/v1/shop/landing/file?path=%2Findex.html" \
+  -H "authorization: Bearer $SESSION" -F "file=@dist/index.html"
+
+# publish: app assets (bundle) + landing files -> one asset set
+curl -s -X POST https://latiforge.com/api/v1/shop/landing/apply \
+  -H "authorization: Bearer $SESSION"
+```
+
+The platform re-registers the shop script's assets with the bundle's app
+assets (under `/app/…`) **plus** the landing files (at `/`), so the root
+serves the customer's page and `/app/` serves the shop. Cloudflare only
+transfers the files it does not have yet (`uploaded: 0` on a re-publish).
+
+**The feed for the landing page (in the shop worker):**
+
+```
+GET /api/feed   ->  {shop:{name,logo,url,studio}, items:[{id,title,price_cents,
+                    currency,image,url,category,sizes}]}
+```
+
+`url` is the shop's product page (`/product/<id>`), so a static landing
+page lists cards that link straight into the shop. CORS is open
+(`access-control-allow-origin: *`) and the answer is cacheable
+(`max-age=60, s-maxage=300`), so the page can be served from anywhere:
+
+```html
+<script>
+fetch("/api/feed").then(r => r.json()).then(f => {
+  document.querySelector("#grid").innerHTML = f.items.map(i =>
+    `<a class="card" href="${i.url}">${i.title} — ${i.price_cents / 100} ${i.currency}</a>`
+  ).join("");
+});
+</script>
+```
+
+
 
 ```bash
 curl -s https://latiforge.com/api/v1/health          # {"ok":true}

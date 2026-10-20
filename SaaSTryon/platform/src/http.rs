@@ -27,7 +27,7 @@ HTTP status (mirrors the shop's `routes/errors.rs` shape). */
 use serde::de::DeserializeOwned;
 use worker::{Env, Method, Request, Response, Result};
 
-use crate::{admin, auth, credits, dashboard, deploy, domain, landing, outbound};
+use crate::{admin, auth, credits, dashboard, deploy, domain, landing, manage, outbound};
 
 /// Everything under `/api/v1/*`; anything else is a static asset.
 pub async fn route(mut req: Request, env: Env) -> Result<Response> {
@@ -76,6 +76,24 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
         (Method::Get, ["shops", "activity"]) => dashboard::handle_owner_activity(env, &req).await,
         (Method::Get, ["admin", "shops"]) => dashboard::handle_admin_shops(env, &req).await,
         (Method::Get, ["admin", "activity"]) => dashboard::handle_admin_activity(env, &req).await,
+        // Phase H: the admin control plane over the shops, the codes and
+        // the bundles.
+        (Method::Patch, ["admin", "shops", id]) => manage::handle_update(env, &mut req, id).await,
+        (Method::Delete, ["admin", "shops", id]) => manage::handle_delete(env, &req, id).await,
+        (Method::Post, ["admin", "shops", id, "redeploy"]) => {
+            manage::handle_redeploy(env, &mut req, id).await
+        }
+        (Method::Post, ["admin", "shops", id, "tokens"]) => {
+            manage::handle_mint_for(env, &mut req, id).await
+        }
+        (Method::Post, ["admin", "tokens", code, "delete"]) => {
+            manage::handle_token_delete(env, &req, code).await
+        }
+        (Method::Get, ["admin", "bundles"]) => manage::handle_bundles(env, &req).await,
+        (Method::Post, ["admin", "bundles"]) => manage::handle_bundle_upload(env, req).await,
+        (Method::Post, ["shop", "tokens"]) => manage::handle_owner_mint(env, &mut req).await,
+        (Method::Get, ["shop", "bundles"]) => manage::handle_owner_bundles(env, &req).await,
+        (Method::Post, ["shop", "redeploy"]) => manage::handle_owner_redeploy(env, &mut req).await,
         // Phase F: the owner-facing deploy form.
         (Method::Post, ["deploy"]) => deploy::handle_deploy(env, &mut req).await,
         // Phase E: the metered Genlook proxy for tenant shops.

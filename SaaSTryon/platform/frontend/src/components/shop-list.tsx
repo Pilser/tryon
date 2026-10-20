@@ -2,22 +2,25 @@
    the live URL, the customer domain, the bundle, the deploy date and the
    numbers (try-on credits, redeemed platform codes, published landing
    files) - plus the actions that belong to a SHOP, not to a deploy:
-   attach a domain, upload and publish the landing dist, open the shop,
-   open the feed. The platform API works on the owner's active shop (the
-   newest one), so an older shop says so instead of pretending.
+   attach a domain, upload and publish the landing dist, mint a platform
+   code, move the shop to another bundle, open the shop, open the feed.
+   The platform API works on the owner's active shop (the newest one), so
+   an older shop says so instead of pretending.
    The activity feed of the same owner lives here too - it is the history
    of those shops, not a page of its own. */
-import { useEffect, useState, type FormEvent, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import {
   ApiError,
   type AuditRow,
   type ShopView,
   applyLanding,
-  attachShopDomain,
   listLanding,
   uploadLandingFile,
 } from "../api";
 import { base as b, cx, pf, ui as u } from "../kit";
+import { ShopBundle } from "./shop-bundle";
+import { ShopCodes } from "./shop-codes";
+import { ShopDomain } from "./shop-domain";
 
 const n = (x: number): string => new Intl.NumberFormat("en-US").format(x);
 
@@ -66,11 +69,6 @@ function ShopCard(props: {
 }): JSX.Element {
   const s = props.shop;
   const host = s.url || `https://${s.subdomain}.latiforge.com`;
-  const [domain, setDomain] = useState("");
-  const [domainOpen, setDomainOpen] = useState(false);
-  const [domainBusy, setDomainBusy] = useState(false);
-  const [domainNote, setDomainNote] = useState("");
-  const [domainBad, setDomainBad] = useState(false);
   const [landingBusy, setLandingBusy] = useState(false);
   const [landingNote, setLandingNote] = useState("");
   const [landingBad, setLandingBad] = useState(false);
@@ -82,30 +80,6 @@ function ShopCard(props: {
   useEffect(() => {
     setPublished(s.landing_files);
   }, [s.landing_files]);
-
-  /* Attach the customer's own domain. The server's answer is the
-     instruction the customer has to act on - it is shown verbatim. */
-  function submitDomain(ev: FormEvent): void {
-    ev.preventDefault();
-    const value = domain.trim();
-    if (!value) return;
-    setDomainBusy(true);
-    setDomainNote("");
-    setDomainBad(false);
-    void (async () => {
-      try {
-        const out = await attachShopDomain(props.sessionId, value);
-        setDomainNote(`Live on ${out.url} (zone ${out.zone}).`);
-        setDomain("");
-        props.onChanged();
-      } catch (e) {
-        setDomainNote(msg(e, "Could not attach that domain."));
-        setDomainBad(true);
-      } finally {
-        setDomainBusy(false);
-      }
-    })();
-  }
 
   /* Upload the dist, one file at a time (the path is its place in the
      dist, so a folder drop keeps its folders). */
@@ -199,86 +173,13 @@ function ShopCard(props: {
         <StatTile label="Platform codes redeemed" value={n(s.tokens_redeemed)} />
       </div>
       <hr className={cx(u.hairline)} />
-      <p className={cx(pf.label)}>Your domain</p>
-      {s.domain ? (
-        <p className={cx(u.rowSub)}>
-          <a
-            className={cx(pf.code)}
-            href={`https://${s.domain}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {s.domain}
-          </a>
-        </p>
-      ) : (
-        <p className={cx(u.rowSub)}>
-          No domain yet - the shop answers on {host} until you attach your own.
-        </p>
-      )}
-      {domainOpen ? (
-        <>
-          <p className={cx(u.rowSub)}>
-            Add this Cloudflare account as a collaborator on that domain's zone,
-            then type the domain here - the certificate is issued for you.
-          </p>
-          <form onSubmit={submitDomain}>
-            <label className={cx(pf.label)} htmlFor={`dom-${s.id}`}>
-              Domain
-            </label>
-            <input
-              id={`dom-${s.id}`}
-              className={cx(pf.field)}
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              placeholder="myshop.com"
-              autoComplete="off"
-              disabled={domainBusy || !props.active}
-            />
-            {domainNote ? (
-              <p className={domainBad ? cx(b.error) : cx(u.inlineNote)}>{domainNote}</p>
-            ) : null}
-            <div className={cx(u.btnRow)}>
-              <button
-                className={cx(
-                  b.btn,
-                  b.btnPrimary,
-                  u.btnGrow,
-                  (domainBusy || !domain.trim() || !props.active) && b.btnDisabled,
-                )}
-                type="submit"
-                disabled={domainBusy || !domain.trim() || !props.active}
-              >
-                {domainBusy ? "Attaching…" : "Attach domain"}
-              </button>
-              <button
-                className={cx(b.btn, b.btnSecondary, u.btnGrow)}
-                type="button"
-                onClick={() => setDomainOpen(false)}
-                disabled={domainBusy}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </>
-      ) : (
-        <div className={cx(u.btnRow)}>
-          <button
-            className={cx(b.btn, b.btnPrimary, u.btnGrow, !props.active && b.btnDisabled)}
-            type="button"
-            onClick={() => setDomainOpen(true)}
-            disabled={!props.active}
-          >
-            {s.domain ? "Change domain" : "Add your domain"}
-          </button>
-        </div>
-      )}
-      {!props.active ? (
-        <p className={cx(u.meta)}>
-          Domain and landing files belong to your active shop ({props.activeName}).
-        </p>
-      ) : null}
+      <ShopDomain
+        shop={s}
+        sessionId={props.sessionId}
+        active={props.active}
+        activeName={props.activeName}
+        onChanged={props.onChanged}
+      />
       <hr className={cx(u.hairline)} />
       <p className={cx(pf.label)}>Landing page (dist)</p>
       <p className={cx(u.rowSub)}>
@@ -325,6 +226,15 @@ function ShopCard(props: {
           {published.length > 6 ? ` (+${published.length - 6} more)` : ""}
         </p>
       ) : null}
+      <hr className={cx(u.hairline)} />
+      <ShopCodes
+        shop={s}
+        sessionId={props.sessionId}
+        active={props.active}
+        activeName={props.activeName}
+      />
+      <hr className={cx(u.hairline)} />
+      <ShopBundle shop={s} sessionId={props.sessionId} active={props.active} />
       <hr className={cx(u.hairline)} />
       <div className={cx(u.btnRow)}>
         <a

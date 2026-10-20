@@ -22,9 +22,17 @@ function TokenChip(props: { status: ShopToken["status"] }): JSX.Element {
   return <span className={cls}>{props.status}</span>;
 }
 
-/* One token row: code first (that is what gets printed), state after. */
-function TokenRow(props: { t: ShopToken; onCancel: (code: string) => void }): JSX.Element {
+/* One token row: code first (that is what gets printed), state after.
+   The shop it belongs to is on the row too - a code minted for a shop
+   carries that shop from the start. */
+function TokenRow(props: {
+  t: ShopToken;
+  busy: boolean;
+  onCancel: (code: string) => void;
+  onDelete: (code: string) => void;
+}): JSX.Element {
   const { t } = props;
+  const [armed, setArmed] = useState(false);
   return (
     <div className={cx(u.row)}>
       <div className={cx(u.rowMain)}>
@@ -32,20 +40,50 @@ function TokenRow(props: { t: ShopToken; onCancel: (code: string) => void }): JS
           <span className={cx(pf.code)}>{t.code}</span> <TokenChip status={t.status} />
         </p>
         <p className={cx(u.rowSub)}>
-          {t.shop_id
-            ? `redeemed by ${t.shop_id} · ${new Date(t.redeemed_ms || 0).toLocaleDateString()}`
-            : t.note || "unassigned"}
+          {t.shop_id ? `belongs to ${t.shop_id}` : t.note || "unassigned"}
+          {t.shop_id && t.note ? ` · ${t.note}` : ""}
+          {t.redeemed_ms ? ` · redeemed ${new Date(t.redeemed_ms).toLocaleDateString()}` : ""}
           {t.status === "cancelled" ? ` · cancelled ${new Date(t.cancelled_ms || 0).toLocaleDateString()}` : ""}
         </p>
       </div>
       <div className={cx(u.btnRow)}>
         {t.status === "active" ? (
           <button
-            className={cx(b.btn, b.btnDanger)}
+            className={cx(b.btn, b.btnSecondary, props.busy && b.btnDisabled)}
             type="button"
+            disabled={props.busy}
             onClick={() => props.onCancel(t.code)}
           >
             Cancel
+          </button>
+        ) : null}
+        {armed ? (
+          <button
+            className={cx(b.btn, b.btnDanger, props.busy && b.btnDisabled)}
+            type="button"
+            disabled={props.busy}
+            onClick={() => props.onDelete(t.code)}
+          >
+            Delete for good
+          </button>
+        ) : (
+          <button
+            className={cx(b.btn, b.btnDanger, props.busy && b.btnDisabled)}
+            type="button"
+            disabled={props.busy}
+            onClick={() => setArmed(true)}
+          >
+            Delete
+          </button>
+        )}
+        {armed ? (
+          <button
+            className={cx(b.btn, b.btnSecondary, props.busy && b.btnDisabled)}
+            type="button"
+            disabled={props.busy}
+            onClick={() => setArmed(false)}
+          >
+            Keep
           </button>
         ) : null}
       </div>
@@ -58,6 +96,7 @@ export function TokensTab(props: {
   busy: boolean;
   onMint: (count: number, note: string) => void;
   onCancel: (code: string) => void;
+  onDelete: (code: string) => void;
 }): JSX.Element {
   const [count, setCount] = useState("10");
   const [note, setNote] = useState("");
@@ -73,7 +112,8 @@ export function TokensTab(props: {
       </div>
       <p className={cx(u.rowSub)}>
         Mint 4-digit codes, print the list, hand them to shop owners. A shop redeems a code in
-        its dashboard settings and the balance lands on its try-on credits.
+        its dashboard settings and the balance lands on its try-on credits. Cancel freezes a
+        code (it keeps its row), delete removes it for good.
       </p>
       <form
         className={cx(pf.fieldRow)}
@@ -124,7 +164,12 @@ export function TokensTab(props: {
           rows.map((t, i) => (
             <div key={t.code}>
               {i ? <hr className={cx(u.hairline)} /> : null}
-              <TokenRow t={t} onCancel={props.onCancel} />
+              <TokenRow
+                t={t}
+                busy={props.busy}
+                onCancel={props.onCancel}
+                onDelete={props.onDelete}
+              />
             </div>
           ))
         )}

@@ -6,8 +6,10 @@
    requests live here too: they are the billing queue the admin works
    through next to the shop tokens. */
 import { useState, type JSX } from "react";
-import { type AuditRow, type CreditRequest, type ShopView } from "../api";
+import { type AuditRow, type CreditRequest, type ShopToken, type ShopView } from "../api";
 import { base as b, cx, pf, ui as u } from "../kit";
+import { ShopCodes } from "./admin-shop-codes";
+import { ShopControls } from "./admin-shop-controls";
 
 const n = (x: number): string => new Intl.NumberFormat("en-US").format(x);
 
@@ -47,56 +49,96 @@ function statusChip(status: string): string {
   return cx(pf.chip);
 }
 
-/* One shop: who owns it, where it lives, what it may spend. */
-function ShopRow(props: { shop: ShopView }): JSX.Element {
+/* One shop: who owns it, where it lives, what it may spend - and the
+   controls the admin has over it (settings, bundle, codes, delete). */
+function ShopRow(props: {
+  shop: ShopView;
+  adminToken: string;
+  tokens: ShopToken[] | null;
+  onChanged: () => void;
+}): JSX.Element {
   const s = props.shop;
   const owner = s.owner_email || "no owner";
   const ownerName = s.owner_name || "";
+  const [open, setOpen] = useState(false);
   return (
-    <div className={cx(u.row)}>
-      <div className={cx(u.rowMain)}>
-        <p className={cx(u.rowTitle)}>{s.name || s.subdomain}</p>
-        <p className={cx(u.rowSub)}>
-          {owner}
-          {ownerName ? ` · ${ownerName}` : ""} · subdomain {s.subdomain}
-        </p>
-        <p className={cx(u.rowSub)}>
-          <a className={cx(pf.code)} href={s.url} target="_blank" rel="noreferrer">
-            {s.url}
+    <>
+      <div className={cx(u.row)}>
+        <div className={cx(u.rowMain)}>
+          <p className={cx(u.rowTitle)}>{s.name || s.subdomain}</p>
+          <p className={cx(u.rowSub)}>
+            {owner}
+            {ownerName ? ` · ${ownerName}` : ""} · subdomain {s.subdomain}
+          </p>
+          <p className={cx(u.rowSub)}>
+            <a className={cx(pf.code)} href={s.url} target="_blank" rel="noreferrer">
+              {s.url}
+            </a>
+            {" · "}
+            {domainText(s)}
+          </p>
+          <span className={cx(pf.chips)}>
+            <span className={statusChip(s.status)}>{s.status || "unknown"}</span>
+            <span className={cx(pf.chip)}>{s.tier || "no tier"}</span>
+            <span className={cx(pf.chip)}>bundle {s.bundle || "unknown"}</span>
+            <span className={cx(pf.chip)}>{n(s.credits_granted)} granted</span>
+            <span className={cx(pf.chip)}>{n(s.credits_used)} used</span>
+            <span className={cx(pf.chip)}>{n(s.credits_left)} left</span>
+            <span className={cx(pf.chip)}>{n(s.tokens_redeemed)} codes redeemed</span>
+            <span className={cx(pf.chip)}>{landingText(s)}</span>
+            <span className={cx(pf.chip)}>{n(s.activity_count)} events</span>
+            <span className={cx(pf.chip)}>created {day(s.created_ms)}</span>
+          </span>
+        </div>
+        <div className={cx(u.btnRow)}>
+          <a
+            className={cx(b.btn, b.btnSecondary, u.btnGrow)}
+            href={s.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open shop
           </a>
-          {" · "}
-          {domainText(s)}
-        </p>
-        <span className={cx(pf.chips)}>
-          <span className={statusChip(s.status)}>{s.status || "unknown"}</span>
-          <span className={cx(pf.chip)}>{s.tier || "no tier"}</span>
-          <span className={cx(pf.chip)}>bundle {s.bundle || "unknown"}</span>
-          <span className={cx(pf.chip)}>{n(s.credits_granted)} granted</span>
-          <span className={cx(pf.chip)}>{n(s.credits_used)} used</span>
-          <span className={cx(pf.chip)}>{n(s.credits_left)} left</span>
-          <span className={cx(pf.chip)}>{n(s.tokens_redeemed)} codes redeemed</span>
-          <span className={cx(pf.chip)}>{landingText(s)}</span>
-          <span className={cx(pf.chip)}>{n(s.activity_count)} events</span>
-          <span className={cx(pf.chip)}>created {day(s.created_ms)}</span>
-        </span>
+          <button
+            className={cx(b.btn, open ? b.btnPrimary : b.btnSecondary, u.btnGrow)}
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? "Close controls" : "Manage"}
+          </button>
+        </div>
       </div>
-      <div className={cx(u.btnRow)}>
-        <a
-          className={cx(b.btn, b.btnSecondary, u.btnGrow)}
-          href={s.url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open shop
-        </a>
-      </div>
-    </div>
+      {open ? (
+        <div className={cx(u.row)}>
+          <div className={cx(u.rowMain)}>
+            <ShopControls
+              shop={s}
+              adminToken={props.adminToken}
+              onChanged={props.onChanged}
+            />
+            <hr className={cx(u.hairline)} />
+            <ShopCodes
+              shop={s}
+              adminToken={props.adminToken}
+              tokens={props.tokens}
+              onChanged={props.onChanged}
+            />
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
 /* The Shops tab: every shop, searchable by name, subdomain, owner or
-   domain, filterable by state. */
-export function ShopsTab(props: { shops: ShopView[] | null }): JSX.Element {
+   domain, filterable by state. Every row opens the controls of that
+   shop (settings, bundle, codes, delete). */
+export function ShopsTab(props: {
+  shops: ShopView[] | null;
+  adminToken: string;
+  tokens: ShopToken[] | null;
+  onChanged: () => void;
+}): JSX.Element {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<"all" | "live" | "other">("all");
   const shops = props.shops || [];
@@ -167,7 +209,12 @@ export function ShopsTab(props: { shops: ShopView[] | null }): JSX.Element {
           rows.map((s, i) => (
             <div key={s.id}>
               {i ? <hr className={cx(u.hairline)} /> : null}
-              <ShopRow shop={s} />
+              <ShopRow
+                shop={s}
+                adminToken={props.adminToken}
+                tokens={props.tokens}
+                onChanged={props.onChanged}
+              />
             </div>
           ))
         )}

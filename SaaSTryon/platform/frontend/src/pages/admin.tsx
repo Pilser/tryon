@@ -3,8 +3,10 @@
    (approve with a deploy allowance - the minted plat_ sign-in token
    shows in the row - or a red reject), approved/suspended (allowance
    edits + suspend/reactivate), tokens (mint 4-digit shop codes, cancel
-   unclaimed ones, the pending credit requests), shops (every shop with
-   its owner, URL, domain and numbers) and activity (the audit feed).
+   or delete unclaimed ones, the pending credit requests), shops (every
+   shop with its owner, URL, domain and numbers - and the controls over
+   it: settings, bundle, codes, delete), bundles (the versions in R2,
+   the upload and the bulk redeploy) and activity (the audit feed).
    The admin token is kept in memory only. */
 import { useCallback, useState, type JSX } from "react";
 import { createRoot } from "react-dom/client";
@@ -31,12 +33,14 @@ import {
   type ShopView,
 } from "../api";
 import { ActivityTab, CreditRequests, ShopsTab } from "../components/admin-shops";
-import { ApprovedRow, PendingRow } from "../components/user-row";
+import { BundlesTab } from "../components/admin-bundles";
+import { UsersTab } from "../components/admin-users";
+import { adminDeleteToken } from "../api-admin";
 import { TokenCard } from "../components/token-card";
 import { TokensTab } from "../components/token-rows";
 import { base as b, boot, cx, pf, ui as u } from "../kit";
 
-type Tab = "pending" | "approved" | "tokens" | "credits" | "shops" | "activity";
+type Tab = "pending" | "approved" | "tokens" | "credits" | "shops" | "bundles" | "activity";
 
 export default function AdminPage(): JSX.Element {
   const [admin, setAdmin] = useState<string | null>(null);
@@ -202,12 +206,20 @@ export default function AdminPage(): JSX.Element {
       setTokens((tokens || []).map((t) => (t.code === code ? res.token : t)));
       setNote(`Cancelled ${code}.`);
     });
+  /* Delete a code for good (a cancelled code keeps its row). */
+  const deleteToken = (code: string): void =>
+    run(async () => {
+      await adminDeleteToken(token, code);
+      setTokens((tokens || []).filter((t) => t.code !== code));
+      setNote(`Deleted ${code} for good.`);
+    });
   const tabs: { id: Tab; label: string }[] = [
     { id: "pending", label: `Pending (${pending.length})` },
     { id: "approved", label: `Approved (${approved.length})` },
     { id: "tokens", label: `Tokens (${activeTokens})` },
     { id: "credits", label: `Credit requests (${creditList.length})` },
     { id: "shops", label: `Shops (${shops ? shops.length : 0})` },
+    { id: "bundles", label: "Bundles" },
     { id: "activity", label: `Activity (${activity ? activity.length : 0})` },
   ];
   /* The credit requests sit next to the tokens (the billing queue) and
@@ -247,53 +259,46 @@ export default function AdminPage(): JSX.Element {
       </div>
       {tab === "tokens" && tokens ? (
         <>
-          <TokensTab tokens={tokens} busy={busy} onMint={mintTokens} onCancel={cancelToken} />
+          <TokensTab
+            tokens={tokens}
+            busy={busy}
+            onMint={mintTokens}
+            onCancel={cancelToken}
+            onDelete={deleteToken}
+          />
           {creditCard}
         </>
       ) : null}
       {tab === "credits" ? creditCard : null}
-      {tab === "shops" ? <ShopsTab shops={shops} /> : null}
+      {tab === "shops" ? (
+        <ShopsTab
+          shops={shops}
+          adminToken={token}
+          tokens={tokens}
+          onChanged={() => collect(token)}
+        />
+      ) : null}
+      {tab === "bundles" ? (
+        <BundlesTab
+          adminToken={token}
+          shops={shops}
+          onChanged={() => collect(token)}
+        />
+      ) : null}
       {tab === "activity" ? <ActivityTab activity={activity} /> : null}
       {tab === "pending" || tab === "approved" ? (
-        <div className={cx(u.cardFlush)}>
-          <div className={cx(u.cardHead)}>
-            <p className={cx(u.cardTitle)}>{tab === "pending" ? "Requests" : "Approved shops"}</p>
-            <span className={cx(u.meta)}>{busy ? "working…" : `${rows.length} shown`}</span>
-          </div>
-          <hr className={cx(u.hairline)} />
-          <div className={cx(u.rows)}>
-            {rows.length === 0 ? (
-              <p className={cx(u.empty)}>
-                {tab === "pending" ? "No pending requests." : "No approved shops yet."}
-              </p>
-            ) : (
-              rows.map((x, i) => (
-                <div key={x.id}>
-                  {i ? <hr className={cx(u.hairline)} /> : null}
-                  {tab === "pending" ? (
-                    <PendingRow
-                      user={x}
-                      allowance={allowanceOf(x)}
-                      issued={issued[x.id] || null}
-                      onAllowance={(v) => setAllow({ ...allow, [x.id]: v })}
-                      onApprove={() => approveUser(x)}
-                      onReject={() => rejectUser(x)}
-                    />
-                  ) : (
-                    <ApprovedRow
-                      user={x}
-                      allowance={allowanceOf(x)}
-                      issued={issued[x.id] || null}
-                      onAllowance={(v) => setAllow({ ...allow, [x.id]: v })}
-                      onSave={() => saveAllowance(x)}
-                      onToggle={() => toggleUser(x)}
-                    />
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        <UsersTab
+          tab={tab}
+          rows={rows}
+          allowanceOf={allowanceOf}
+          issued={issued}
+          busy={busy}
+          onAllowance={(id, v) => setAllow({ ...allow, [id]: v })}
+          onApprove={approveUser}
+          onReject={rejectUser}
+          onSave={saveAllowance}
+          onToggle={toggleUser}
+        />
       ) : null}
     </main>
   );

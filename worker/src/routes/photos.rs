@@ -100,7 +100,7 @@ pub fn older_than_cutoff(now_ms: i64, days: i64) -> i64 {
 pub async fn ensure_ddl(env: &Env) -> worker::Result<()> {
     let db = device::db(env)?;
     for sql in PHOTO_DDL {
-        let _ = db.exec(sql).await; // idempotent; missing R2 must not kill it
+        let _ = crate::store::exec_one(&db, sql).await; // idempotent; missing R2 must not kill it
     }
     Ok(())
 }

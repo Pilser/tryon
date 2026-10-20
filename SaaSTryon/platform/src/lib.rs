@@ -16,6 +16,7 @@ pub mod domain;
 pub mod hostnames;
 pub mod http;
 pub mod landing;
+pub mod manage;
 pub mod outbound;
 pub mod shops;
 pub mod store;

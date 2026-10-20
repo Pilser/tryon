@@ -226,6 +226,20 @@ pub struct ShopRow {
     pub owner_token: Option<String>,
 }
 
+/// The deploy path for the control plane: the platform's own D1 store,
+/// the bundle source and the CF transport. Used by the deploy route and
+/// by the redeploys (admin + owner).
+pub async fn deploy_shop_with_source(
+    env: &Env,
+    bundles: impl BundleSource,
+    cf_cfg: &CfConfig,
+    input: DeployInputs,
+) -> Result<DeployResult, DeployError> {
+    let db = store::db(env).map_err(DeployError::store)?;
+    let transport = FetchTransport::new(cf_cfg.clone());
+    deploy_shop_with(&D1Store::new(&db), &bundles, &transport, cf_cfg, &input).await
+}
+
 // ------------------------------------------------------ orchestration
 
 /// The uuid of a per-shop D1, found by its name. A redeploy reuses the

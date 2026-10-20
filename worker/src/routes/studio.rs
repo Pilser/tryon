@@ -175,7 +175,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
     }
     let mut created = format!("{}", js_sys::Date::now() as u64);
     let sizes_csv = text.sizes.join(",");
-    db.exec(PRODUCTS_DDL)
+    crate::store::exec_one(&db, PRODUCTS_DDL)
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
     // Fill unchanged slots + created date from the existing row on update.
@@ -212,7 +212,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
             "garment photo (image0) required",
         );
     }
-    db.exec(PRODUCTS_DDL)
+    crate::store::exec_one(&db, PRODUCTS_DDL)
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
     db.prepare(

@@ -135,12 +135,12 @@ pub fn db(env: &Env) -> worker::Result<worker::d1::D1Database> {
 pub async fn ensure_ddl(env: &Env) -> worker::Result<()> {
     let db = db(env)?;
     for sql in USAGE_DDL {
-        db.exec(sql)
+        crate::store::exec_one(&db, sql)
             .await
             .map_err(|e| worker::Error::RustError(e.to_string()))?;
     }
     for sql in USAGE_MIGRATIONS {
-        let _ = db.exec(sql).await; // duplicate column = already migrated
+        let _ = crate::store::exec_one(&db, sql).await; // duplicate column = already migrated
     }
     Ok(())
 }

@@ -188,6 +188,17 @@ jobs:
         run: |
           mkdir -p worker/build
           cargo run --release -p tryon-worker --bin ddl_dump > worker/build/shop-schema.sql
+      # The imgpipe (HEIC -> jpg) belongs to the shop's frontend, so the
+      # bundle carries it: frontend/dist/imgpipe/* is built here instead
+      # of being copied from another job.
+      - name: build imgpipe wasm (into the shop frontend)
+        run: |
+          cargo build --release --target wasm32-unknown-unknown -p tryon-imgpipe --jobs 2
+          curl -sL -o /tmp/wbg.tar.gz https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl.tar.gz
+          tar xzf /tmp/wbg.tar.gz -C /tmp
+          /tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen \
+            target/wasm32-unknown-unknown/release/tryon_imgpipe.wasm \
+            --out-dir frontend/dist/imgpipe --target web --out-name imgpipe
       - name: package the bundle
         run: bun scripts/package-bundle.ts "${{ github.ref_name }}"
       - name: upload the bundle to R2 (the platform deploys from here)

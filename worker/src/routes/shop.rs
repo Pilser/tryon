@@ -146,12 +146,12 @@ pub async fn handle_save(mut req: Request, env: Env) -> Result<Response> {
             shop.logo_url = crate::routes::studio::public_url(&base, &key);
         }
     }
-    db.exec(SHOP_DDL)
+    crate::store::exec_one(&db, SHOP_DDL)
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
     // Older rows predate currency/WhatsApp: add the columns in place.
     for sql in SHOP_MIGRATIONS {
-        let _ = db.exec(sql).await;
+        let _ = crate::store::exec_one(&db, sql).await;
     }
     db.prepare(
         "INSERT INTO shop (id,shop_name,logo_url,currency,owner_whatsapp) \

@@ -94,7 +94,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
     let mut id = form.get_field("id").unwrap_or_default().trim().to_string();
     let mut existing = None;
     if !id.is_empty() {
-        db.exec(crate::routes::studio::CATEGORIES_DDL)
+        crate::store::exec_one(&db, crate::routes::studio::CATEGORIES_DDL)
             .await
             .map_err(|e| worker::Error::RustError(e.to_string()))?;
         let old: Option<CategoryRow> = db
@@ -140,7 +140,7 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
         id = crate::routes::ids::new_id('c');
     }
     let created = format!("{}", js_sys::Date::now() as u64);
-    db.exec(crate::routes::studio::CATEGORIES_DDL)
+    crate::store::exec_one(&db, crate::routes::studio::CATEGORIES_DDL)
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
     db.prepare(

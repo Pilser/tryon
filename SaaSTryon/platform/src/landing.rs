@@ -127,7 +127,7 @@ pub async fn handle_upload(env: Env, mut req: Request) -> Result<Response> {
         .form_data()
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
-    let FormEntry::File(file) = form.get("file") else {
+    let Some(FormEntry::File(file)) = form.get("file") else {
         return http::bad_request("NO_FILE", "expected a file part named 'file'");
     };
     let bytes = file
@@ -140,16 +140,19 @@ pub async fn handle_upload(env: Env, mut req: Request) -> Result<Response> {
     let key = format!("{LANDING_PREFIX}/{}/files{path}", shop.id);
     bucket
         .put(&key, bytes)
+        .execute()
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
 
     // Keep the landing manifest in sync (path -> key).
     let mut files: Vec<serde_json::Value> = Vec::new();
     let manifest_key = format!("{LANDING_PREFIX}/{}/manifest.json", shop.id);
-    if let Some(raw) = bucket.get(&manifest_key).text().await? {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
-            if let Some(arr) = v.get("files").and_then(|f| f.as_array()) {
-                files = arr.clone();
+    if let Some(raw) = read_object(&bucket, &manifest_key).await? {
+        if let Ok(text) = String::from_utf8(raw) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                if let Some(arr) = v.get("files").and_then(|f| f.as_array()) {
+                    files = arr.clone();
+                }
             }
         }
     }
@@ -161,6 +164,7 @@ pub async fn handle_upload(env: Env, mut req: Request) -> Result<Response> {
             serde_json::to_vec(&json!({ "files": files }))
                 .map_err(|e| worker::Error::RustError(e.to_string()))?,
         )
+        .execute()
         .await
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
 
@@ -286,7 +290,7 @@ async fn find_d1(
     cf: &impl Transport,
     account: &str,
     name: &str,
-) -> Result<Option<String>, CfError> {
+) -> std::result::Result<Option<String>, CfError> {
     let v = call_with_retry(
         cf,
         CfRequest {

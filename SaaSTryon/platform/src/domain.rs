@@ -57,7 +57,7 @@ async fn our_zone(
     cf: &impl Transport,
     account: &str,
     domain: &str,
-) -> Result<Option<(String, String)>, CfError> {
+) -> std::result::Result<Option<(String, String)>, CfError> {
     let zones = call_with_retry(
         cf,
         CfRequest {

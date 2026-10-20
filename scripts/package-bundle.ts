@@ -89,6 +89,16 @@ for (const { dir, match } of INCLUDE) {
       mkdirSync(path.dirname(dest), { recursive: true });
       cpSync(child, dest);
       assets.push({ key: `assets/${childRel}`, path: `/${childRel}`, sha256: sha256(child) });
+      /* The shop pages link to /app/<file> (the plain shop rewrites
+         /app/* -> /* through _redirects; a Workers script does not), so
+         the bundle carries both paths. */
+      if (!/^_(redirects|headers)$/.test(childRel)) {
+        const appRel = `app/${childRel}`;
+        const appDest = path.join(outDir, "assets", appRel);
+        mkdirSync(path.dirname(appDest), { recursive: true });
+        cpSync(child, appDest);
+        assets.push({ key: `assets/${appRel}`, path: `/${appRel}`, sha256: sha256(child) });
+      }
     }
   };
   walk(base, root);

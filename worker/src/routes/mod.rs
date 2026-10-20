@@ -5,6 +5,7 @@ pub mod feed;
 pub mod genlook_api;
 pub mod health;
 pub mod ids;
+pub mod media;
 pub mod owner;
 pub mod person;
 pub mod photos;

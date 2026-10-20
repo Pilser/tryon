@@ -260,7 +260,12 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     data.verify().map_err(DeployError::bundle)?;
     let mp = MultipartBuilder::new();
     let d1_uuid = provision::provision(cf_cfg, cf, &id8, &data.schema_sql).await?;
-    let bindings = provision::bindings_for(&id8, &d1_uuid, &token);
+    let bindings = provision::bindings_for(
+        &id8,
+        &d1_uuid,
+        &token,
+        &provision::public_base(&format!("{}.{}", input.subdomain, cf_cfg.zone_name)),
+    );
 
     // 3-step assets, then the script-PUT carrying the completion jwt.
     let staged = bundle::stage_assets(cf, &cf_cfg.account, &script, &data, &mp).await?;

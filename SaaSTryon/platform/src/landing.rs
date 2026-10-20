@@ -261,7 +261,12 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         Err(e) => return http::json_error(502, "ASSETS", &e.to_string()),
     };
 
-    let bindings = bindings_for(&id8, &d1_uuid, &token);
+    let bindings = bindings_for(
+        &id8,
+        &d1_uuid,
+        &token,
+        &crate::deployer::provision::public_base(&format!("{}.{}", shop.subdomain, cfg.zone_name)),
+    );
     let put = ScriptPut {
         account: &cfg.account,
         script_name: &shop.cluster_id,

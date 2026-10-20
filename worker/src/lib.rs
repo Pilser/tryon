@@ -31,6 +31,12 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             moved(&format!("/app/product.html?id={id}"))
         })
         .get("/studio", |_, _| moved("/app/studio.html?owner=1"))
+        .get("/dashboard", |_, _| moved("/app/dashboard.html?owner=1"))
+        // Tenant R2 files (product photos, the shop logo) are served by
+        // the shop itself - a private bucket needs no public r2.dev URL.
+        .get_async("/media/*path", |req, ctx| async move {
+            routes::media::handle(req, ctx.env).await
+        })
         .get("/healthz", |_, _| routes::health::response())
         // Catalogue
         .options_async("/api/feed", |_, _| async move {

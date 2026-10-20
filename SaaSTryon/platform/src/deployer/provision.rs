@@ -46,7 +46,12 @@ pub fn d1_query_path(account: &str, uuid: &str) -> String {
 }
 
 /// The binding set, pure and exact-ordered (tests rely on order).
-pub fn bindings_for(id8: &str, d1_uuid: &str, platform_token: &str) -> Vec<Value> {
+pub fn bindings_for(
+    id8: &str,
+    d1_uuid: &str,
+    platform_token: &str,
+    r2_public_base: &str,
+) -> Vec<Value> {
     vec![
         json!({ "type": "d1", "name": "DB", "database_id": d1_uuid }),
         json!({ "type": "r2_bucket", "name": "PRODUCTS", "bucket_name": R2_IMAGES_BUCKET }),
@@ -56,12 +61,25 @@ pub fn bindings_for(id8: &str, d1_uuid: &str, platform_token: &str) -> Vec<Value
             "name": "PLATFORM_TOKEN",
             "text": platform_token,
         }),
+        // Where the studio writes image URLs. The shop serves the
+        // objects itself (/media/<key>), so a private bucket is enough.
+        json!({
+            "type": "plain_text",
+            "name": "R2_PUBLIC_BASE",
+            "text": r2_public_base,
+        }),
         // The shop serves its own frontend from the uploaded assets.
         json!({
             "type": "assets",
             "name": "ASSETS",
         }),
     ]
+}
+
+/// The public base a shop writes image URLs with: its own hostname plus
+/// the media route (pure, tested).
+pub fn public_base(hostname: &str) -> String {
+    format!("https://{}/media", hostname.trim_end_matches('/'))
 }
 
 /// Split the bundled shop schema into statements on ";\n" (store.rs
@@ -138,11 +156,16 @@ mod tests {
 
     #[test]
     fn binding_set_is_exact() {
-        let b = bindings_for("a1b2c3d4", "db-uuid", "deploy_6183ab26911057e6");
+        let b = bindings_for(
+            "a1b2c3d4",
+            "db-uuid",
+            "deploy_6183ab26911057e6",
+            "https://shop.latiforge.com/media",
+        );
         assert_eq!(
             b.len(),
-            5,
-            "exactly DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN/ASSETS (no service binding)"
+            6,
+            "exactly DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN/R2_PUBLIC_BASE/ASSETS"
         );
         assert_eq!(b[0]["type"], "d1");
         assert_eq!(b[0]["name"], "DB");
@@ -155,8 +178,11 @@ mod tests {
         assert_eq!(b[2]["text"], "a1b2c3d4");
         assert_eq!(b[3]["type"], "secret_text");
         assert_eq!(b[3]["name"], "PLATFORM_TOKEN");
-        assert_eq!(b[4]["type"], "assets");
-        assert_eq!(b[4]["name"], "ASSETS");
+        assert_eq!(b[4]["type"], "plain_text");
+        assert_eq!(b[4]["name"], "R2_PUBLIC_BASE");
+        assert_eq!(b[4]["text"], "https://shop.latiforge.com/media");
+        assert_eq!(b[5]["type"], "assets");
+        assert_eq!(b[5]["name"], "ASSETS");
         // The Genlook key never reaches a shop script, and neither does
         // a service binding: the platform proxies over HTTP.
         let blob = serde_json::to_string(&b).unwrap();
@@ -165,12 +191,24 @@ mod tests {
     }
 
     #[test]
+    fn public_base_points_at_the_shop_media_route() {
+        assert_eq!(
+            public_base("shop.latiforge.com"),
+            "https://shop.latiforge.com/media"
+        );
+        assert_eq!(
+            public_base("shop.latiforge.com/"),
+            "https://shop.latiforge.com/media"
+        );
+    }
+
+    #[test]
     fn secret_binding_is_passthrough_no_genlook_key() {
         // The token is a pass-through: the function never mints or
         // rewrites it, so the real secret only lives where the caller
         // minted it. And no Genlook key sneaks into the set.
         let fake = "not-the-real-secret-text";
-        let b = bindings_for("a1b2c3d4", "u", fake);
+        let b = bindings_for("a1b2c3d4", "u", fake, "https://shop.latiforge.com/media");
         let token = b
             .iter()
             .find(|x| x["name"] == "PLATFORM_TOKEN")

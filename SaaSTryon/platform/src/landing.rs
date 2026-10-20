@@ -95,10 +95,17 @@ async fn landing_files(bucket: &worker::Bucket, shop_id: &str) -> Result<Vec<(St
     Ok(out)
 }
 
-/// One object from R2 (None when the key is missing).
+/// One object from R2 (None when the key is missing). A missing key
+/// makes the R2 get REJECT, so a "not found" answer is not an error.
 async fn read_object(bucket: &worker::Bucket, key: &str) -> Result<Option<Vec<u8>>> {
     match bucket.get(key).execute().await {
-        Err(e) => Err(worker::Error::RustError(format!("{key}: {e}"))),
+        Err(e) => {
+            let msg = e.to_string();
+            if msg.contains("not found") || msg.contains("404") {
+                return Ok(None);
+            }
+            Err(worker::Error::RustError(format!("{key}: {msg}")))
+        }
         Ok(None) => Ok(None),
         Ok(Some(obj)) => {
             let Some(body) = obj.body() else {
@@ -197,13 +204,25 @@ pub async fn handle_upload(env: Env, mut req: Request) -> Result<Response> {
 }
 
 /// The landing files of a shop (their paths) - the dashboard shows
-/// them so the owner sees what is published.
+/// them so the owner sees what is published. The list is the source of
+/// truth (a missing prefix is simply an empty list).
 pub async fn landing_paths(env: &Env, shop_id: &str) -> Result<Vec<String>> {
     let bucket = env
         .bucket("BUNDLES")
         .map_err(|_| worker::Error::RustError("R2 BUNDLES binding not configured".into()))?;
-    let files = landing_files(&bucket, shop_id).await?;
-    Ok(files.into_iter().map(|(p, _)| p).collect())
+    let prefix = format!("{LANDING_PREFIX}/{shop_id}/files/");
+    let objects = bucket
+        .list(&prefix)
+        .execute()
+        .await
+        .map_err(|e| worker::Error::RustError(format!("{prefix}: {e}")))?;
+    let mut out: Vec<String> = objects
+        .iter()
+        .map(|o| o.key().to_string())
+        .filter_map(|k| k.strip_prefix(&prefix).map(|rest| format!("/{rest}")))
+        .collect();
+    out.sort();
+    Ok(out)
 }
 
 /// `GET /api/v1/shop/landing` - what is published now.

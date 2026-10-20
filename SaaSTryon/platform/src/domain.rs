@@ -23,6 +23,10 @@ use crate::{auth, http, shops, store};
 #[derive(Deserialize)]
 pub struct DomainIn {
     pub domain: String,
+    /// Which of the owner's shops (they may run more than one); the
+    /// newest one when omitted.
+    #[serde(default)]
+    pub shop_id: Option<String>,
 }
 
 /// Pure: a plausible customer hostname (tested): a real domain, no
@@ -52,41 +56,57 @@ pub fn zone_lookup_path(domain: &str) -> String {
     format!("/zones?name={}", domain.trim().to_ascii_lowercase())
 }
 
-/// The zone of `domain` that lives in OUR account, if any.
+/// The zone of `domain` that lives in OUR account, if any. The lookup
+/// walks up the labels: `shop.myshop.com` is served by the zone
+/// `myshop.com`, so the parent zone has to be found too.
 async fn our_zone(
     cf: &impl Transport,
     account: &str,
     domain: &str,
 ) -> std::result::Result<Option<(String, String)>, CfError> {
-    let zones = call_with_retry(
-        cf,
-        CfRequest {
-            method: Method::Get,
-            path: zone_lookup_path(domain),
-            body: CfBody::Empty,
-            jwt: None,
-        },
-    )
-    .await?;
-    let zones = crate::deployer::cf_api::result_of(&zones);
-    for z in zones.as_array().cloned().unwrap_or_default() {
-        let Some(zone_account) = z
-            .get("account")
-            .and_then(|a| a.get("id"))
-            .and_then(|i| i.as_str())
-        else {
-            continue;
-        };
-        if zone_account != account {
-            continue;
+    let mut names = vec![domain.to_string()];
+    let mut parent = domain.to_string();
+    while let Some((head, rest)) = parent.split_once('.') {
+        if head.is_empty() {
+            break;
         }
-        let Some(id) = z.get("id").and_then(|i| i.as_str()) else {
-            continue;
-        };
-        let Some(name) = z.get("name").and_then(|i| i.as_str()) else {
-            continue;
-        };
-        return Ok(Some((id.to_string(), name.to_string())));
+        parent = rest.to_string();
+        if !parent.contains('.') {
+            break;
+        }
+        names.push(parent.clone());
+    }
+    for name in names {
+        let zones = call_with_retry(
+            cf,
+            CfRequest {
+                method: Method::Get,
+                path: zone_lookup_path(&name),
+                body: CfBody::Empty,
+                jwt: None,
+            },
+        )
+        .await?;
+        let zones = crate::deployer::cf_api::result_of(&zones);
+        for z in zones.as_array().cloned().unwrap_or_default() {
+            let Some(zone_account) = z
+                .get("account")
+                .and_then(|a| a.get("id"))
+                .and_then(|i| i.as_str())
+            else {
+                continue;
+            };
+            if zone_account != account {
+                continue;
+            }
+            let Some(id) = z.get("id").and_then(|i| i.as_str()) else {
+                continue;
+            };
+            let Some(name) = z.get("name").and_then(|i| i.as_str()) else {
+                continue;
+            };
+            return Ok(Some((id.to_string(), name.to_string())));
+        }
     }
     Ok(None)
 }
@@ -97,11 +117,12 @@ pub async fn handle_domain(env: Env, req: &mut Request) -> Result<Response> {
     let Some(session) = auth::verify_session(&db, req.headers()).await? else {
         return http::unauthorized();
     };
-    let Some(shop) = shops::shop_by_owner(&db, &session.user_id).await? else {
-        return http::json_error(404, "NO_SHOP", "deploy a shop first");
-    };
     let Some(body) = http::json_body::<DomainIn>(req).await else {
         return http::bad_request("BAD_JSON", "expected {domain}");
+    };
+    let Some(shop) = shops::owned_shop(&db, &session.user_id, body.shop_id.as_deref()).await?
+    else {
+        return http::json_error(404, "NO_SHOP", "deploy a shop first");
     };
     let domain = body
         .domain

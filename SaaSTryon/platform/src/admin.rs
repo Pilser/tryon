@@ -431,9 +431,19 @@ pub async fn handle_cancel_token(env: Env, req: &mut Request) -> Result<Response
     };
     let db = store::db(&env)?;
     let now = auth::now_ms();
-    let token = store::cancel_shop_token(&db, &body.code, now)
-        .await
-        .map_err(|e| worker::Error::RustError(format!("cancel failed: {}", e)))?;
+    // Unknown or already-used code: a client mistake, not a crash.
+    let token = match store::cancel_shop_token(&db, &body.code, now).await {
+        Ok(t) => t,
+        Err(e) => {
+            let msg = e.to_string();
+            let code = if msg.contains("unknown token") {
+                "UNKNOWN_TOKEN"
+            } else {
+                "TOKEN_NOT_ACTIVE"
+            };
+            return http::json_error(400, code, "that code cannot be cancelled");
+        }
+    };
     store::append_audit(&db, "admin", "tokens.cancel", &body.code, "", now).await?;
     Response::from_json(&json!({ "token": token }))
 }

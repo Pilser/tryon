@@ -4,6 +4,10 @@ name = "tryon-platform"
 # in this directory, which emits build/worker/shim.mjs + the wasm module.
 main = "build/worker/shim.mjs"
 compatibility_date = "2026-01-01"
+# The account's workers.dev subdomain (jerboa-ui) belongs to other
+# projects - the platform lives on latiforge.com only, and every shop
+# gets {sub}.latiforge.com (the deployer attaches it via the CF API).
+workers_dev = false
 
 # Secrets (set via `wrangler secret put`; never in [vars]):
 #   ADMIN_TOKEN           bearer guarding /api/v1/admin/* (fail-closed when unset)

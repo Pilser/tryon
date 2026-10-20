@@ -33,6 +33,25 @@ pub struct PathIn {
     pub path: String,
 }
 
+/// Which shop to publish (the newest one when omitted).
+#[derive(Deserialize, Default)]
+pub struct ApplyIn {
+    #[serde(default)]
+    pub shop_id: Option<String>,
+}
+
+/// A query parameter of the request.
+fn query_param(req: &Request, name: &str) -> Option<String> {
+    req.url()
+        .ok()
+        .and_then(|u| {
+            u.query_pairs()
+                .find(|(k, _)| k == name)
+                .map(|(_, v)| v.into_owned())
+        })
+        .filter(|v| !v.is_empty())
+}
+
 /// Pure: the asset path of a landing file (tested). The customer's
 /// dist root maps to "/", everything else keeps its path.
 pub fn landing_path(raw: &str) -> Option<String> {
@@ -101,7 +120,13 @@ pub async fn handle_upload(env: Env, mut req: Request) -> Result<Response> {
     let Some(session) = auth::verify_session(&db, req.headers()).await? else {
         return http::unauthorized();
     };
-    let Some(shop) = shops::shop_by_owner(&db, &session.user_id).await? else {
+    let Some(shop) = shops::owned_shop(
+        &db,
+        &session.user_id,
+        query_param(&req, "shop_id").as_deref(),
+    )
+    .await?
+    else {
         return http::json_error(404, "NO_SHOP", "deploy a shop first");
     };
     let bucket = env
@@ -171,24 +196,37 @@ pub async fn handle_upload(env: Env, mut req: Request) -> Result<Response> {
     Response::from_json(&json!({ "ok": true, "path": path, "files": files.len() }))
 }
 
+/// The landing files of a shop (their paths) - the dashboard shows
+/// them so the owner sees what is published.
+pub async fn landing_paths(env: &Env, shop_id: &str) -> Result<Vec<String>> {
+    let bucket = env
+        .bucket("BUNDLES")
+        .map_err(|_| worker::Error::RustError("R2 BUNDLES binding not configured".into()))?;
+    let files = landing_files(&bucket, shop_id).await?;
+    Ok(files.into_iter().map(|(p, _)| p).collect())
+}
+
 /// `GET /api/v1/shop/landing` - what is published now.
 pub async fn handle_list(env: Env, req: &Request) -> Result<Response> {
     let db = store::db(&env)?;
     let Some(session) = auth::verify_session(&db, req.headers()).await? else {
         return http::unauthorized();
     };
-    let Some(shop) = shops::shop_by_owner(&db, &session.user_id).await? else {
-        return http::json_error(404, "NO_SHOP", "deploy a shop first");
-    };
     let bucket = env
         .bucket("BUNDLES")
         .map_err(|_| worker::Error::RustError("R2 BUNDLES binding not configured".into()))?;
-    let files = landing_files(&bucket, &shop.id).await?;
-    Response::from_json(&json!({
-        "ok": true,
-        "files": files.iter().map(|(p, _)| p).collect::<Vec<_>>(),
-        "url": format!("https://{}.latiforge.com", shop.subdomain),
-    }))
+    // Every shop of the owner, so the dashboard can show them all.
+    let mut shops_out = Vec::new();
+    for shop in shops::shops_of_owner(&db, &session.user_id).await? {
+        let files = landing_files(&bucket, &shop.id).await?;
+        shops_out.push(json!({
+            "shop_id": shop.id,
+            "subdomain": shop.subdomain,
+            "url": format!("https://{}.latiforge.com", shop.subdomain),
+            "files": files.iter().map(|(p, _)| p).collect::<Vec<_>>(),
+        }));
+    }
+    Response::from_json(&json!({ "ok": true, "shops": shops_out }))
 }
 
 /// `POST /api/v1/shop/landing/apply` - publish: re-register the shop's
@@ -198,7 +236,11 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
     let Some(session) = auth::verify_session(&db, req.headers()).await? else {
         return http::unauthorized();
     };
-    let Some(shop) = shops::shop_by_owner(&db, &session.user_id).await? else {
+    let Some(body) = http::json_body::<ApplyIn>(req).await else {
+        return http::bad_request("BAD_JSON", "expected {shop_id?}");
+    };
+    let Some(shop) = shops::owned_shop(&db, &session.user_id, body.shop_id.as_deref()).await?
+    else {
         return http::json_error(404, "NO_SHOP", "deploy a shop first");
     };
     let bucket = env
@@ -265,7 +307,12 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         &id8,
         &d1_uuid,
         &token,
+        &shop
+            .owner_token
+            .clone()
+            .ok_or_else(|| worker::Error::RustError("shop has no owner token".into()))?,
         &crate::deployer::public_base(&format!("{}.{}", shop.subdomain, cfg.zone_name)),
+        &format!("https://{}", cfg.zone_name),
     );
     let put = ScriptPut {
         account: &cfg.account,

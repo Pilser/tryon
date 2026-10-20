@@ -1,40 +1,63 @@
 /* pages/home.tsx - the gated "My platform" home. With no session it is
    the token-card login (shop dashboard pattern, tryon.platform.v1 key);
-   with one it is the owner's allowance numbers - and the admin console
-   entry when the signed-in seat is the admin role. */
+   with one it is the owner's console: the shops that are live (URL,
+   domain, credits, landing files) with the actions that belong to a shop,
+   the try-on credits and the activity feed - plus the admin console entry
+   when the signed-in seat is the admin role. */
 import { useCallback, useEffect, useState, type FormEvent, type JSX } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ApiError,
+  type AuditRow,
   type MeOut,
-  applyLanding,
-  attachShopDomain,
+  type ShopView,
   clearSession,
   deployShop,
   loadSession,
   login,
   me,
+  ownerActivity,
+  ownerShops,
   saveSession,
-  uploadLandingFile,
 } from "../api";
+import { ActivityFeed, ShopList, StatTile, ValueRow } from "../components/shop-list";
 import { TokenCard } from "../components/token-card";
 import { base as b, boot, cx, pf, ui as u } from "../kit";
+
+const n = (x: number): string => new Intl.NumberFormat("en-US").format(x);
 
 export default function HomePage(): JSX.Element {
   const [view, setView] = useState<"loading" | "gate" | "ready">("loading");
   const [data, setData] = useState<MeOut | null>(null);
+  const [sessionId, setSessionId] = useState("");
+  const [shops, setShops] = useState<ShopView[]>([]);
+  const [activity, setActivity] = useState<AuditRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [listError, setListError] = useState("");
   const [sub, setSub] = useState("");
   const [deploying, setDeploying] = useState(false);
   const [deployError, setDeployError] = useState("");
   const [liveUrl, setLiveUrl] = useState("");
-  const [domain, setDomain] = useState("");
-  const [domainBusy, setDomainBusy] = useState(false);
-  const [domainNote, setDomainNote] = useState("");
-  const [landingFiles, setLandingFiles] = useState<string[]>([]);
-  const [landingBusy, setLandingBusy] = useState(false);
-  const [landingNote, setLandingNote] = useState("");
+
+  /* The shops and the activity feed: two owner reads that go together.
+     One of them failing must not hide the other. */
+  const refresh = useCallback(async (sid: string): Promise<void> => {
+    const [s, a] = await Promise.allSettled([ownerShops(sid), ownerActivity(sid)]);
+    setShops(s.status === "fulfilled" ? s.value.shops : []);
+    setActivity(a.status === "fulfilled" ? a.value.activity : []);
+    setListError(
+      s.status === "rejected"
+        ? s.reason instanceof ApiError
+          ? s.reason.message
+          : "Could not load your shops."
+        : a.status === "rejected"
+          ? a.reason instanceof ApiError
+            ? a.reason.message
+            : "Could not load the activity feed."
+          : "",
+    );
+  }, []);
 
   const load = useCallback(() => {
     const s = loadSession();
@@ -43,7 +66,9 @@ export default function HomePage(): JSX.Element {
     void (async () => {
       try {
         setData(await me(s.session_id));
+        setSessionId(s.session_id);
         setView("ready");
+        await refresh(s.session_id);
       } catch (e) {
         if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
           clearSession();
@@ -56,7 +81,7 @@ export default function HomePage(): JSX.Element {
         setBusy(false);
       }
     })();
-  }, []);
+  }, [refresh]);
 
   useEffect(() => load(), [load]);
 
@@ -102,74 +127,18 @@ export default function HomePage(): JSX.Element {
     })();
   }
 
-  function submitDomain(ev: FormEvent): void {
-    ev.preventDefault();
-    const s = loadSession();
-    if (!s) return;
-    setDomainBusy(true);
-    setDomainNote("");
-    void (async () => {
-      try {
-        const out = await attachShopDomain(s.session_id, domain.trim());
-        setDomainNote(`Live on ${out.url} (zone ${out.zone}).`);
-        setDomain("");
-      } catch (e) {
-        setDomainNote(e instanceof ApiError ? e.message : "Could not attach that domain.");
-      } finally {
-        setDomainBusy(false);
-      }
-    })();
-  }
-
-  function uploadLanding(files: FileList | null): void {
-    const s = loadSession();
-    if (!s || !files || files.length === 0) return;
-    setLandingBusy(true);
-    setLandingNote("");
-    const list = Array.from(files);
-    void (async () => {
-      const done: string[] = [];
-      for (const f of list) {
-        try {
-          const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
-          const out = await uploadLandingFile(s.session_id, rel, f);
-          done.push(out.path);
-        } catch (e) {
-          setLandingNote(e instanceof ApiError ? e.message : "Upload failed.");
-        }
-      }
-      setLandingFiles(done);
-      setLandingBusy(false);
-      if (done.length) setLandingNote(`${done.length} file(s) uploaded - publish when ready.`);
-    })();
-  }
-
-  function publishLanding(): void {
-    const s = loadSession();
-    if (!s) return;
-    setLandingBusy(true);
-    setLandingNote("");
-    void (async () => {
-      try {
-        const out = await applyLanding(s.session_id);
-        setLandingNote(`Published ${out.files} file(s). The landing page is live at the shop root.`);
-      } catch (e) {
-        setLandingNote(e instanceof ApiError ? e.message : "Could not publish the landing page.");
-      } finally {
-        setLandingBusy(false);
-      }
-    })();
-  }
-
-  const tile = (label: string, value: string): JSX.Element => (
-    <div className={cx(u.stat)}>
-      <p className={cx(u.statLabel)}>{label}</p>
-      <p className={cx(u.statValue)}>{value}</p>
-      <hr className={cx(u.statRule)} />
-    </div>
-  );
-
   const left = data ? Math.max(0, data.deploy_allowance - data.deploy_used) : 0;
+  const creditsLeft = shops.reduce((a, s) => a + s.credits_left, 0);
+  const creditsGranted = shops.reduce((a, s) => a + s.credits_granted, 0);
+  const creditsUsed = shops.reduce((a, s) => a + s.credits_used, 0);
+  const activeShop = shops.reduce<ShopView | null>(
+    (best, s) => (!best || s.created_ms > best.created_ms ? s : best),
+    null,
+  );
+  const activeUrl = activeShop
+    ? activeShop.url || `https://${activeShop.subdomain}.latiforge.com`
+    : "";
+  const predicted = sub.trim().toLowerCase();
 
   return (
     <main className={cx(b.reset, u.page)}>
@@ -195,25 +164,32 @@ export default function HomePage(): JSX.Element {
         <p className={cx(u.empty)}>{error || "Loading your platform…"}</p>
       ) : (
         <>
-          {error ? <p className={cx(u.inlineNote)}>{error}</p> : null}
+          {error ? <p className={cx(b.error)}>{error}</p> : null}
+          {listError ? <p className={cx(b.error)}>{listError}</p> : null}
           <div className={cx(u.card)}>
             <h2 className={cx(u.cardTitle)}>
-              {data.user.shop_name || data.user.name || data.user.email}
+              {data.user.shop_name || data.user.email}
             </h2>
             <p className={cx(u.rowSub)}>
               {data.user.email} · {data.user.contact || "no contact"}
             </p>
           </div>
           <div className={cx(u.statGrid)}>
-            {tile("Deploy allowance", String(data.deploy_allowance))}
-            {tile("Shops deployed", String(data.deploy_used))}
-            {tile("Left to deploy", String(left))}
+            <StatTile label="Deploy allowance" value={String(data.deploy_allowance)} />
+            <StatTile label="Shops deployed" value={String(data.deploy_used)} />
+            <StatTile label="Left to deploy" value={String(left)} />
+            <StatTile label="Shops live" value={String(shops.length)} />
           </div>
+          <ShopList
+            shops={shops}
+            sessionId={sessionId}
+            onChanged={() => void refresh(sessionId)}
+          />
           <div className={cx(u.card)}>
             <h2 className={cx(u.cardTitle)}>Deploy shop</h2>
             <p className={cx(u.rowSub)}>
               Each deploy uses 1 from your allowance, so {left} deploy
-              {left === 1 ? "" : "s"} remain before a top-up.
+              {left === 1 ? " remains" : "s remain"} before a top-up.
             </p>
             <form onSubmit={submitDeploy}>
               <label className={cx(pf.label)} htmlFor="dp-sub">
@@ -229,102 +205,83 @@ export default function HomePage(): JSX.Element {
                 disabled={deploying || left < 1}
               />
               <p className={cx(u.inlineNote)}>
-                Customers will reach your shop at{" "}
-                <strong>{sub.trim() || "your-shop"}.latiforge.com</strong>.
+                This deploy produces{" "}
+                <strong>https://{predicted || "your-shop"}.latiforge.com</strong>{" "}
+                - the studio answers at /app, your landing page at the root.
               </p>
-              {deployError ? <p className={cx(u.inlineNote)}>{deployError}</p> : null}
+              {deployError ? <p className={cx(b.error)}>{deployError}</p> : null}
               {liveUrl ? (
-                <p className={cx(u.inlineNote)}>Shop is live: {liveUrl}</p>
+                <p className={cx(u.inlineNote)}>
+                  Shop is live:{" "}
+                  <a className={cx(pf.code)} href={liveUrl} target="_blank" rel="noreferrer">
+                    {liveUrl}
+                  </a>
+                </p>
               ) : null}
               <div className={cx(u.btnRow)}>
                 <button
-                  className={cx(b.btn, b.btnPrimary, u.btnGrow)}
+                  className={cx(
+                    b.btn,
+                    b.btnPrimary,
+                    u.btnGrow,
+                    (deploying || left < 1 || !sub.trim()) && b.btnDisabled,
+                  )}
                   type="submit"
                   disabled={deploying || left < 1 || !sub.trim()}
                 >
-                  {deploying ? "Deploying..." : left < 1 ? "Allowance exhausted" : "Deploy shop"}
+                  {deploying
+                    ? "Deploying…"
+                    : left < 1
+                      ? "Allowance exhausted"
+                      : "Deploy shop"}
                 </button>
               </div>
             </form>
           </div>
-          {liveUrl ? (
-            <>
-              <div className={cx(u.card)}>
-                <h2 className={cx(u.cardTitle)}>Your own domain</h2>
-                <p className={cx(u.rowSub)}>
-                  Point a domain you own at this shop. Add this Cloudflare
-                  account as a collaborator on that domain's zone, then type
-                  the domain here - the certificate is issued for you.
-                </p>
-                <form onSubmit={submitDomain}>
-                  <label className={cx(pf.label)} htmlFor="dp-domain">
-                    Your domain
-                  </label>
-                  <input
-                    id="dp-domain"
-                    className={cx(pf.field)}
-                    value={domain}
-                    onChange={(e) => setDomain(e.target.value)}
-                    placeholder="myshop.com"
-                    autoComplete="off"
-                    disabled={domainBusy}
-                  />
-                  {domainNote ? (
-                    <p className={cx(u.inlineNote)}>{domainNote}</p>
-                  ) : null}
-                  <div className={cx(u.btnRow)}>
-                    <button
-                      className={cx(b.btn, b.btnPrimary, u.btnGrow)}
-                      type="submit"
-                      disabled={domainBusy || !domain.trim()}
-                    >
-                      {domainBusy ? "Attaching..." : "Attach domain"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-              <div className={cx(u.card)}>
-                <h2 className={cx(u.cardTitle)}>Landing page</h2>
-                <p className={cx(u.rowSub)}>
-                  Upload the dist folder of your own landing page. It is
-                  served at the root of your shop, the shop itself stays at
-                  /app. List your products in it with the feed:
-                  <br />
-                  <code>/api/feed</code> returns JSON with a card per
-                  product and the link to its page.
-                </p>
-                <div className={cx(pf.fieldRow)}>
-                  <input
-                    id="dp-landing"
-                    className={cx(pf.field)}
-                    type="file"
-                    multiple
-                    onChange={(e) => void uploadLanding(e.target.files)}
-                    disabled={landingBusy}
-                  />
-                </div>
-                {landingNote ? <p className={cx(u.inlineNote)}>{landingNote}</p> : null}
-                <div className={cx(u.btnRow)}>
-                  <button
-                    className={cx(b.btn, b.btnPrimary, u.btnGrow)}
-                    type="button"
-                    disabled={landingBusy || !landingFiles.length}
-                    onClick={() => void publishLanding()}
-                  >
-                    {landingBusy ? "Publishing..." : "Publish landing page"}
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : null}
-          {data.user.role === "admin" ? (
-            <div className={cx(u.btnRow)}>
-              <a className={cx(b.btn, b.btnSecondary, u.btnGrow)} href="admin.html">
-                Open admin console
-              </a>
+          <div className={cx(u.card)}>
+            <h2 className={cx(u.cardTitle)}>Try-on credits</h2>
+            <p className={cx(u.rowSub)}>
+              Every try-on spends 1 credit. These are the totals over your{" "}
+              {n(shops.length)} shop{shops.length === 1 ? "" : "s"}.
+            </p>
+            <div className={cx(u.rows)}>
+              <ValueRow
+                label="Credits left"
+                sub="what your customers may spend now"
+                value={n(creditsLeft)}
+              />
+              <ValueRow
+                label="Credits granted"
+                sub="codes, gifts and top-ups"
+                value={n(creditsGranted)}
+              />
+              <ValueRow
+                label="Credits used"
+                sub="try-ons already spent"
+                value={n(creditsUsed)}
+              />
             </div>
-          ) : null}
-        </>
+            {activeUrl ? (
+              <div className={cx(u.btnRow)}>
+                <a
+                  className={cx(b.btn, b.btnSecondary, u.btnGrow)}
+                  href={`${activeUrl}/dashboard`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Request more credits in the shop dashboard
+                </a>
+              </div>
+            ) : null}
+          </div>
+          <ActivityFeed activity={activity} />
+          {/* The admin console has its own ADMIN_TOKEN gate, so the link
+              is always there - the session says nothing about it. */}
+          <div className={cx(u.btnRow)}>
+            <a className={cx(b.btn, b.btnSecondary, u.btnGrow)} href="admin.html">
+              Open admin console
+            </a>
+          </div>        </>
       )}
     </main>
   );

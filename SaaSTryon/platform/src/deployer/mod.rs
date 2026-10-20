@@ -221,6 +221,8 @@ pub struct ShopRow {
     /// public (it is the DNS label), so the token is its own secret and
     /// lives in the shops row.
     pub platform_token: String,
+    /// The shop's OWNER_TOKEN (its studio access), shown to the owner.
+    pub owner_token: String,
 }
 
 // ------------------------------------------------------ orchestration
@@ -251,6 +253,9 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     let shop_id = format!("shop_{id8}");
     let script = provision::script_name(&id8);
     let token = new_deploy_token();
+    // The shop's own owner token (its studio access). The platform keeps
+    // it so the owner can sign into their shop dashboard.
+    let owner_token = new_deploy_token();
 
     // Steps 3+5b: per-shop D1, then the bundled shop schema into it.
     let data = bundles
@@ -264,7 +269,10 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
         &id8,
         &d1_uuid,
         &token,
+        &owner_token,
         &provision::public_base(&format!("{}.{}", input.subdomain, cf_cfg.zone_name)),
+        // The platform itself is the apex of our zone.
+        &format!("https://{}", cf_cfg.zone_name),
     );
 
     // 3-step assets, then the script-PUT carrying the completion jwt.
@@ -301,6 +309,7 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
         depot_version: input.bundle_id.clone(),
         created_ms: input.now_ms,
         platform_token: token.clone(),
+        owner_token: owner_token.clone(),
     };
     store.record_shop(&row).await.map_err(DeployError::store)?;
     store

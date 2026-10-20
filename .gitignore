@@ -64,3 +64,6 @@ SaaSTryon/platform/build/**
 SaaSTryon/platform/frontend/node_modules/**
 SaaSTryon/platform/frontend/dist/
 SaaSTryon/platform/frontend/dist/**
+# wrangler local state (miniflare cache, never committed)
+.wrangler/
+**/.wrangler/

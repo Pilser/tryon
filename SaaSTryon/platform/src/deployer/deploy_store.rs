@@ -119,7 +119,7 @@ impl DeployStore for D1Store<'_> {
 
     async fn record_shop(&self, row: &ShopRow) -> Result<(), String> {
         self.write(
-            "INSERT INTO shops (id,owner_id,name,subdomain,cluster_id,status,tier,depot_version,created_ms,platform_token) VALUES (?,?,?,?,?,'live',?,?,?,?)",
+            "INSERT INTO shops (id,owner_id,name,subdomain,cluster_id,status,tier,depot_version,created_ms,platform_token,owner_token) VALUES (?,?,?,?,?,'live',?,?,?,?,?)",
             vec![
                 row.id.clone().into(),
                 row.owner_id.clone().into(),
@@ -130,6 +130,7 @@ impl DeployStore for D1Store<'_> {
                 row.depot_version.clone().into(),
                 (row.created_ms as f64).into(),
                 row.platform_token.clone().into(),
+                row.owner_token.clone().into(),
             ],
         )
         .await

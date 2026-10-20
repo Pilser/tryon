@@ -282,9 +282,20 @@ pub async fn handle_redeem(env: Env, req: &mut Request) -> Result<Response> {
     let Some(shop) = store::shop_by_token(&db, &token).await? else {
         return crate::http::unauthorized();
     };
-    let redeemed = store::redeem_shop_token(&db, &body.code, &shop.id, now)
-        .await
-        .map_err(|e| worker::Error::RustError(format!("redeem failed: {}", e)))?;
+    // A wrong/used/cancelled code is a client mistake, not a crash:
+    // answer with the platform's error envelope.
+    let redeemed = match store::redeem_shop_token(&db, &body.code, &shop.id, now).await {
+        Ok(t) => t,
+        Err(e) => {
+            let msg = e.to_string();
+            let code = if msg.contains("unknown token") {
+                "UNKNOWN_TOKEN"
+            } else {
+                "TOKEN_USED"
+            };
+            return crate::http::json_error(400, code, "that code cannot be redeemed");
+        }
+    };
     // One token = one tryon credit for now (Phase E). If tokens ever carry
     // a face value, store it on the shop_tokens row and read it here.
     store::grant_credits(&db, &shop.id, 1, now).await?;

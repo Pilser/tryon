@@ -50,7 +50,9 @@ pub fn bindings_for(
     id8: &str,
     d1_uuid: &str,
     platform_token: &str,
+    owner_token: &str,
     r2_public_base: &str,
+    platform_url: &str,
 ) -> Vec<Value> {
     vec![
         json!({ "type": "d1", "name": "DB", "database_id": d1_uuid }),
@@ -60,6 +62,21 @@ pub fn bindings_for(
             "type": "secret_text",
             "name": "PLATFORM_TOKEN",
             "text": platform_token,
+        }),
+        // The shop's studio is owner-gated. Without this binding the
+        // shop worker treats "no expected token" as "no auth", which
+        // would leave /api/studio/* open to the world.
+        json!({
+            "type": "secret_text",
+            "name": "OWNER_TOKEN",
+            "text": owner_token,
+        }),
+        // Where the platform lives - the shop calls it for the token
+        // redeem and the metered Genlook proxy.
+        json!({
+            "type": "plain_text",
+            "name": "PLATFORM_URL",
+            "text": platform_url,
         }),
         // Where the studio writes image URLs. The shop serves the
         // objects itself (/media/<key>), so a private bucket is enough.
@@ -160,12 +177,14 @@ mod tests {
             "a1b2c3d4",
             "db-uuid",
             "deploy_6183ab26911057e6",
+            "deploy_owner_6183ab26911057e6",
             "https://shop.latiforge.com/media",
+            "https://latiforge.com",
         );
         assert_eq!(
             b.len(),
-            6,
-            "exactly DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN/R2_PUBLIC_BASE/ASSETS"
+            8,
+            "exactly DB/PRODUCTS/SHOP_ID/PLATFORM_TOKEN/OWNER_TOKEN/PLATFORM_URL/R2_PUBLIC_BASE/ASSETS"
         );
         assert_eq!(b[0]["type"], "d1");
         assert_eq!(b[0]["name"], "DB");
@@ -178,11 +197,18 @@ mod tests {
         assert_eq!(b[2]["text"], "a1b2c3d4");
         assert_eq!(b[3]["type"], "secret_text");
         assert_eq!(b[3]["name"], "PLATFORM_TOKEN");
-        assert_eq!(b[4]["type"], "plain_text");
-        assert_eq!(b[4]["name"], "R2_PUBLIC_BASE");
-        assert_eq!(b[4]["text"], "https://shop.latiforge.com/media");
-        assert_eq!(b[5]["type"], "assets");
-        assert_eq!(b[5]["name"], "ASSETS");
+        // The shop's studio is gated by its own token, and it knows
+        // where the platform is.
+        assert_eq!(b[4]["type"], "secret_text");
+        assert_eq!(b[4]["name"], "OWNER_TOKEN");
+        assert_eq!(b[5]["type"], "plain_text");
+        assert_eq!(b[5]["name"], "PLATFORM_URL");
+        assert_eq!(b[5]["text"], "https://latiforge.com");
+        assert_eq!(b[6]["type"], "plain_text");
+        assert_eq!(b[6]["name"], "R2_PUBLIC_BASE");
+        assert_eq!(b[6]["text"], "https://shop.latiforge.com/media");
+        assert_eq!(b[7]["type"], "assets");
+        assert_eq!(b[7]["name"], "ASSETS");
         // The Genlook key never reaches a shop script, and neither does
         // a service binding: the platform proxies over HTTP.
         let blob = serde_json::to_string(&b).unwrap();
@@ -208,7 +234,14 @@ mod tests {
         // rewrites it, so the real secret only lives where the caller
         // minted it. And no Genlook key sneaks into the set.
         let fake = "not-the-real-secret-text";
-        let b = bindings_for("a1b2c3d4", "u", fake, "https://shop.latiforge.com/media");
+        let b = bindings_for(
+            "a1b2c3d4",
+            "u",
+            fake,
+            "deploy_owner_6183ab26911057e6",
+            "https://shop.latiforge.com/media",
+            "https://latiforge.com",
+        );
         let token = b
             .iter()
             .find(|x| x["name"] == "PLATFORM_TOKEN")

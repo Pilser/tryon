@@ -1,0 +1,11 @@
+-- SaaSTryon platform schema, rev 0004: the per-shop owner token.
+--
+-- The shop's studio (products, categories, settings) is guarded by
+-- OWNER_TOKEN, which the deployer mints per shop and binds as a
+-- secret. Without it the shop's owner routes would be open to anyone
+-- (the shop worker treats an empty expected token as "no auth
+-- configured"), so a deployed shop always gets one.
+--
+-- ALTER TABLE is not idempotent in SQLite, so the migrator tolerates
+-- "duplicate column name" and keeps going.
+ALTER TABLE shops ADD COLUMN owner_token TEXT;

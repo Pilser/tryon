@@ -14,10 +14,11 @@ pub use crate::shops::{
 };
 
 /// The migrations applied by [`ensure_schema`], in order.
-pub const MIGRATIONS: [&str; 3] = [
+pub const MIGRATIONS: [&str; 4] = [
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_shop_tokens.sql"),
     include_str!("../migrations/0003_shop_token.sql"),
+    include_str!("../migrations/0004_shop_owner_token.sql"),
 ];
 
 /// Kept for callers that referenced the first migration directly.

@@ -8,12 +8,12 @@ export interface PlatformUser {
   id: string;
   email: string;
   contact: string;
-  name: string;
   shop_name: string;
   status: "pending" | "approved" | "suspended" | "rejected";
-  role: "admin" | "user";
   deploy_allowance: number;
   deploy_used: number;
+  created_ms: number;
+  approved_by?: string | null;
 }
 
 const SESSION_KEY = "tryon.platform.v1";
@@ -130,6 +130,56 @@ export const deployShop = (
 
 /* ---------------------------------------------- shop: domain + landing */
 
+/** A shop as the dashboards show it. */
+export interface ShopView {
+  id: string;
+  name: string;
+  subdomain: string;
+  url: string;
+  domain: string | null;
+  hostnames: string[];
+  status: string;
+  tier: string;
+  bundle: string;
+  created_ms: number;
+  credits_granted: number;
+  credits_used: number;
+  credits_left: number;
+  tokens_redeemed: number;
+  landing_files: string[];
+  activity_count: number;
+  owner_token?: string | null;
+  workers_dev_url?: string | null;
+  owner_email?: string | null;
+  owner_name?: string | null;
+}
+
+/** One activity row (the audit feed). */
+export interface AuditRow {
+  id: string;
+  actor: string;
+  action: string;
+  subject: string;
+  meta: string;
+  created_ms: number;
+}
+
+/** The owner's shops. */
+export const ownerShops = (sessionId: string): Promise<{ shops: ShopView[] }> =>
+  call("GET", "/api/v1/shops", undefined, sessionId);
+
+/** The owner's activity feed. */
+export const ownerActivity = (sessionId: string): Promise<{ activity: AuditRow[] }> =>
+  call("GET", "/api/v1/shops/activity", undefined, sessionId);
+
+/** Every shop (admin). */
+export const adminShops = (adminToken: string): Promise<{ shops: ShopView[] }> =>
+  call("GET", "/api/v1/admin/shops", undefined, adminToken);
+
+/** The platform activity feed (admin). */
+export const adminActivity = (adminToken: string): Promise<{ activity: AuditRow[] }> =>
+  call("GET", "/api/v1/admin/activity", undefined, adminToken);
+
 export interface ShopDomainOut {
   ok: boolean;
   hostname: string;
@@ -143,8 +193,12 @@ export const attachShopDomain = (sessionId: string, domain: string): Promise<Sho
 
 export interface LandingOut {
   ok: boolean;
-  files: string[];
-  url: string;
+  shops: Array<{
+    shop_id: string;
+    subdomain: string;
+    url: string;
+    files: string[];
+  }>;
 }
 
 export const listLanding = (sessionId: string): Promise<LandingOut> =>
@@ -155,21 +209,21 @@ export const uploadLandingFile = (
   sessionId: string,
   path: string,
   file: File,
+  shopId?: string,
 ): Promise<{ ok: boolean; path: string; files: number }> => {
   const form = new FormData();
   form.append("file", file, file.name);
-  return callForm(
-    `/api/v1/shop/landing/file?path=${encodeURIComponent(path)}`,
-    form,
-    sessionId,
-  );
+  const q = new URLSearchParams({ path });
+  if (shopId) q.set("shop_id", shopId);
+  return callForm(`/api/v1/shop/landing/file?${q.toString()}`, form, sessionId);
 };
 
 /** Publish: the landing files become the shop's root assets. */
 export const applyLanding = (
   sessionId: string,
+  shopId?: string,
 ): Promise<{ ok: boolean; files: number; url: string }> =>
-  call("POST", "/api/v1/shop/landing/apply", {}, sessionId);
+  call("POST", "/api/v1/shop/landing/apply", { shop_id: shopId ?? null }, sessionId);
 
 /* ------------------------------------------------------------ admin --- */
 

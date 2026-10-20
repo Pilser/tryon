@@ -13,7 +13,7 @@ export default function LoginPage(): JSX.Element {
   const [error, setError] = useState("");
   const [session, setSession] = useState<Session | null>(null);
 
-  const who = session ? (session.user.shop_name || session.user.name || session.user.email) : "";
+  const who = session ? (session.user.shop_name || session.user.email) : "";
   if (session) window.setTimeout(() => window.location.replace("home.html"), 900);
 
   return (

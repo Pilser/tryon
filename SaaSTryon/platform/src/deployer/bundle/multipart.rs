@@ -197,8 +197,14 @@ mod tests {
 
     #[test]
     fn metadata_shape_has_no_genlook_secret() {
-        let bindings =
-            crate::deployer::provision::bindings_for("a1b2c3d4", "uuid-1", "deploy_test");
+        let bindings = crate::deployer::provision::bindings_for(
+            "a1b2c3d4",
+            "uuid-1",
+            "deploy_test",
+            "owner_test",
+            "https://s.latiforge.com/media",
+            "https://latiforge.com",
+        );
         let meta: Value = serde_json::from_str(&MultipartBuilder::metadata_json(
             "worker.js",
             "2026-10-19",
@@ -224,7 +230,7 @@ mod tests {
         .unwrap();
         assert!(no_assets.get("assets").is_none(), "no jwt -> no assets key");
         let b = meta["bindings"].as_array().unwrap();
-        assert_eq!(b.len(), 5, "exact 5 bindings (no service binding)");
+        assert_eq!(b.len(), 8, "exact 8 bindings (no service binding)");
         let blob = meta.to_string();
         assert!(
             !blob.contains("GENLOOK_API_KEY"),
@@ -248,8 +254,14 @@ mod tests {
         let b = MultipartBuilder {
             boundary: "fixed-boundary".into(),
         };
-        let bindings =
-            crate::deployer::provision::bindings_for("a1b2c3d4", "uuid-1", "deploy_test");
+        let bindings = crate::deployer::provision::bindings_for(
+            "a1b2c3d4",
+            "uuid-1",
+            "deploy_test",
+            "owner_test",
+            "https://s.latiforge.com/media",
+            "https://latiforge.com",
+        );
         let put = ScriptPut {
             account: "acc",
             script_name: "shop-a1b2c3d4",
@@ -273,7 +285,14 @@ mod tests {
             CfBody::Raw(raw) => raw.bytes.clone(),
             _ => panic!("script put is raw multipart"),
         };
-        let changed = crate::deployer::provision::bindings_for("a1b2c3d4", "uuid-9", "deploy_test");
+        let changed = crate::deployer::provision::bindings_for(
+            "a1b2c3d4",
+            "uuid-9",
+            "deploy_test",
+            "owner_test",
+            "https://s.latiforge.com/media",
+            "https://latiforge.com",
+        );
         let put_changed = ScriptPut {
             bindings: &changed,
             ..put

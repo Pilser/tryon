@@ -9,6 +9,7 @@ pub mod admin;
 pub mod auth;
 pub mod cfg;
 pub mod credits;
+pub mod dashboard;
 pub mod deploy;
 pub mod deployer;
 pub mod domain;

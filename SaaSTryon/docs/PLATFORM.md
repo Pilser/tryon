@@ -605,9 +605,10 @@ The tryon dashboard gets a new "Platform" card/contact in the owner settings
 domain". Both call the platform control plane:
 
 ```
-POST https://<platform>/platform/v1/shops/me/credit-request   {amount, reason}
-POST https://<platform>/platform/v1/shops/me/domains          {hostname}
-Auth: `Authorization: Bearer <PLATFORM_TOKEN>` (secret_text binding)
+POST https://<platform>/api/v1/shop/credits/request  {requested, reason?}
+POST https://<platform>/api/v1/shop/domain         {domain, shop_id?}
+Auth: the shop's `PLATFORM_TOKEN` (secret_text binding) for the credit
+request; the owner's session for the domain.
 ```
 Purchases later: same endpoint, plus a paid flow badge in the platform
 dashboard (real money product not scoped in this research; phase G lists the

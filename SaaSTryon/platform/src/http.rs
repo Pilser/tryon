@@ -27,7 +27,7 @@ HTTP status (mirrors the shop's `routes/errors.rs` shape). */
 use serde::de::DeserializeOwned;
 use worker::{Env, Method, Request, Response, Result};
 
-use crate::{admin, auth, credits, deploy, domain, landing, outbound};
+use crate::{admin, auth, credits, dashboard, deploy, domain, landing, outbound};
 
 /// Everything under `/api/v1/*`; anything else is a static asset.
 pub async fn route(mut req: Request, env: Env) -> Result<Response> {
@@ -71,6 +71,11 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
         (Method::Post, ["admin", "credits", "reject"]) => {
             credits::handle_admin_reject(env, &mut req).await
         }
+        // Phase G: the dashboard views (shops + activity).
+        (Method::Get, ["shops"]) => dashboard::handle_owner_shops(env, &req).await,
+        (Method::Get, ["shops", "activity"]) => dashboard::handle_owner_activity(env, &req).await,
+        (Method::Get, ["admin", "shops"]) => dashboard::handle_admin_shops(env, &req).await,
+        (Method::Get, ["admin", "activity"]) => dashboard::handle_admin_activity(env, &req).await,
         // Phase F: the owner-facing deploy form.
         (Method::Post, ["deploy"]) => deploy::handle_deploy(env, &mut req).await,
         // Phase E: the metered Genlook proxy for tenant shops.

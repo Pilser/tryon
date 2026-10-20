@@ -1,10 +1,11 @@
 /* shops.rs - the SaaSTryon shop domain (Phase E): the `shops` row, its
 lookups, and the shop-token lifecycle (`shop_tokens` migration 0002).
 The admin mints 4-digit codes; a shop redeems one to top up its
-`tryon_tokens` credit balance. Pure logic (code formatting, state
+`tryon_tokens` credit balance. Phase G adds the dashboard views: the
+owner's shops, the admin's shop list (with owners, URLs, credits and
+token usage) and the activity feed. Pure logic (code formatting, state
 transitions) is tested; D1 paths stay thin wrappers like `store.rs`. */
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::JsValue;
 use worker::d1::D1Database;
 use worker::Result;
 
@@ -28,10 +29,14 @@ pub struct Shop {
     /// name (that one is public - it is the DNS label).
     #[serde(default)]
     pub platform_token: Option<String>,
+    /// The shop's OWNER_TOKEN (its studio access). Shown to the owner
+    /// in the dashboard, never to anyone else.
+    #[serde(default)]
+    pub owner_token: Option<String>,
 }
 
 const SHOP_COLS: &str =
-    "id,owner_id,name,subdomain,cluster_id,status,tier,depot_version,created_ms,platform_token";
+    "id,owner_id,name,subdomain,cluster_id,status,tier,depot_version,created_ms,platform_token,owner_token";
 
 /// Finds a shop by its platform token — the per-shop secret bound at
 /// deploy time and used as the Bearer credential when the shop calls
@@ -60,6 +65,49 @@ pub async fn shop_by_owner(db: &D1Database, owner_id: &str) -> Result<Option<Sho
     .bind(&str_args([owner_id]))?
     .first::<Shop>(None)
     .await
+}
+
+/// The owner's shops (oldest first).
+pub async fn shops_of_owner(db: &D1Database, owner_id: &str) -> Result<Vec<Shop>> {
+    db.prepare(&format!(
+        "SELECT {SHOP_COLS} FROM shops WHERE owner_id = ? ORDER BY created_ms"
+    ))
+    .bind(&str_args([owner_id]))?
+    .all()
+    .await?
+    .results()
+}
+
+/// Every shop (newest first) - the admin list.
+pub async fn all_shops(db: &D1Database) -> Result<Vec<Shop>> {
+    db.prepare(&format!(
+        "SELECT {SHOP_COLS} FROM shops ORDER BY created_ms DESC"
+    ))
+    .all()
+    .await?
+    .results()
+}
+
+/// The owner's shop: the one they named, else their newest. A customer
+/// can run more than one shop, so the per-shop actions (domain,
+/// landing) take the shop id.
+pub async fn owned_shop(
+    db: &D1Database,
+    owner_id: &str,
+    shop_id: Option<&str>,
+) -> Result<Option<Shop>> {
+    match shop_id {
+        Some(id) => {
+            let Some(shop) = shop_by_id(db, id).await? else {
+                return Ok(None);
+            };
+            if shop.owner_id != owner_id {
+                return Ok(None);
+            }
+            Ok(Some(shop))
+        }
+        None => shop_by_owner(db, owner_id).await,
+    }
 }
 
 // ---------------------------------------------------------- shop tokens
@@ -105,11 +153,10 @@ pub async fn mint_shop_tokens(
         for _ in 0..8 {
             let res = write(
                 db,
-                "INSERT INTO shop_tokens (code,shop_id,status,created_ms,note)
-                 VALUES (?,NULL,'active',?,?)",
+                "INSERT INTO shop_tokens (code,shop_id,status,created_ms,note) VALUES (?,NULL,'active',?,?)",
                 vec![
                     code.clone().into(),
-                    JsValue::from(now_ms as f64),
+                    wasm_bindgen::JsValue::from(now_ms as f64),
                     note.into(),
                 ],
             )
@@ -145,7 +192,7 @@ pub async fn token_by_code(db: &D1Database, code: &str) -> Result<Option<ShopTok
 /// `status` filter: one of active|used|cancelled, or None for all.
 pub async fn list_shop_tokens(db: &D1Database, status: Option<&str>) -> Result<Vec<ShopToken>> {
     let sql = match status {
-        Some(_) => format!(
+        Some(s) => format!(
             "SELECT {TOKEN_COLS} FROM shop_tokens WHERE status = ? ORDER BY created_ms DESC"
         ),
         _ => format!("SELECT {TOKEN_COLS} FROM shop_tokens ORDER BY created_ms DESC"),
@@ -154,7 +201,7 @@ pub async fn list_shop_tokens(db: &D1Database, status: Option<&str>) -> Result<V
     if let Some(s) = status {
         q = q.bind(&str_args([s]))?;
     }
-    q.all().await?.results::<ShopToken>()
+    q.all().await?.results()
 }
 
 /// Pure check a redemption may proceed: only `active` tokens redeem.
@@ -182,9 +229,12 @@ pub async fn redeem_shop_token(
     }
     write(
         db,
-        "UPDATE shop_tokens SET status='used', redeemed_ms=?, redeemed_by=?
-         WHERE code = ? AND status='active'",
-        vec![JsValue::from(now_ms as f64), shop_id.into(), code.into()],
+        "UPDATE shop_tokens SET status='used', redeemed_ms=?, redeemed_by=? WHERE code = ? AND status='active'",
+        vec![
+            wasm_bindgen::JsValue::from(now_ms as f64),
+            shop_id.into(),
+            code.into(),
+        ],
     )
     .await?;
     Ok(ShopToken {
@@ -212,9 +262,11 @@ pub async fn cancel_shop_token(db: &D1Database, code: &str, now_ms: i64) -> Resu
     }
     write(
         db,
-        "UPDATE shop_tokens SET status='cancelled', cancelled_ms=?
-         WHERE code = ? AND status='active'",
-        vec![JsValue::from(now_ms as f64), code.into()],
+        "UPDATE shop_tokens SET status='cancelled', cancelled_ms=? WHERE code = ? AND status='active'",
+        vec![
+            wasm_bindgen::JsValue::from(now_ms as f64),
+            code.into(),
+        ],
     )
     .await?;
     Ok(ShopToken {
@@ -231,24 +283,37 @@ pub async fn cancel_shop_token(db: &D1Database, code: &str, now_ms: i64) -> Resu
 pub async fn grant_credits(db: &D1Database, shop_id: &str, amount: i64, now_ms: i64) -> Result<()> {
     write(
         db,
-        "INSERT INTO credits (shop_id,product,granted_total,used_total,updated_ms)
-         VALUES (?,'tryon_tokens',?,0,?)
-         ON CONFLICT (shop_id,product) DO UPDATE SET
-           granted_total = granted_total + excluded.granted_total,
-           updated_ms = excluded.updated_ms",
+        "INSERT INTO credits (shop_id,product,granted_total,used_total,updated_ms) VALUES (?,'tryon_tokens',?,0,?) ON CONFLICT (shop_id,product) DO UPDATE SET granted_total = granted_total + excluded.granted_total, updated_ms = excluded.updated_ms",
         vec![
             shop_id.into(),
-            JsValue::from(amount as f64),
-            JsValue::from(now_ms as f64),
+            wasm_bindgen::JsValue::from(amount as f64),
+            wasm_bindgen::JsValue::from(now_ms as f64),
         ],
     )
     .await
 }
 
-// ------------------------------------------------- credit metering (E)
+/// Atomic check-and-decrement for the Genlook proxy: the conditional
+/// UPDATE only fires when balance >= 1, so concurrent calls cannot drive
+/// the balance negative. Returns false when the shop is out of credits
+/// (or when the D1 meta counter is unknown - we fail closed, never
+/// spending platform money on a guess).
+pub async fn consume_credit(db: &D1Database, shop_id: &str, now_ms: i64) -> Result<bool> {
+    let res = db
+        .prepare(
+            "UPDATE credits SET used_total = used_total + 1, updated_ms = ? WHERE shop_id = ? AND product = 'tryon_tokens' AND granted_total - used_total >= 1",
+        )
+        .bind(&[wasm_bindgen::JsValue::from(now_ms as f64), shop_id.into()])?
+        .run()
+        .await?;
+    // D1 quirk: no rows_affected(); meta().changes is Option<usize> -
+    // None means unknown, treated as "not applied" so we fail closed.
+    let changed = res.meta()?.and_then(|m| m.changes).unwrap_or(0);
+    Ok(changed > 0)
+}
 
 /// The shop's tryon_tokens balance (granted minus used); 0 when the row
-/// does not exist yet.
+/// does not exist.
 pub async fn credits_left(db: &D1Database, shop_id: &str) -> Result<i64> {
     #[derive(Deserialize)]
     struct Row {
@@ -256,32 +321,100 @@ pub async fn credits_left(db: &D1Database, shop_id: &str) -> Result<i64> {
         used_total: i64,
     }
     let row = db
-        .prepare(
-            "SELECT granted_total, used_total FROM credits WHERE shop_id = ? AND product = 'tryon_tokens'",
-        )
+        .prepare("SELECT granted_total, used_total FROM credits WHERE shop_id = ? AND product = 'tryon_tokens'")
         .bind(&str_args([shop_id]))?
         .first::<Row>(None)
         .await?;
     Ok(row.map(|r| r.granted_total - r.used_total).unwrap_or(0))
 }
 
-/// Atomic check-and-decrement for the Genlook proxy: the conditional
-/// UPDATE only fires when balance >= 1, so concurrent calls cannot drive
-/// the balance negative. Returns false when the shop is out of credits
-/// (or when the D1 meta counter is unknown — we fail closed, never
-/// spending platform money on a guess).
-pub async fn consume_credit(db: &D1Database, shop_id: &str, now_ms: i64) -> Result<bool> {
-    let res = db
-        .prepare(
-            "UPDATE credits SET used_total = used_total + 1, updated_ms = ? WHERE shop_id = ? AND product = 'tryon_tokens' AND granted_total - used_total >= 1",
-        )
-        .bind(&[JsValue::from(now_ms as f64), shop_id.into()])?
-        .run()
+/// Granted + used + left for one shop (the dashboard numbers).
+pub async fn credit_usage(db: &D1Database, shop_id: &str) -> Result<(i64, i64, i64)> {
+    #[derive(Deserialize)]
+    struct Row {
+        granted_total: i64,
+        used_total: i64,
+    }
+    let row = db
+        .prepare("SELECT granted_total, used_total FROM credits WHERE shop_id = ? AND product = 'tryon_tokens'")
+        .bind(&str_args([shop_id]))?
+        .first::<Row>(None)
         .await?;
-    // D1 quirk: no rows_affected(); meta().changes is Option<usize> —
-    // None means unknown, treated as "not applied" so we fail closed.
-    let changed = res.meta()?.and_then(|m| m.changes).unwrap_or(0);
-    Ok(changed > 0)
+    Ok(match row {
+        Some(r) => (
+            r.granted_total,
+            r.used_total,
+            r.granted_total - r.used_total,
+        ),
+        None => (0, 0, 0),
+    })
+}
+
+/// How many 4-digit codes were redeemed by this shop.
+pub async fn tokens_redeemed(db: &D1Database, shop_id: &str) -> Result<i64> {
+    let row: Option<i64> = db
+        .prepare("SELECT COUNT(*) AS n FROM shop_tokens WHERE shop_id = ? AND status = 'used'")
+        .bind(&str_args([shop_id]))?
+        .first::<i64>(None)
+        .await?;
+    Ok(row.unwrap_or(0))
+}
+
+// --------------------------------------------------------- hostnames
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostnameRow {
+    pub id: String,
+    pub shop_id: String,
+    pub hostname: String,
+    pub cf_hostname_id: Option<String>,
+    pub status: String,
+    pub created_ms: i64,
+}
+
+/// The hostnames attached to a shop (the subdomain + any customer
+/// domain).
+pub async fn hostnames_of(db: &D1Database, shop_id: &str) -> Result<Vec<HostnameRow>> {
+    db.prepare("SELECT id, shop_id, hostname, cf_hostname_id, status, created_ms FROM hostnames WHERE shop_id = ? ORDER BY created_ms")
+        .bind(&str_args([shop_id]))?
+        .all()
+        .await?
+        .results()
+}
+
+// ------------------------------------------------------------ activity
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditRow {
+    pub id: String,
+    pub actor: String,
+    pub action: String,
+    pub subject: String,
+    pub meta: String,
+    pub created_ms: i64,
+}
+
+/// The activity feed: the audit rows, newest first. `shop_id` filters
+/// to one shop (the owner view), `None` gives everything (the admin
+/// view).
+pub async fn activity(
+    db: &D1Database,
+    shop_id: Option<&str>,
+    limit: usize,
+) -> Result<Vec<AuditRow>> {
+    let sql = match shop_id {
+        Some(_) => "SELECT id, actor, action, subject, meta, created_ms FROM audit WHERE subject = ? ORDER BY created_ms DESC LIMIT ?",
+        None => "SELECT id, actor, action, subject, meta, created_ms FROM audit ORDER BY created_ms DESC LIMIT ?",
+    };
+    let mut q = db.prepare(sql);
+    q = match shop_id {
+        Some(s) => q.bind(&str_args([s]))?,
+        None => q,
+    };
+    q.bind(&[wasm_bindgen::JsValue::from(limit as f64)])?
+        .all()
+        .await?
+        .results()
 }
 
 // --------------------------------------------------------------- tests

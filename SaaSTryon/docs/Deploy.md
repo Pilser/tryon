@@ -168,12 +168,13 @@ and the certificate are created by Cloudflare.
 
 ```bash
 # one file at a time, the path is its place in the dist
-curl -s -X POST "https://latiforge.com/api/v1/shop/landing/file?path=%2Findex.html" \
+curl -s -X POST "https://latiforge.com/api/v1/shop/landing/file?path=%2Findex.html&shop_id=$SHOP_ID" \
   -H "authorization: Bearer $SESSION" -F "file=@dist/index.html"
 
 # publish: app assets (bundle) + landing files -> one asset set
 curl -s -X POST https://latiforge.com/api/v1/shop/landing/apply \
-  -H "authorization: Bearer $SESSION"
+  -H "authorization: Bearer $SESSION" -H 'content-type: application/json' \
+  --data "{\"shop_id\":\"$SHOP_ID\"}"
 ```
 
 The platform re-registers the shop script's assets with the bundle's app

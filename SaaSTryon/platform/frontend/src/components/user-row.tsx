@@ -54,7 +54,7 @@ export function TokenNote(props: { owner: string; token: string }): JSX.Element 
 function OwnerHead(props: { user: PlatformUser }): JSX.Element {
   return (
     <div className={cx(u.rowMain)}>
-      <p className={cx(u.rowTitle)}>{props.user.shop_name || props.user.name || props.user.email}</p>
+      <p className={cx(u.rowTitle)}>{props.user.shop_name || props.user.email}</p>
       <p className={cx(u.rowSub)}>
         {props.user.email} · {props.user.contact || "no contact"}
       </p>
@@ -98,7 +98,7 @@ export function PendingRow(props: {
         <span className={cx(pf.chips)}>
           <StatusChip status={props.user.status} />
         </span>
-        {props.issued ? <TokenNote owner={props.user.name || props.user.email} token={props.issued} /> : null}
+        {props.issued ? <TokenNote owner={props.user.shop_name || props.user.email} token={props.issued} /> : null}
         <div className={cx(pf.fieldRow)}>
           <AllowanceInput
             id={`allow-${props.user.id}`}
@@ -138,7 +138,7 @@ export function ApprovedRow(props: {
           <span className={cx(pf.chip)}>{props.user.deploy_used} deployed</span>
           <span className={cx(pf.chip)}>{props.user.deploy_allowance} allowance</span>
         </span>
-        {props.issued ? <TokenNote owner={props.user.name || props.user.email} token={props.issued} /> : null}
+        {props.issued ? <TokenNote owner={props.user.shop_name || props.user.email} token={props.issued} /> : null}
         <div className={cx(pf.fieldRow)}>
           <AllowanceInput
             id={`allow-${props.user.id}`}

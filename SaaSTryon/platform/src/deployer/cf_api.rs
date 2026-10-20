@@ -107,7 +107,6 @@ impl CfResponse {
 
 // ------------------------------------------------------------- parsing
 
-#[derive(Debug, Clone, Default)]
 /// The `result` payload of a Cloudflare answer (the envelope is
 /// `{success, result, errors}`; some calls answer with the payload at
 /// the top level).
@@ -115,6 +114,7 @@ pub fn result_of(value: &Value) -> &Value {
     value.get("result").unwrap_or(value)
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct Parsed {
     pub value: Value,
     pub retry_after: Option<u64>,

@@ -13,7 +13,7 @@ use worker::{Env, FormEntry, Request, Response, Result};
 
 use crate::deployer::bundle::{BundleSource, R2BundleSource};
 use crate::deployer::cf_api::{call_with_retry, CfBody, CfConfig, CfRequest, Transport};
-use crate::deployer::{d1_name, domain, DeployInputs, DeployResult};
+use crate::deployer::{d1_name, DeployInputs};
 use crate::{admin, auth, http, shops, store};
 
 /// Where the bundles live in the BUNDLES bucket.
@@ -351,7 +351,7 @@ pub async fn list_bundles(env: &Env) -> Result<Vec<String>> {
     let mut ids: Vec<String> = objects
         .objects()
         .iter()
-        .filter_map(|o| o.key().to_string())
+        .map(|o| o.key().to_string())
         .filter_map(|k| {
             k.strip_prefix(&format!("{BUNDLE_PREFIX}/"))
                 .map(|rest| rest.to_string())

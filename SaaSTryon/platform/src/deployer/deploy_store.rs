@@ -18,6 +18,9 @@ pub trait DeployStore {
     /// Claims on `sub` (db truth); own deployments excluded so the same
     /// owner can redeploy without colliding with itself.
     async fn taken_claims(&self, owner_id: &str, sub: &str) -> Result<Vec<SubdomainClaim>, String>;
+    /// The owner's existing shop for this subdomain (a redeploy reuses
+    /// its script and its database, so the shop keeps its data).
+    async fn shop_of(&self, owner_id: &str, sub: &str) -> Result<Option<ShopRow>, String>;
     async fn record_shop(&self, row: &ShopRow) -> Result<(), String>;
     async fn consume_allowance(&self, owner_id: &str) -> Result<(), String>;
     async fn audit(
@@ -73,6 +76,20 @@ impl DeployStore for D1Store<'_> {
         }))
     }
 
+    async fn shop_of(&self, owner_id: &str, sub: &str) -> Result<Option<ShopRow>, String> {
+        let row = self
+            .db
+            .prepare(
+                "SELECT id,owner_id,name,subdomain,cluster_id,tier,depot_version,created_ms,platform_token,owner_token FROM shops WHERE owner_id = ? AND subdomain = ?",
+            )
+            .bind(&[owner_id.to_string().into(), sub.to_string().into()])
+            .map_err(str_of)?
+            .first::<ShopRow>(None)
+            .await
+            .map_err(str_of)?;
+        Ok(row)
+    }
+
     async fn taken_claims(&self, owner_id: &str, sub: &str) -> Result<Vec<SubdomainClaim>, String> {
         let mut out = Vec::new();
         // Shops rows are the hard claims (any status keeps them).
@@ -118,8 +135,10 @@ impl DeployStore for D1Store<'_> {
     }
 
     async fn record_shop(&self, row: &ShopRow) -> Result<(), String> {
+        // A redeploy updates the row (the subdomain is the shop's
+        // identity), so the insert must not trip the unique index.
         self.write(
-            "INSERT INTO shops (id,owner_id,name,subdomain,cluster_id,status,tier,depot_version,created_ms,platform_token,owner_token) VALUES (?,?,?,?,?,'live',?,?,?,?,?)",
+            "INSERT INTO shops (id,owner_id,name,subdomain,cluster_id,status,tier,depot_version,created_ms,platform_token,owner_token) VALUES (?,?,?,?,?,'live',?,?,?,?,?) ON CONFLICT(subdomain) DO UPDATE SET id=excluded.id, owner_id=excluded.owner_id, name=excluded.name, cluster_id=excluded.cluster_id, status='live', tier=excluded.tier, depot_version=excluded.depot_version, platform_token=excluded.platform_token, owner_token=excluded.owner_token",
             vec![
                 row.id.clone().into(),
                 row.owner_id.clone().into(),
@@ -129,8 +148,8 @@ impl DeployStore for D1Store<'_> {
                 row.tier.clone().into(),
                 row.depot_version.clone().into(),
                 (row.created_ms as f64).into(),
-                row.platform_token.clone().into(),
-                row.owner_token.clone().into(),
+                row.platform_token.clone().map(|t| t.into()).unwrap_or(wasm_bindgen::JsValue::NULL),
+                row.owner_token.clone().map(|t| t.into()).unwrap_or(wasm_bindgen::JsValue::NULL),
             ],
         )
         .await

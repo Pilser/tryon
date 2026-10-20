@@ -206,7 +206,7 @@ pub fn new_deploy_token() -> String {
     format!("deploy_{}", auth::random_hex(8))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ShopRow {
     pub id: String,
     pub owner_id: String,
@@ -219,13 +219,43 @@ pub struct ShopRow {
     pub created_ms: i64,
     /// The Bearer the shop uses for the platform API. The script name is
     /// public (it is the DNS label), so the token is its own secret and
-    /// lives in the shops row.
-    pub platform_token: String,
+    /// lives in the shops row. `None` for a shop deployed before the
+    /// column existed.
+    pub platform_token: Option<String>,
     /// The shop's OWNER_TOKEN (its studio access), shown to the owner.
-    pub owner_token: String,
+    pub owner_token: Option<String>,
 }
 
 // ------------------------------------------------------ orchestration
+
+/// The uuid of a per-shop D1, found by its name. A redeploy reuses the
+/// database, so the shop keeps its products and settings.
+pub async fn find_d1(
+    cf: &impl Transport,
+    account: &str,
+    name: &str,
+) -> Result<Option<String>, DeployError> {
+    let v = call_with_retry(
+        cf,
+        CfRequest {
+            method: worker::Method::Get,
+            path: format!("/accounts/{account}/d1/database?per_page=100"),
+            body: CfBody::Empty,
+            jwt: None,
+        },
+    )
+    .await
+    .map_err(DeployError::from)?;
+    let list = cf_api::result_of(&v);
+    for db in list.as_array().cloned().unwrap_or_default() {
+        if db.get("name").and_then(|n| n.as_str()) == Some(name) {
+            if let Some(uuid) = db.get("uuid").and_then(|u| u.as_str()) {
+                return Ok(Some(uuid.to_string()));
+            }
+        }
+    }
+    Ok(None)
+}
 
 pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     store: &S,
@@ -249,9 +279,36 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
         return Err(DeployError::SubdomainTaken);
     }
 
-    let id8 = auth::random_hex(4);
-    let shop_id = format!("shop_{id8}");
-    let script = provision::script_name(&id8);
+    // A redeploy of the owner's own subdomain reuses the shop's script
+    // and its database - a new script would orphan the data and fight
+    // over the hostname.
+    let existing = store
+        .shop_of(&input.owner_id, &input.subdomain)
+        .await
+        .map_err(DeployError::store)?;
+    let (id8, shop_id, script, d1_uuid) = match &existing {
+        Some(row) => {
+            let id8 = row
+                .cluster_id
+                .strip_prefix("shop-")
+                .unwrap_or(&row.cluster_id)
+                .to_string();
+            let d1 = find_d1(cf, &cf_cfg.account, &provision::d1_name(&id8))
+                .await?
+                .ok_or_else(|| {
+                    DeployError::store(
+                        "the shop's database is gone - delete the shop and deploy again".into(),
+                    )
+                })?;
+            (id8, row.id.clone(), row.cluster_id.clone(), d1)
+        }
+        None => {
+            let id8 = auth::random_hex(4);
+            let shop_id = format!("shop_{id8}");
+            let script = provision::script_name(&id8);
+            (id8, shop_id, script, String::new())
+        }
+    };
     let token = new_deploy_token();
     // The shop's own owner token (its studio access). The platform keeps
     // it so the owner can sign into their shop dashboard.
@@ -264,7 +321,11 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
         .map_err(DeployError::bundle)?;
     data.verify().map_err(DeployError::bundle)?;
     let mp = MultipartBuilder::new();
-    let d1_uuid = provision::provision(cf_cfg, cf, &id8, &data.schema_sql).await?;
+    let d1_uuid = if existing.is_some() {
+        d1_uuid
+    } else {
+        provision::provision(cf_cfg, cf, &id8, &data.schema_sql).await?
+    };
     let bindings = provision::bindings_for(
         &id8,
         &d1_uuid,
@@ -308,8 +369,8 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
         tier: input.tier.clone(),
         depot_version: input.bundle_id.clone(),
         created_ms: input.now_ms,
-        platform_token: token.clone(),
-        owner_token: owner_token.clone(),
+        platform_token: Some(token.clone()),
+        owner_token: Some(owner_token.clone()),
     };
     store.record_shop(&row).await.map_err(DeployError::store)?;
     store

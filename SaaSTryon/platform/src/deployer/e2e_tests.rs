@@ -92,6 +92,14 @@ impl DeployStore for MockStore {
     async fn taken_claims(&self, _owner: &str, _sub: &str) -> Result<Vec<SubdomainClaim>, String> {
         Ok(vec![])
     }
+    async fn shop_of(&self, owner_id: &str, sub: &str) -> Result<Option<ShopRow>, String> {
+        Ok(self
+            .shops
+            .borrow()
+            .iter()
+            .find(|s| s.owner_id == owner_id && s.subdomain == sub)
+            .cloned())
+    }
     async fn record_shop(&self, row: &ShopRow) -> Result<(), String> {
         self.shops.borrow_mut().push(ShopRow {
             id: row.id.clone(),

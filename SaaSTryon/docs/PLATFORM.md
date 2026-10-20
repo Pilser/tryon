@@ -665,3 +665,27 @@ Sequencing rule (AGENTS.md compliant): each phase ends with
 `./scripts/ram-check.sh -p <crate>` + `./scripts/ram-test.sh -p <crate>` +
 `./scripts/check-bloat.sh` + frontend `tsc`/tests + browser probe if UI
 changed; Rust binaries are never built on this machine (CI only).
+
+## 10. Live findings (probed against the account on 2026-10-20)
+
+Facts that cost a deploy cycle each - do not re-derive them:
+
+| # | Finding | Consequence in our code |
+|---|---|---|
+| L1 | D1 `exec()` re-splits the batch on `;`, so a trailing `;` becomes an empty statement ("incomplete input"). | `store::ensure_schema` migrates with ONE prepared statement per call, statements carry no trailing `;`. |
+| L2 | A migration file may mention the `";\n"` marker inside a `--` comment - splitting on it yields a comment as a statement. | `split_statements` drops comment lines first. |
+| L3 | The asset hash is `sha256(base64(content) + extension)[:32]`, NOT sha256 of the bytes. The manifest is `{"manifest": {"/path": {"hash","size"}}}` with URL paths as keys. | `bundle::asset_hash(path, bytes)`. |
+| L4 | The asset session is `POST /accounts/{id}/workers/scripts/{name}/assets-upload-session` (JSON body) -> `{jwt, buckets}`; the files go to `POST /accounts/{id}/workers/assets/upload?base64=true` with parts named by hash and base64 content; the script PUT then carries `assets.jwt`. | `bundle::stage_assets` + `multipart::ScriptPut`. |
+| L5 | A Workers script does NOT apply the plain shop's `_redirects`; the shop pages link to `/app/<file>`. | The bundle ships every file under BOTH `/x` and `/app/x`. |
+| L6 | The asset path must mirror the wrangler assets dir (`./frontend`): `dist/main.js` is served at `/dist/main.js`. | The packager keeps the directory prefix. |
+| L7 | The account's workers.dev subdomain is set once and cannot be renamed ("Account already has an associated subdomain"). | We do not use workers.dev: `workers_dev = false` in the platform wrangler.toml, the apex + `{sub}.latiforge.com` custom domains are the only URLs. |
+| L8 | The API token budget is 1,200 req / 5 min (B7) and every wrangler R2 object put is one call. | The bundle ships ~26 files, not the whole frontend tree (69 files burned the budget). |
+| L9 | Every Cloudflare call is account-scoped: a bare `/workers/domains` has no route (error 7000). | `domain::attach_request` builds `/accounts/{id}/workers/domains`. |
+| L10 | The Genlook proxy lives INSIDE the platform worker (HTTP + `PLATFORM_TOKEN`), not as a separate service. | No `GENLOOK_PROXY` service binding on a shop script. |
+
+Live shape (2026-10-20): control plane on the apex `latiforge.com`
+(landing page + `/api/v1/*`), tenant shops on `{sub}.latiforge.com`
+(assets + worker + per-shop D1 + shared `tenant-images` R2). A shop is
+deployed by the platform alone: script-PUT, per-shop D1 with the bundled
+schema, assets upload, and the custom-domain attach - no CI and no local
+build per shop.

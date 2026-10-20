@@ -35,28 +35,43 @@ project that happens to have the same name - Pages is served at
 
 ## Renaming the workers.dev subdomain
 
-- The API refuses it: `PUT /accounts/{id}/workers/subdomain` ->
-  `10036 Account already has an associated subdomain`.
+- The API refuses it, **for every credential**: with a scoped token
+  `PUT /accounts/{id}/workers/subdomain` -> `10036 Account already has an
+  associated subdomain`, `POST` -> `10405 Method not allowed for this
+  authentication scheme`; with the **global API key** the same two
+  answers come back.
 - The **dashboard** can: Workers & Pages -> "Change" next to "Your
   subdomain" -> set `latiforge`.
-- Safe for the Pages projects (they do not use workers.dev) and for our
-  Workers (both have `workers_dev = false`).
+- Safe: Pages projects do not use workers.dev (they are
+  `<project>.pages.dev` + their custom domains), and both of our Workers
+  have `workers_dev = false`.
 
 ## Recovering a Pages project
 
-Our API token has **no Pages scope** (`GET /accounts/{id}/pages/projects`
--> `10000 Authentication error`), so the project list and deployment
-history need a token with `Pages: Read`.
-
-What is recoverable without the API (plain HTTP against the live site):
+A scoped token **cannot** read Pages (`10000 Authentication error` on
+`GET /accounts/{id}/pages/projects`). The **global API key** can
+(`X-Auth-Email` + `X-Auth-Key`):
 
 ```bash
-curl -s https://jerboai.latiforge.com/                    # the shell
-curl -s https://jerboai.latiforge.com/assets/<file>.js    # the build
+# .env (gitignored)
+CLOUDFLARE_API_KEY=<global key>      # Dashboard -> My Profile -> API Tokens
+CLOUDFLARE_EMAIL=<account email>
+CF_AUTH=key                           # scripts/inspect-pages.ts: key|token
 ```
 
-**Source maps are not published** (the `.map` URL answers with the SPA
-fallback HTML), so only the build output can be recovered - the original
-sources live in the project repo. A beautified copy of the Jerboa bundle
-plus its route inventory sits in the local (gitignored)
-`.local-rig/jerboa/`, with notes in `.local-rig/jerboa/README.md`.
+```bash
+set -a; . .env; set +a
+bun scripts/inspect-pages.ts jerboa-ui      # projects, deployments, build config, domains
+```
+
+**jerboa-ui** (18 deployments, 2026-09-16..18): every deployment is an
+**ad-hoc upload** (`deployment_trigger.type = "ad_hoc"`, empty
+`commit_hash`) of exactly **3 files** - `index.html`,
+`assets/index-<hash>.js`, `assets/index-<hash>.css`. **No `.map` file was
+ever uploaded**, so the original sources are not in Cloudflare; the build
+output is all that exists (3 of the builds are still served and are
+recovered + beautified in the local, gitignored `.local-rig/jerboa/`).
+The same is true for **latiforge-campusplan** (4 files, no maps).
+
+`scripts/inspect-pages.ts` prints the projects, their domains, the build
+config, the env vars (values hidden) and the deployments with their URLs.

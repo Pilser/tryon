@@ -17,9 +17,14 @@ if (!token && !(key && email)) {
   console.error("need CLOUDFLARE_API_TOKEN, or CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL");
   process.exit(2);
 }
-const auth: Record<string, string> = token
-  ? { authorization: `Bearer ${token}` }
-  : { "X-Auth-Email": email!, "X-Auth-Key": key! };
+/* Auth mode: CF_AUTH=key|token (default: key when a global key is set,
+   because the scoped token cannot read Pages). */
+const mode = (process.env.CF_AUTH ?? (key && email ? "key" : "token")).toLowerCase();
+const auth: Record<string, string> =
+  mode === "key"
+    ? { "X-Auth-Email": email!, "X-Auth-Key": key! }
+    : { authorization: `Bearer ${token}` };
+console.log(`auth mode: ${mode}`);
 
 const get = async (url: string): Promise<any> => {
   const res = await fetch(`${API}${url}`, { headers: auth });

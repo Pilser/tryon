@@ -153,10 +153,10 @@ pub async fn handle_domain(env: Env, req: &mut Request) -> Result<Response> {
         &db,
         "INSERT INTO hostnames (id,shop_id,hostname,cf_hostname_id,status,created_ms) VALUES (?,?,?,?,'active',?) ON CONFLICT (hostname) DO UPDATE SET shop_id = excluded.shop_id, cf_hostname_id = excluded.cf_hostname_id, status = 'active'",
         vec![
-            store::new_id("hn").into(),
-            shop.id.clone().into(),
-            domain.clone().into(),
-            cf_id.into(),
+            wasm_bindgen::JsValue::from(store::new_id("hn")),
+            wasm_bindgen::JsValue::from(shop.id.clone()),
+            wasm_bindgen::JsValue::from(domain.clone()),
+            wasm_bindgen::JsValue::from(cf_id.clone()),
             wasm_bindgen::JsValue::from(auth::now_ms() as f64),
         ],
     )

@@ -22,8 +22,7 @@ use worker::{Env, FormEntry, Request, Response, Result};
 
 use crate::deployer::bundle::{assets_manifest, MultipartBuilder, R2BundleSource};
 use crate::deployer::cf_api::{call_with_retry, CfBody, CfConfig, CfError, CfRequest, Transport};
-use crate::deployer::provision;
-use crate::deployer::ScriptPut;
+use crate::deployer::{bindings_for, d1_name, ScriptPut};
 use crate::{auth, http, shops, store};
 
 /// Where the customer's landing files live in the BUNDLES bucket.
@@ -52,17 +51,16 @@ pub fn landing_path(raw: &str) -> Option<String> {
 }
 
 /// The landing files of a shop, as (path, bytes) - read from R2.
-async fn landing_files(
-    bucket: &worker::Bucket,
-    shop_id: &str,
-) -> Result<Vec<(String, Vec<u8>)>, String> {
+async fn landing_files(bucket: &worker::Bucket, shop_id: &str) -> Result<Vec<(String, Vec<u8>)>> {
     let mut out = Vec::new();
     let manifest_key = format!("{LANDING_PREFIX}/{shop_id}/manifest.json");
-    let Some(raw) = bucket.get(&manifest_key).text().await? else {
+    let Some(raw) = read_object(bucket, &manifest_key).await? else {
         return Ok(out);
     };
-    let manifest: serde_json::Value =
-        serde_json::from_str(&raw).map_err(|e| format!("landing manifest: {e}"))?;
+    let raw = String::from_utf8(raw)
+        .map_err(|e| worker::Error::RustError(format!("landing manifest: {e}")))?;
+    let manifest: serde_json::Value = serde_json::from_str(&raw)
+        .map_err(|e| worker::Error::RustError(format!("landing manifest: {e}")))?;
     let Some(files) = manifest.get("files").and_then(|f| f.as_array()) else {
         return Ok(out);
     };
@@ -71,11 +69,29 @@ async fn landing_files(
             continue;
         };
         let key = format!("{LANDING_PREFIX}/{shop_id}/files{}", path);
-        if let Some(bytes) = bucket.get(&key).bytes().await? {
-            out.push((path.to_string(), bytes.to_vec()));
+        if let Some(bytes) = read_object(bucket, &key).await? {
+            out.push((path.to_string(), bytes));
         }
     }
     Ok(out)
+}
+
+/// One object from R2 (None when the key is missing).
+async fn read_object(bucket: &worker::Bucket, key: &str) -> Result<Option<Vec<u8>>> {
+    match bucket.get(key).execute().await {
+        Err(e) => Err(worker::Error::RustError(format!("{key}: {e}"))),
+        Ok(None) => Ok(None),
+        Ok(Some(obj)) => {
+            let Some(body) = obj.body() else {
+                return Err(worker::Error::RustError(format!("{key} has no body")));
+            };
+            let bytes = body
+                .bytes()
+                .await
+                .map_err(|e| worker::Error::RustError(format!("{key}: {e}")))?;
+            Ok(Some(bytes.to_vec()))
+        }
+    }
 }
 
 /// `POST /api/v1/shop/landing/file?path=/index.html` (multipart) - store
@@ -195,9 +211,10 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         .load_bundle(&shop.depot_version)
         .await
         .map_err(|e| http::json_error(500, "NO_BUNDLE", &e))?;
-    let landing = landing_files(&bucket, &shop.id)
-        .await
-        .map_err(|e| http::json_error(500, "LANDING", &e))?;
+    let landing = match landing_files(&bucket, &shop.id).await {
+        Ok(f) => f,
+        Err(e) => return http::json_error(500, "LANDING", &e.to_string()),
+    };
     if landing.is_empty() {
         return http::json_error(400, "NO_FILES", "upload a landing file first");
     }
@@ -211,7 +228,7 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
         .strip_prefix("shop-")
         .unwrap_or(&shop.cluster_id)
         .to_string();
-    let d1_uuid = find_d1(&transport, &cfg.account, &provision::d1_name(&id8))
+    let d1_uuid = find_d1(&transport, &cfg.account, &d1_name(&id8))
         .await?
         .ok_or_else(|| worker::Error::RustError("per-shop database not found".into()))?;
     let token = shop
@@ -231,7 +248,7 @@ pub async fn handle_apply(env: Env, req: &mut Request) -> Result<Response> {
     .await
     .map_err(|e| http::json_error(502, "ASSETS", &e.to_string()))?;
 
-    let bindings = provision::bindings_for(&id8, &d1_uuid, &token);
+    let bindings = bindings_for(&id8, &d1_uuid, &token);
     let put = ScriptPut {
         account: &cfg.account,
         script_name: &shop.cluster_id,

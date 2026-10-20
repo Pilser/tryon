@@ -33,7 +33,10 @@ use crate::{auth, cfg, store};
 use bundle::{BundleSource, MultipartBuilder, R2BundleSource};
 use cf_api::{call_with_retry, FetchTransport, Transport};
 
-pub use bundle::{asset_hash, parse_manifest, BundleData, BundleManifest, ScriptPut};
+pub use bundle::{
+    asset_hash, assets_manifest, parse_manifest, stage_asset_set, BundleData, BundleManifest,
+    ScriptPut,
+};
 pub use cf_api::{CfBody, CfConfig, CfError, CfRequest, CfResponse};
 pub use deploy_store::{D1Store, DeployStore};
 pub use provision::{bindings_for, d1_name, script_name, split_stmts};

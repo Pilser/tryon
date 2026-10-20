@@ -101,6 +101,7 @@ impl DeployStore for MockStore {
             cluster_id: row.cluster_id.clone(),
             tier: row.tier.clone(),
             depot_version: row.depot_version.clone(),
+            platform_token: row.platform_token.clone(),
             created_ms: row.created_ms,
         });
         Ok(())

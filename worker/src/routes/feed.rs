@@ -1,9 +1,9 @@
 /* routes/feed.rs - the public product feed for a customer's landing
-   page. The landing dist is static HTML served at the shop's root; it
-   fetches this to list the products and links every card to the shop's
-   product page. CORS-open (a landing page may live on the customer's
-   own domain or anywhere else) and cacheable, so a static page can
-   embed it without a server. */
+page. The landing dist is static HTML served at the shop's root; it
+fetches this to list the products and links every card to the shop's
+product page. CORS-open (a landing page may live on the customer's
+own domain or anywhere else) and cacheable, so a static page can
+embed it without a server. */
 use serde::Serialize;
 use tryon_shared::models::Product;
 use worker::{Env, Request, Response, Result};

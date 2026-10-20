@@ -27,8 +27,8 @@ pub mod assets;
 pub mod multipart;
 
 pub use assets::{
-    asset_session_path, base64_encode, buckets_of, parse_session_jwt, stage_assets, StageOutcome,
-    ASSET_UPLOAD_PATH,
+    asset_session_path, base64_encode, buckets_of, parse_session_jwt, stage_asset_set,
+    stage_assets, StageOutcome, ASSET_UPLOAD_PATH,
 };
 pub use multipart::{mime_for_path, script_put_path, MultipartBuilder, ScriptPut};
 

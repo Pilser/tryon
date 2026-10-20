@@ -63,19 +63,19 @@ pub async fn ensure_schema(env: &worker::Env) -> Result<()> {
             // One prepared statement per call: D1's exec() re-splits the
             // batch on ";" and then chokes on the pieces it cannot parse
             // (a trailing ";" becomes an empty statement).
-            db.prepare(stmt).run().await.map_err(|e| {
+            if let Err(e) = db.prepare(stmt).run().await {
                 // "duplicate column name" = an ALTER that already ran on
                 // an earlier cold start. SQLite has no ADD COLUMN IF NOT
                 // EXISTS, so this is the idempotency guard.
-                if e.to_string().contains("duplicate column name") {
-                    return;
+                let msg = e.to_string();
+                if !msg.contains("duplicate column name") {
+                    let shown: String = stmt.chars().take(64).collect();
+                    return Err(Error::RustError(format!(
+                        "schema migration {:04} failed at {shown:?}: {e}",
+                        rev + 1
+                    )));
                 }
-                let shown: String = stmt.chars().take(64).collect();
-                Error::RustError(format!(
-                    "schema migration {:04} failed at {shown:?}: {e}",
-                    rev + 1
-                ))
-            })?;
+            }
         }
     }
     Ok(())

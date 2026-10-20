@@ -76,17 +76,17 @@ async fn shop_view(
     } else {
         format!("{}.{}", shop.subdomain, zone)
     };
-    let hostnames = shops::hostnames_of(db, &shop.id).await?;
+    let hostnames = shops::hostnames_of(&db, &shop.id).await?;
     let customer = hostnames
         .iter()
         .find(|h| h.hostname != hostname && h.status == "active")
         .map(|h| h.hostname.clone());
-    let (granted, used, left) = shops::credit_usage(db, &shop.id).await?;
-    let tokens = shops::tokens_redeemed(db, &shop.id).await?;
+    let (granted, used, left) = shops::credit_usage(&db, &shop.id).await?;
+    let tokens = shops::tokens_redeemed(&db, &shop.id).await?;
     let landing = crate::landing::landing_paths(env, &shop.id).await?;
-    let activity_count = shops::activity(db, Some(&shop.id), 500).await?.len() as i64;
+    let activity_count = shops::activity(&db, Some(&shop.id), 500).await?.len() as i64;
     let (owner_email, owner_name) = if with_owner {
-        match store::user_by_id(db, &shop.owner_id).await? {
+        match store::user_by_id(&db, &shop.owner_id).await? {
             Some(u) => (Some(u.email), Some(u.shop_name)),
             None => (None, None),
         }
@@ -128,7 +128,7 @@ pub async fn handle_owner_shops(env: Env, req: &Request) -> Result<Response> {
         return http::unauthorized();
     };
     let mut out = Vec::new();
-    for shop in shops::shops_of_owner(db, &session.user_id).await? {
+    for shop in shops::shops_of_owner(&db, &session.user_id).await? {
         out.push(shop_view(&env, &db, &shop, false).await?);
     }
     Response::from_json(&serde_json::json!({ "shops": out }))
@@ -141,7 +141,7 @@ pub async fn handle_admin_shops(env: Env, req: &Request) -> Result<Response> {
     }
     let db = store::db(&env)?;
     let mut out = Vec::new();
-    for shop in shops::all_shops(db).await? {
+    for shop in shops::all_shops(&db).await? {
         out.push(shop_view(&env, &db, &shop, true).await?);
     }
     Response::from_json(&serde_json::json!({ "shops": out }))

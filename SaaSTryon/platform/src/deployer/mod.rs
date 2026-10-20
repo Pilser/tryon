@@ -25,7 +25,7 @@ pub mod domain;
 mod provision;
 pub mod subdomain;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use worker::Env;
 
@@ -206,7 +206,7 @@ pub fn new_deploy_token() -> String {
     format!("deploy_{}", auth::random_hex(8))
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShopRow {
     pub id: String,
     pub owner_id: String,

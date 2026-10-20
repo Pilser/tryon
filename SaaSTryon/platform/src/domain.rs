@@ -68,6 +68,7 @@ async fn our_zone(
         },
     )
     .await?;
+    let zones = crate::deployer::cf_api::result_of(&zones);
     for z in zones.as_array().cloned().unwrap_or_default() {
         let Some(zone_account) = z
             .get("account")

@@ -8,7 +8,9 @@ use worker::Method;
 use super::cf_api::{call_with_retry, CfBody, CfError, CfRequest, Transport};
 
 /// Pure: pull the subdomain out of a Cloudflare API answer (tested).
+/// The payload sits under `result` in the envelope.
 pub fn parse_subdomain(body: &Value) -> Option<String> {
+    let body = body.get("result").unwrap_or(body);
     body.get("subdomain")
         .and_then(|s| s.as_str())
         .map(|s| s.trim().to_string())
@@ -24,7 +26,7 @@ pub async fn fetch_dev_subdomain(cf: &impl Transport, account: &str) -> Result<S
         jwt: None,
     };
     let v = call_with_retry(cf, req).await?;
-    parse_subdomain(&v)
+    parse_subdomain(crate::deployer::cf_api::result_of(&v))
         .ok_or_else(|| CfError::transport(502, "workers.dev subdomain missing in API answer"))
 }
 

@@ -310,7 +310,8 @@ async fn find_d1(
         },
     )
     .await?;
-    for db in v.as_array().cloned().unwrap_or_default() {
+    let list = crate::deployer::cf_api::result_of(&v);
+    for db in list.as_array().cloned().unwrap_or_default() {
         if db.get("name").and_then(|n| n.as_str()) == Some(name) {
             if let Some(uuid) = db.get("uuid").and_then(|u| u.as_str()) {
                 return Ok(Some(uuid.to_string()));

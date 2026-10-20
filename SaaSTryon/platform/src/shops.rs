@@ -352,10 +352,12 @@ pub async fn credit_usage(db: &D1Database, shop_id: &str) -> Result<(i64, i64, i
 
 /// How many 4-digit codes were redeemed by this shop.
 pub async fn tokens_redeemed(db: &D1Database, shop_id: &str) -> Result<i64> {
+    // The column has to be named: D1's first(None) hands over the whole
+    // row (an object), which cannot become an i64.
     let row: Option<i64> = db
         .prepare("SELECT COUNT(*) AS n FROM shop_tokens WHERE shop_id = ? AND status = 'used'")
         .bind(&str_args([shop_id]))?
-        .first::<i64>(None)
+        .first::<i64>(Some("n"))
         .await?;
     Ok(row.unwrap_or(0))
 }

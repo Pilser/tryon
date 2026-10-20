@@ -212,11 +212,13 @@ pub async fn landing_paths(env: &Env, shop_id: &str) -> Result<Vec<String>> {
         .map_err(|_| worker::Error::RustError("R2 BUNDLES binding not configured".into()))?;
     let prefix = format!("{LANDING_PREFIX}/{shop_id}/files/");
     let objects = bucket
-        .list(&prefix)
+        .list()
+        .prefix(&prefix)
         .execute()
         .await
         .map_err(|e| worker::Error::RustError(format!("{prefix}: {e}")))?;
     let mut out: Vec<String> = objects
+        .objects()
         .iter()
         .map(|o| o.key().to_string())
         .filter_map(|k| k.strip_prefix(&prefix).map(|rest| format!("/{rest}")))

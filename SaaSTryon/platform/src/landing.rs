@@ -20,7 +20,7 @@ use serde::Deserialize;
 use serde_json::json;
 use worker::{Env, FormEntry, Request, Response, Result};
 
-use crate::deployer::bundle::{assets_manifest, MultipartBuilder, R2BundleSource};
+use crate::deployer::bundle::{BundleSource, MultipartBuilder, R2BundleSource};
 use crate::deployer::cf_api::{call_with_retry, CfBody, CfConfig, CfError, CfRequest, Transport};
 use crate::deployer::{bindings_for, d1_name, ScriptPut};
 use crate::{auth, http, shops, store};

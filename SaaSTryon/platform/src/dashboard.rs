@@ -129,7 +129,12 @@ pub async fn handle_owner_shops(env: Env, req: &Request) -> Result<Response> {
     };
     let mut out = Vec::new();
     for shop in shops::shops_of_owner(&db, &session.user_id).await? {
-        out.push(shop_view(&env, &db, &shop, false).await?);
+        match shop_view(&env, &db, &shop, false).await {
+            Ok(v) => out.push(v),
+            // The reason belongs to the caller: a broken list must say
+            // why, not answer 500 with nothing.
+            Err(e) => return http::json_error(500, "SHOP_VIEW", &e.to_string()),
+        }
     }
     Response::from_json(&serde_json::json!({ "shops": out }))
 }
@@ -142,7 +147,10 @@ pub async fn handle_admin_shops(env: Env, req: &Request) -> Result<Response> {
     let db = store::db(&env)?;
     let mut out = Vec::new();
     for shop in shops::all_shops(&db).await? {
-        out.push(shop_view(&env, &db, &shop, true).await?);
+        match shop_view(&env, &db, &shop, true).await {
+            Ok(v) => out.push(v),
+            Err(e) => return http::json_error(500, "SHOP_VIEW", &e.to_string()),
+        }
     }
     Response::from_json(&serde_json::json!({ "shops": out }))
 }

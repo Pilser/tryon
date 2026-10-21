@@ -469,6 +469,19 @@ pub async fn handle_owner_claim(env: Env, req: &mut Request) -> Result<Response>
     else {
         return http::json_error(404, "NO_SHOP", "deploy a shop first");
     };
+    // A code that is already bound to another shop stays there: the
+    // claim never steals it.
+    if let Some(existing) = shops::token_by_code(&db, &code).await? {
+        if let Some(owner) = existing.shop_id.as_deref() {
+            if owner != shop.id {
+                return http::json_error(
+                    400,
+                    "TOKEN_BOUND",
+                    "that code already belongs to another shop",
+                );
+            }
+        }
+    }
     let now = auth::now_ms();
     let claimed = match shops::redeem_shop_token(&db, &code, &shop.id, now).await {
         Ok(t) => t,
@@ -496,13 +509,9 @@ pub async fn handle_bundle_deploy_all(env: Env, req: &Request, version: &str) ->
     let db = store::db(&env)?;
     let mut results = Vec::new();
     for shop in shops::all_shops(&db).await? {
-        let res = match deploy_shop(&env, &shop, version).await {
-            Ok(r) => {
-                let body: serde_json::Value =
-                    serde_json::from_str(&r.body().unwrap_or_default()).unwrap_or(json!({}));
-                json!({ "shop_id": shop.id, "ok": true, "url": body.get("url") })
-            }
-            Err(e) => json!({ "shop_id": shop.id, "ok": false, "error": e.to_string() }),
+        let res = match run_deploy(&env, &shop, version).await {
+            Ok(r) => json!({ "shop_id": shop.id, "ok": true, "url": r.url }),
+            Err(e) => json!({ "shop_id": shop.id, "ok": false, "error": e }),
         };
         results.push(res);
     }
@@ -532,15 +541,16 @@ pub async fn handle_rotate_owner_token(env: Env, req: &Request, id: &str) -> Res
     if bundle.is_empty() {
         return http::json_error(400, "NO_BUNDLE", "no bundle to redeploy from");
     }
-    let res = deploy_shop(&env, &shop, &bundle).await?;
-    let body: serde_json::Value =
-        serde_json::from_str(&res.body().unwrap_or_default()).unwrap_or(json!({}));
+    let out = match run_deploy(&env, &shop, &bundle).await {
+        Ok(o) => o,
+        Err(e) => return http::json_error(500, "DEPLOY_FAILED", &e),
+    };
     let fresh = shops::shop_by_id(&db, id).await?;
     Response::from_json(&json!({
         "ok": true,
         "shop_id": id,
         "owner_token": fresh.and_then(|s| s.owner_token),
-        "url": body.get("url"),
+        "url": out.url,
     }))
 }
 
@@ -557,7 +567,10 @@ pub async fn handle_redeploy(env: Env, req: &mut Request, id: &str) -> Result<Re
     let Some(body) = http::json_body::<RedeployIn>(req).await else {
         return http::bad_request("BAD_JSON", "expected {bundle_id}");
     };
-    deploy_shop(&env, &shop, &body.bundle_id).await
+    match run_deploy(&env, &shop, &body.bundle_id).await {
+        Ok(o) => Response::from_json(&json!({ "ok": true, "shop_id": o.shop_id, "url": o.url })),
+        Err(e) => http::json_error(500, "DEPLOY_FAILED", &e),
+    }
 }
 
 /// `POST /api/v1/shop/redeploy {bundle_id}` - the owner moves their own
@@ -573,20 +586,30 @@ pub async fn handle_owner_redeploy(env: Env, req: &mut Request) -> Result<Respon
     let Some(body) = http::json_body::<RedeployIn>(req).await else {
         return http::bad_request("BAD_JSON", "expected {bundle_id}");
     };
-    deploy_shop(&env, &shop, &body.bundle_id).await
+    match run_deploy(&env, &shop, &body.bundle_id).await {
+        Ok(o) => Response::from_json(&json!({ "ok": true, "shop_id": o.shop_id, "url": o.url })),
+        Err(e) => http::json_error(500, "DEPLOY_FAILED", &e),
+    }
+}
+
+/// What a redeploy leaves behind: the shop keeps its script and its
+/// data, so only the bundle and the studio token change.
+pub struct DeployOutcome {
+    pub shop_id: String,
+    pub url: Option<String>,
 }
 
 /// Deploy one shop from a bundle (the script and its database are
 /// reused, so the shop keeps its data).
-async fn deploy_shop(env: &Env, shop: &shops::Shop, bundle_id: &str) -> Result<Response> {
-    let cfg = match CfConfig::from_env(env) {
-        Ok(c) => c,
-        Err(e) => return http::json_error(500, "NO_CF", &e),
-    };
-    let bucket = match env.bucket("BUNDLES") {
-        Ok(b) => b,
-        Err(_) => return http::json_error(500, "NO_BUNDLES", "the BUNDLES bucket is missing"),
-    };
+async fn run_deploy(
+    env: &Env,
+    shop: &shops::Shop,
+    bundle_id: &str,
+) -> Result<DeployOutcome, String> {
+    let cfg = CfConfig::from_env(env).map_err(|e| e.to_string())?;
+    let bucket = env
+        .bucket("BUNDLES")
+        .map_err(|_| "the BUNDLES bucket is missing".to_string())?;
     let source = R2BundleSource { bucket };
     let input = DeployInputs {
         owner_id: shop.owner_id.clone(),
@@ -597,9 +620,10 @@ async fn deploy_shop(env: &Env, shop: &shops::Shop, bundle_id: &str) -> Result<R
         now_ms: auth::now_ms(),
     };
     match crate::deployer::deploy_shop_with_source(env, source, &cfg, input).await {
-        Ok(r) => {
-            Response::from_json(&json!({ "ok": true, "shop_id": r.shop_id, "url": r.custom_url }))
-        }
-        Err(e) => http::json_error(500, "DEPLOY_FAILED", &e.to_string()),
+        Ok(r) => Ok(DeployOutcome {
+            shop_id: r.shop_id,
+            url: r.custom_url,
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }

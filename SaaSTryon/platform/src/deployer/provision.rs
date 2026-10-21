@@ -145,6 +145,7 @@ pub async fn provision(
         },
     )
     .await?;
+    worker::console_log!("provision: d1 create answered");
     let uuid = parse_d1_uuid(&created).ok_or_else(|| {
         DeployError::Cf(CfError::transport(
             200,
@@ -153,6 +154,7 @@ pub async fn provision(
     })?;
     // One batched call - the query endpoint accepts multi-statement sql.
     if !split_stmts(schema_sql).is_empty() {
+        worker::console_log!("provision: applying the shop schema");
         call_with_retry(
             cf,
             CfRequest {
@@ -163,6 +165,7 @@ pub async fn provision(
             },
         )
         .await?;
+        worker::console_log!("provision: schema applied");
     }
     Ok(uuid)
 }

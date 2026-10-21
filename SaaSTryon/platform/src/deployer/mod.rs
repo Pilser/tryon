@@ -420,16 +420,22 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     };
 
     // Steps 3+5b: per-shop D1, then the bundled shop schema into it.
+    worker::console_log!("deploy: loading bundle {}", input.bundle_id);
     let data = bundles
         .load_bundle(&input.bundle_id)
         .await
         .map_err(DeployError::bundle)?;
+    worker::console_log!("deploy: bundle loaded ({} assets)", data.assets.len());
     data.verify().map_err(DeployError::bundle)?;
+    worker::console_log!("deploy: bundle verified");
     let mp = MultipartBuilder::new();
     let d1_uuid = if existing.is_some() {
         d1_uuid
     } else {
-        provision::provision(cf_cfg, cf, &id8, &data.schema_sql).await?
+        worker::console_log!("deploy: creating d1");
+        let uuid = provision::provision(cf_cfg, cf, &id8, &data.schema_sql).await?;
+        worker::console_log!("deploy: d1 ready {}", uuid);
+        uuid
     };
     let bindings = provision::bindings_for(
         &id8,
@@ -442,7 +448,12 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     );
 
     // 3-step assets, then the script-PUT carrying the completion jwt.
+    worker::console_log!("deploy: staging assets");
     let staged = bundle::stage_assets(cf, &cf_cfg.account, &script, &data, &mp).await?;
+    worker::console_log!(
+        "deploy: assets staged ({} upload(s))",
+        staged.uploaded_parts
+    );
     let put = bundle::ScriptPut {
         account: &cf_cfg.account,
         script_name: &script,
@@ -457,6 +468,7 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     call_with_retry(cf, put.request(&mp))
         .await
         .map_err(DeployError::from)?;
+    worker::console_log!("deploy: script uploaded");
 
     // Phase D: attach {sub}.latiforge.com to the new script so the shop
     // is reachable on its own hostname (DNS + cert auto-issued, B6).

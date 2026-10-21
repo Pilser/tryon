@@ -118,11 +118,7 @@ function overviewTab(d: UsageOut): string {
       ${tile(n(unused), "codes ready", "tokens", "See codes")}
       ${tile(n(d.photos_total), "photos stored", "users", "Review")}
       ${tile(size(d.photos_bytes), "storage used", "users", "Clean up")}
-      ${
-        platform
-          ? tile(n(platform.from_codes), "credits from codes", "settings", "Balance")
-          : tile(credits === null ? "-" : n(credits), "credits", "settings", "Balance")
-      }
+      ${tile(platform ? n(platform.from_codes) : "-", "credits from codes", "settings", "Balance")}
     </div>
     <div class="${cx(u.cardFlush)}">
       <div class="${cx(u.cardHead)}"><p class="${cx(u.cardTitle)}">Latest users</p>

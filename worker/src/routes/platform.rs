@@ -121,15 +121,17 @@ pub struct RequestIn {
     pub reason: String,
 }
 
-/// What the platform knows about this shop's credits: the balance, how
-/// much of it came from the codes the shop redeemed, and the codes
-/// themselves.
+/// What the platform tells a shop about its credits: the credits that
+/// reached it through the admin codes it redeemed, and the codes
+/// themselves. The platform's own bookkeeping (the granted/used totals)
+/// stays on the admin side, so it is NOT part of this answer.
 #[derive(Deserialize, Serialize, Default)]
 pub struct PlatformCredits {
-    pub granted_total: i64,
-    pub used_total: i64,
-    pub left: i64,
+    #[serde(default)]
+    pub shop_id: String,
+    #[serde(default)]
     pub from_codes: i64,
+    #[serde(default)]
     pub codes_redeemed: i64,
     #[serde(default)]
     pub codes: Vec<PlatformCode>,

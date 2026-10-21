@@ -1,0 +1,51 @@
+{
+  "_note": "Committed snapshot of the demo shop's catalogue (DESIGN.md 2.8). The images are copies of the same garment photos the shop serves, so the grid is never empty when the live feed cannot be read. Photos: the Genlook virtual try-on API example (MIT).",
+  "shop": {
+    "name": "Jam Collections",
+    "logo": "",
+    "url": "https://jamcollections.latiforge.com",
+    "studio": "https://jamcollections.latiforge.com/studio"
+  },
+  "items": [
+    {
+      "id": "p1a15aed0d6cae9d92",
+      "title": "Textured knit jacket",
+      "price_cents": 24000000,
+      "currency": "UGX",
+      "image": "/assets/demo/textured-knit-jacket.webp",
+      "url": "https://jamcollections.latiforge.com/product/p1a15aed0d6cae9d92",
+      "category": "Jackets",
+      "sizes": ["S", "M", "L"]
+    },
+    {
+      "id": "p1a15aee5c7c256a80",
+      "title": "Satin slip dress",
+      "price_cents": 32000000,
+      "currency": "UGX",
+      "image": "/assets/demo/satin-slip-dress.webp",
+      "url": "https://jamcollections.latiforge.com/product/p1a15aee5c7c256a80",
+      "category": "Dresses",
+      "sizes": ["S", "M", "L"]
+    },
+    {
+      "id": "p1a15aee63efceac70",
+      "title": "Cotton crew tee",
+      "price_cents": 9500000,
+      "currency": "UGX",
+      "image": "/assets/demo/cotton-crew-tee.webp",
+      "url": "https://jamcollections.latiforge.com/product/p1a15aee63efceac70",
+      "category": "Tops",
+      "sizes": ["S", "M", "L", "XL"]
+    },
+    {
+      "id": "p1a15aee6b5e3ba048",
+      "title": "Zip-through hoodie",
+      "price_cents": 18000000,
+      "currency": "UGX",
+      "image": "/assets/demo/zip-through-hoodie.webp",
+      "url": "https://jamcollections.latiforge.com/product/p1a15aee6b5e3ba048",
+      "category": "Hoodies",
+      "sizes": ["M", "L", "XL"]
+    }
+  ]
+}

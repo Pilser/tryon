@@ -165,6 +165,73 @@ export const adminUploadBundle = (
   return callForm(`/api/v1/admin/bundles?${q.toString()}`, form, adminToken);
 };
 
+/**
+ * One file of a bundle, on its own: the backend takes the file under
+ * the field name `file` and the file name IS its path inside the
+ * bundle. One call per file is what lets the console show an honest
+ * per-file progress and retry a single broken file.
+ */
+export const adminUploadBundleFile = (
+  adminToken: string,
+  version: string,
+  path: string,
+  file: File,
+): Promise<BundleUploadOut> => {
+  const form = new FormData();
+  form.append("file", file, path);
+  const q = new URLSearchParams({ version });
+  return callForm(`/api/v1/admin/bundles?${q.toString()}`, form, adminToken);
+};
+
+/** The answer of the platform-wide deploy of one bundle version. */
+export interface DeployAllResult {
+  shop_id: string;
+  ok: boolean;
+  url?: string | null;
+  error?: string;
+}
+
+export interface DeployAllOut {
+  ok: boolean;
+  version: string;
+  results: DeployAllResult[];
+}
+
+/**
+ * Every shop of the platform moves to that bundle. This is the wide
+ * blast radius: it does NOT take a selection, so the console shows the
+ * whole diff and the count before it fires.
+ */
+export const adminDeployAll = (
+  adminToken: string,
+  version: string,
+): Promise<DeployAllOut> =>
+  call(
+    "POST",
+    `/api/v1/admin/bundles/${encodeURIComponent(version)}/deploy-all`,
+    undefined,
+    adminToken,
+  );
+
+/** The answer of a studio-token rotation. */
+export interface OwnerTokenOut {
+  ok: boolean;
+  shop_id: string;
+  owner_token: string | null;
+  url?: string | null;
+}
+
+/**
+ * A fresh studio token for a shop. The token is a secret of the shop
+ * script, so the platform redeploys the shop to hand out a new one -
+ * the old token stops working at once.
+ */
+export const adminRotateOwnerToken = (
+  adminToken: string,
+  shopId: string,
+): Promise<OwnerTokenOut> =>
+  call("POST", `${shop(shopId)}/owner-token`, undefined, adminToken);
+
 /* ------------------------------------------------------------- owner --- */
 
 /** The owner mints a code for their own shop. */
@@ -186,3 +253,29 @@ export const ownerRedeploy = (
   bundleId: string,
 ): Promise<RedeployOut> =>
   call("POST", "/api/v1/shop/redeploy", { bundle_id: bundleId }, sessionId);
+
+export interface OwnerClaimOut {
+  ok: boolean;
+  token: ShopToken;
+  shop_id: string;
+}
+
+/**
+ * The owner claims a code the admin gave them: the code becomes bound to
+ * their shop and buys one try-on credit.
+ */
+export const ownerClaimToken = (
+  sessionId: string,
+  code: string,
+  shopId?: string,
+): Promise<OwnerClaimOut> =>
+  call(
+    "POST",
+    "/api/v1/shop/tokens/claim",
+    { code: code.trim(), ...(shopId ? { shop_id: shopId } : {}) },
+    sessionId,
+  );
+
+/** The bundle versions the owner may move their shop to. */
+export const ownerBundles = (sessionId: string): Promise<BundlesOut> =>
+  call("GET", "/api/v1/shop/bundles", undefined, sessionId);

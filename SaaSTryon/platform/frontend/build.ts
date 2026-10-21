@@ -12,10 +12,15 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(here, "dist");
-const PAGES = ["signup", "login", "home", "admin"];
+const PAGES = ["signup", "login", "home", "admin", "landing"];
 /* StyleX source lives in tryon's frontend/ too - the plugin's rootDir must
    cover every file it extracts from, so it is the repo root. */
 const repoRoot = path.resolve(here, "..", "..", "..");
+
+/* A clean dist: the hashed bundles and the stylesheet change name on
+   every build, and the deploy uploads everything in dist - a stale
+   file would only ever be dead weight on the edge. */
+rmSync(dist, { recursive: true, force: true });
 
 const result = await esbuild.build({
   entryPoints: PAGES.map((p) => path.join(here, "src", "pages", p + ".tsx")),
@@ -62,8 +67,16 @@ for (const page of PAGES) {
     .replace("<!--bundle-->", entryOut[page] || `/_missing_${page}.js`);
   writeFileSync(path.join(dist, page + ".html"), html);
 }
-/* The apex (latiforge.com) is the landing page: a static shell, no
-   bundle needed - it is the first thing a visitor sees. */
-cpSync(path.join(here, "src", "landing.html"), path.join(dist, "index.html"));
+/* The apex (latiforge.com) is the landing page: dist/landing.html is
+   served as dist/index.html, so the apex and the page share one shell,
+   one hashed stylesheet and one cache tag. */
+cpSync(path.join(dist, "landing.html"), path.join(dist, "index.html"));
+/* The landing page's own assets: the real screenshots of the product
+   and the committed snapshot of the demo catalogue (the grid is never
+   empty, even with no network). */
+cpSync(path.join(here, "src", "assets"), path.join(dist, "assets"), { recursive: true });
+cpSync(path.join(here, "src", "demo-feed.json"), path.join(dist, "demo-feed.json"));
 cpSync(path.join(here, "src", "_headers"), path.join(dist, "_headers"));
-console.log(`built dist/: index(landing), ${PAGES.join(", ")}, css ${cssName}, _headers`);
+console.log(
+  `built dist/: index(landing), ${PAGES.join(", ")}, css ${cssName}, assets, demo-feed.json, _headers`,
+);

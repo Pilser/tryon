@@ -93,7 +93,7 @@ export function ShopDomain(props: {
               <button
                 className={cx(
                   b.btn,
-                  b.btnPrimary,
+                  b.btnSecondary,
                   u.btnGrow,
                   (busy || !domain.trim() || !props.active) && b.btnDisabled,
                 )}
@@ -116,7 +116,7 @@ export function ShopDomain(props: {
       ) : (
         <div className={cx(u.btnRow)}>
           <button
-            className={cx(b.btn, b.btnPrimary, u.btnGrow, !props.active && b.btnDisabled)}
+            className={cx(b.btn, b.btnSecondary, u.btnGrow, !props.active && b.btnDisabled)}
             type="button"
             onClick={() => setOpen(true)}
             disabled={!props.active}

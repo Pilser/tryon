@@ -13,6 +13,11 @@ export { tokens as kitTokens } from "../../../../frontend/src/styles/tokens.styl
 
 export { ui } from "../../../../frontend/src/styles/ui.stylex";
 export { pf } from "./styles/platform.stylex";
+/* The public landing page's own slots (nav, hero, catalogue, tiers). */
+export { ld } from "./styles/landing.stylex";
+/* The admin-only slots (the compact table-row controls). They live in
+   their own file so the owner console never fights over them. */
+export { pa } from "./styles/platform-admin.stylex";
 
 /* StyleX classes for React: flattened to the extracted className. Pass
    self-contained classes - runtime-merged pairs do not override each

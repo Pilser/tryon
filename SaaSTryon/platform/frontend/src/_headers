@@ -2,6 +2,14 @@
   Cache-Control: public, max-age=31536000, immutable
   Cache-Tag: platform-ui:v1
 
+# The baked media: the static host does not know these types.
+/assets/*.webm
+  Content-Type: video/webm
+/assets/*.mp4
+  Content-Type: video/mp4
+/assets/*.webp
+  Content-Type: image/webp
+
 /*
   Cache-Control: public, max-age=0, must-revalidate
   Cache-Tag: platform-ui:v1

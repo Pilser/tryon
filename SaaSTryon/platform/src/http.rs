@@ -121,9 +121,31 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
 /// the binding, not the worker path, decides what is served. When the
 /// assets binding is missing entirely (frontend not deployed yet) the API
 /// stays usable and pages answer 404.
+///
+/// The static host does not know the newer media types (a baked try-on
+/// clip arrives as `application/octet-stream`); the header is fixed on
+/// the way out so the browser treats it as a video.
 async fn asset(req: Request, env: &Env) -> Result<Response> {
+    let path = req
+        .url()
+        .ok()
+        .map(|u| u.path().to_string())
+        .unwrap_or_default();
     match env.assets("ASSETS") {
-        Ok(f) => f.fetch_request(req).await,
+        Ok(f) => {
+            let mut res = f.fetch_request(req).await?;
+            let mime = if path.ends_with(".webm") {
+                Some("video/webm")
+            } else if path.ends_with(".mp4") {
+                Some("video/mp4")
+            } else {
+                None
+            };
+            if let Some(mime) = mime {
+                res.headers_mut().set("content-type", mime);
+            }
+            Ok(res)
+        }
         Err(_) => json_error(404, "NO_FRONTEND", "platform frontend not deployed"),
     }
 }

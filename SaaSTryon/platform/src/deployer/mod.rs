@@ -342,12 +342,14 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     input: &DeployInputs,
 ) -> Result<DeployResult, DeployError> {
     validate_subdomain(&input.subdomain)?;
-    gate(
-        &store
-            .owner(&input.owner_id)
-            .await
-            .map_err(DeployError::store)?,
-    )?;
+    // The deploy allowance counts SHOPS, not deployments: a redeploy of
+    // a shop the owner already has moves it to another bundle, it does
+    // not create a new shop. So the gate is checked after we know
+    // whether the shop is new (below).
+    let owner = store
+        .owner(&input.owner_id)
+        .await
+        .map_err(DeployError::store)?;
     let claims = store
         .taken_claims(&input.owner_id, &input.subdomain)
         .await
@@ -363,6 +365,20 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
         .shop_of(&input.owner_id, &input.subdomain)
         .await
         .map_err(DeployError::store)?;
+    if existing.is_none() {
+        // A NEW shop: it has to fit in the owner's allowance.
+        gate(&owner)?;
+    } else {
+        // A redeploy: the owner must still be in good standing, but the
+        // allowance is not spent again.
+        match &owner {
+            None => return Err(DeployError::OwnerMissing),
+            Some(u) if u.status != "approved" => {
+                return Err(DeployError::NotActive(u.status.clone()))
+            }
+            Some(_) => {}
+        }
+    }
     let (id8, shop_id, script, d1_uuid) = match &existing {
         Some(row) => {
             let id8 = row
@@ -477,10 +493,14 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
         )
         .await
         .map_err(DeployError::store)?;
-    store
-        .consume_allowance(&input.owner_id)
-        .await
-        .map_err(DeployError::store)?;
+    // The allowance counts SHOPS: only a NEW shop spends one. A
+    // redeploy of a shop the owner already has keeps their allowance.
+    if existing.is_none() {
+        store
+            .consume_allowance(&input.owner_id)
+            .await
+            .map_err(DeployError::store)?;
+    }
 
     Ok(DeployResult {
         shop_id,

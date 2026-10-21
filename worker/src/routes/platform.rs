@@ -163,7 +163,10 @@ pub async fn handle_platform_credits(req: Request, env: Env) -> Result<Response>
     let url = format!("{}/api/v1/shop/credits", base(&env));
     let mut headers = Headers::new();
     headers.set("authorization", &format!("Bearer {}", secret(&env)))?;
-    let mut upstream = Fetch::Request(Request::new_with_init(&url, &RequestInit::new())?)
+    let mut init = RequestInit::new();
+    init.with_method(Method::Get);
+    init.with_headers(headers);
+    let mut upstream = Fetch::Request(Request::new_with_init(&url, &init)?)
         .send()
         .await?;
     let status = upstream.status_code();

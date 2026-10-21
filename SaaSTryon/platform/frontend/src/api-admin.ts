@@ -123,11 +123,12 @@ export const adminMintShopTokens = (
   shopId: string,
   count: number,
   note?: string,
+  credits = 1,
 ): Promise<TokenMintOut> =>
   call(
     "POST",
     `${shop(shopId)}/tokens`,
-    { count, ...(note ? { note } : {}) },
+    { count, credits, ...(note ? { note } : {}) },
     adminToken,
   );
 
@@ -213,7 +214,7 @@ export const adminDeployAll = (
     adminToken,
   );
 
-/** The answer of a studio-token rotation. */
+/** The answer of a studio-token change. */
 export interface OwnerTokenOut {
   ok: boolean;
   shop_id: string;
@@ -222,15 +223,36 @@ export interface OwnerTokenOut {
 }
 
 /**
- * A fresh studio token for a shop. The token is a secret of the shop
- * script, so the platform redeploys the shop to hand out a new one -
- * the old token stops working at once.
+ * SET the studio token of a shop, by hand. The token is a secret of the
+ * shop script, so the platform redeploys the shop with the chosen value
+ * - the old token stops working at once, the products and the credits
+ * stay. Without a token the platform mints a fresh one.
  */
-export const adminRotateOwnerToken = (
+export const adminSetOwnerToken = (
   adminToken: string,
   shopId: string,
+  token?: string,
 ): Promise<OwnerTokenOut> =>
-  call("POST", `${shop(shopId)}/owner-token`, undefined, adminToken);
+  call(
+    "POST",
+    `${shop(shopId)}/owner-token`,
+    token ? { token } : undefined,
+    adminToken,
+  );
+
+/** The owner sets their own studio token (the one they type into /app). */
+export const ownerSetOwnerToken = (
+  sessionId: string,
+  token: string,
+): Promise<OwnerTokenOut> =>
+  call("POST", "/api/v1/shop/owner-token", { token }, sessionId);
+
+/** The owner's own code ledger: every code of their shops, used ones
+    included, with what it was worth. */
+export const ownerCodes = (
+  sessionId: string,
+): Promise<{ codes: ShopToken[]; credits_from_codes: number }> =>
+  call("GET", "/api/v1/shop/codes", undefined, sessionId);
 
 /* ------------------------------------------------------------- owner --- */
 
@@ -239,11 +261,12 @@ export const ownerMintTokens = (
   sessionId: string,
   count: number,
   note?: string,
+  credits = 1,
 ): Promise<TokenMintOut> =>
   call(
     "POST",
     "/api/v1/shop/tokens",
-    { count, ...(note ? { note } : {}) },
+    { count, credits, ...(note ? { note } : {}) },
     sessionId,
   );
 
@@ -258,11 +281,15 @@ export interface OwnerClaimOut {
   ok: boolean;
   token: ShopToken;
   shop_id: string;
+  /** How many credits the code was worth (the claim grants them). */
+  credits?: number;
+  /** The balance after the claim. */
+  balance?: number;
 }
 
 /**
  * The owner claims a code the admin gave them: the code becomes bound to
- * their shop and buys one try-on credit.
+ * their shop and buys its credits.
  */
 export const ownerClaimToken = (
   sessionId: string,

@@ -37,6 +37,18 @@ pub fn new_token() -> String {
     format!("{TOKEN_PREFIX}{}", random_hex(TOKEN_BYTES))
 }
 
+/// `n` characters from an alphabet a human can type without a second
+/// look: no 0/O, no 1/I/l. Used for the shop's studio token, which the
+/// owner types into their dashboard.
+pub fn random_typable(n: usize) -> String {
+    const ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let mut buf = vec![0u8; n];
+    getrandom::getrandom(&mut buf).expect("secure rng unavailable");
+    buf.iter()
+        .map(|b| ALPHABET[(*b as usize) % ALPHABET.len()] as char)
+        .collect()
+}
+
 /// SHA-256 of the raw token, hex — the only thing stored server-side.
 pub fn hash_token(token: &str) -> String {
     hex::encode(Sha256::digest(token.as_bytes()))
@@ -296,9 +308,14 @@ pub async fn handle_redeem(env: Env, req: &mut Request) -> Result<Response> {
             return crate::http::json_error(400, code, "that code cannot be redeemed");
         }
     };
-    // One token = one tryon credit for now (Phase E). If tokens ever carry
-    // a face value, store it on the shop_tokens row and read it here.
-    store::grant_credits(&db, &shop.id, 1, now).await?;
+    // The code carries its face value: a code minted for 25 credits
+    // gives the shop 25 credits (rev 0005).
+    store::grant_credits(&db, &shop.id, redeemed.credits, now).await?;
     store::append_audit(&db, &shop.id, "tokens.redeem", &body.code, "", now).await?;
-    Response::from_json(&serde_json::json!({ "token": redeemed, "shop_id": shop.id }))
+    Response::from_json(serde_json::json!({
+        "token": redeemed,
+        "shop_id": shop.id,
+        "credits": redeemed.credits,
+        "balance": store::credits_left(&db, &shop.id).await.unwrap_or(0),
+    }))
 }

@@ -9,7 +9,9 @@ import {
   requestPlatformCredits,
   saveSettings,
   studioCredits,
+  studioPlatformCredits,
   studioUsage,
+  type PlatformCredits,
   type UsageOut,
 } from "../core/api";
 import { esc, size } from "../core/format";
@@ -33,6 +35,10 @@ let active: Tab = "overview";
 let data: UsageOut | null = null;
 let minted: string[] = [];
 let credits: number | null = null;
+/** What the platform says: the balance and how much of it came from the
+    admin codes this shop redeemed. Null when the shop is not on the
+    platform (or the platform did not answer). */
+let platform: PlatformCredits | null = null;
 let giveValue = "3";
 let flash = "";
 /** Host the dashboard paints into (dashboard.html owns the page frame). */
@@ -67,6 +73,15 @@ async function reload(): Promise<void> {
       paint();
     } catch {
       credits = null;
+    }
+    // The platform's ledger: the balance and how much of it came from
+    // the admin codes. A shop that does not run on the platform simply
+    // has none of this.
+    try {
+      platform = await studioPlatformCredits(ownerToken());
+      paint();
+    } catch {
+      platform = null;
     }
   } catch (e) {
     const box = host;
@@ -103,7 +118,11 @@ function overviewTab(d: UsageOut): string {
       ${tile(n(unused), "codes ready", "tokens", "See codes")}
       ${tile(n(d.photos_total), "photos stored", "users", "Review")}
       ${tile(size(d.photos_bytes), "storage used", "users", "Clean up")}
-      ${tile(credits === null ? "-" : n(credits), "credits", "settings", "Balance")}
+      ${
+        platform
+          ? tile(n(platform.from_codes), "credits from codes", "settings", "Balance")
+          : tile(credits === null ? "-" : n(credits), "credits", "settings", "Balance")
+      }
     </div>
     <div class="${cx(u.cardFlush)}">
       <div class="${cx(u.cardHead)}"><p class="${cx(u.cardTitle)}">Latest users</p>
@@ -152,6 +171,30 @@ function settingsTab(d: UsageOut): string {
       <p class="${cx(s.body)}">Balance: <b>${credits === null ? "not available" : n(credits)}</b>. Each try-on
         costs 1 credit and failed ones are refunded, so this number only moves down when a shopper really
         gets a photo.</p>
+      ${
+        platform
+          ? `<p class="${cx(s.body)}">On the platform: <b>${n(platform.left)}</b> left of
+             ${n(platform.granted_total)} granted, ${n(platform.used_total)} used.
+             <b>${n(platform.from_codes)}</b> of them came from
+             ${platform.codes_redeemed === 1 ? "the admin code" : "the admin codes"}
+             this shop redeemed.</p>
+             ${
+               platform.codes.length
+                 ? `<div class="${cx(u.rows)}">${platform.codes
+                     .map(
+                       (c) =>
+                         `<div class="${cx(u.row)}"><div class="${cx(u.rowMain)}">
+                            <p class="${cx(u.rowTitle)}">Code ${esc(c.code)}</p>
+                            <p class="${cx(u.rowSub)}">${n(c.credits)} credit${
+                              c.credits === 1 ? "" : "s"
+                            }${c.note ? " - " + esc(c.note) : ""}</p>
+                          </div></div>`,
+                     )
+                     .join("")}</div>`
+                 : ""
+             }`
+          : ""
+      }
     </div>
     <div class="${cx(u.card)}">
       <p class="${cx(u.cardTitle)}">Platform tokens</p>

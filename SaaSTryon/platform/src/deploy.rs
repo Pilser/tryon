@@ -96,6 +96,9 @@ pub async fn handle_deploy(env: Env, req: &mut Request) -> Result<Response> {
         tier: tier_or_default(&body.tier),
         bundle_id: bundle,
         now_ms: auth::now_ms(),
+        // A fresh deploy mints the studio token; the owner can set it
+        // themselves later (POST /api/v1/shop/owner-token).
+        owner_token: None,
     };
     match deployer::deploy_shop(env, input).await {
         Ok(r) => Response::from_json(&DeployOut {

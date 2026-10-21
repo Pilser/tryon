@@ -252,6 +252,29 @@ export const studioCredits = (token: string): Promise<{ creditBalance: number }>
     ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),
   });
 
+/** What the PLATFORM says about this shop's credits: the balance, how
+    much of it came from the admin codes the shop redeemed, and the
+    codes themselves. Empty when the shop does not run on the platform. */
+export type PlatformCredits = {
+  shop_id: string;
+  granted_total: number;
+  used_total: number;
+  left: number;
+  from_codes: number;
+  codes_redeemed: number;
+  codes: Array<{
+    code: string;
+    credits: number;
+    redeemed_ms?: number | null;
+    note?: string | null;
+  }>;
+};
+
+export const studioPlatformCredits = (token: string): Promise<PlatformCredits> =>
+  api<PlatformCredits>("/api/studio/credits/platform", {
+    ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),
+  });
+
 export async function pollGeneration(id: string, onTick: (secs: number) => void): Promise<string> {
   for (let n = 0; n < 45; n++) {
     onTick((n + 1) * 2);

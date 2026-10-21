@@ -31,6 +31,7 @@ export function ShopCodesBlock(props: {
 }): JSX.Element {
   const s = props.shop;
   const [count, setCount] = useState("1");
+  const [credits, setCredits] = useState("1");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [say, setSay] = useState("");
@@ -42,6 +43,7 @@ export function ShopCodesBlock(props: {
   function mint(): void {
     const c = Math.max(1, Math.min(50, Number(count) || 0));
     if (!c) return;
+    const v = Math.max(1, Math.min(100000, Number(credits) || 1));
     setBusy(true);
     setSay("");
     setBad(false);
@@ -52,8 +54,11 @@ export function ShopCodesBlock(props: {
           s.id,
           c,
           note.trim() || undefined,
+          v,
         );
-        setSay(`Minted ${out.tokens.length} code(s) for ${s.name || s.subdomain}.`);
+        setSay(
+          `Minted ${out.tokens.length} code(s) for ${s.name || s.subdomain}, each worth ${v} credit(s).`,
+        );
         setNote("");
         props.onChanged();
       } catch (e) {
@@ -121,6 +126,16 @@ export function ShopCodesBlock(props: {
           aria-label="how many codes"
           disabled={busy}
           onChange={(e) => setCount(e.currentTarget.value)}
+        />
+        <input
+          className={cx(pf.num)}
+          type="number"
+          min={1}
+          max={100000}
+          value={credits}
+          aria-label="credits per code"
+          disabled={busy}
+          onChange={(e) => setCredits(e.currentTarget.value)}
         />
         <input
           className={cx(pf.field)}

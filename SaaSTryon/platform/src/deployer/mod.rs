@@ -68,6 +68,10 @@ pub struct DeployInputs {
     pub bundle_id: String,
     /// Clock injected so tests never touch `worker::Date`.
     pub now_ms: i64,
+    /// The studio token the owner chose themselves. `None` = mint a
+    /// fresh one. The value is bound as the script's OWNER_TOKEN secret
+    /// and stored on the shop row.
+    pub owner_token: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -206,6 +210,65 @@ pub fn new_deploy_token() -> String {
     format!("deploy_{}", auth::random_hex(8))
 }
 
+/// The shop's studio token (its OWNER_TOKEN). This one is typed by
+/// humans - the owner signs into /app with it - so it is SHORT and
+/// unambiguous: `studio-` plus eight characters from an alphabet
+/// without 0/O/1/I (no "is that a zero or an O?").
+pub fn new_studio_token() -> String {
+    format!("studio-{}", auth::random_typable(8))
+}
+
+/// A studio token the owner typed themselves: 8..=64 characters of
+/// letters, digits, dash and underscore. Anything else is refused (the
+/// token travels in a header and is shown on screen).
+pub fn valid_studio_token(token: &str) -> bool {
+    let len = token.chars().count();
+    (8..=64).contains(&len)
+        && token
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+#[cfg(test)]
+mod studio_token_tests {
+    use super::*;
+
+    #[test]
+    fn a_readable_token_is_accepted() {
+        assert!(valid_studio_token("jam-fit-2026"));
+        assert!(valid_studio_token("JamFit_2026"));
+        assert!(valid_studio_token("abcdefgh"));
+    }
+
+    #[test]
+    fn too_short_or_too_long_is_refused() {
+        assert!(!valid_studio_token("short12"));
+        assert!(!valid_studio_token(""));
+        assert!(!valid_studio_token(&"a".repeat(65)));
+        assert!(valid_studio_token(&"a".repeat(64)));
+    }
+
+    #[test]
+    fn spaces_and_punctuation_are_refused() {
+        assert!(!valid_studio_token("jam fit 2026"));
+        assert!(!valid_studio_token("jam.fit-2026"));
+        assert!(!valid_studio_token("jam/fit/2026"));
+        assert!(!valid_studio_token("jam\0fit"));
+    }
+
+    #[test]
+    fn a_minted_token_is_itself_valid() {
+        let t = new_studio_token();
+        assert!(t.starts_with("studio-"));
+        assert!(valid_studio_token(&t));
+        // Nothing that looks like a zero or an O: the owner types it.
+        assert!(!t.contains('0'));
+        assert!(!t.contains('O'));
+        assert!(!t.contains('1'));
+        assert!(!t.contains('I'));
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShopRow {
     pub id: String,
@@ -325,8 +388,13 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     };
     let token = new_deploy_token();
     // The shop's own owner token (its studio access). The platform keeps
-    // it so the owner can sign into their shop dashboard.
-    let owner_token = new_deploy_token();
+    // it so the owner can sign into their shop dashboard. When the owner
+    // (or the admin) typed a token themselves, that exact value is
+    // used - it has to match the secret bound on the script.
+    let owner_token = match input.owner_token.as_deref() {
+        Some(t) if valid_studio_token(t) => t.to_string(),
+        _ => new_studio_token(),
+    };
 
     // Steps 3+5b: per-shop D1, then the bundled shop schema into it.
     let data = bundles

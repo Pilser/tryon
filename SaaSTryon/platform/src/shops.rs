@@ -122,6 +122,9 @@ pub struct ShopToken {
     pub redeemed_by: Option<String>,
     pub cancelled_ms: Option<i64>,
     pub note: Option<String>,
+    /// How many try-on credits the code is worth (rev 0005). Codes
+    /// minted before the column existed are worth one.
+    pub credits: i64,
 }
 
 /// A minted code is a uniformly random 4-digit string, "0000".."9999".
@@ -137,7 +140,8 @@ pub fn new_code() -> String {
     format_code(raw)
 }
 
-const TOKEN_COLS: &str = "code,shop_id,status,created_ms,redeemed_ms,redeemed_by,cancelled_ms,note";
+const TOKEN_COLS: &str =
+    "code,shop_id,status,created_ms,redeemed_ms,redeemed_by,cancelled_ms,note,credits";
 
 /// Pure: a platform code is exactly four ASCII digits (tested).
 pub fn valid_code(code: &str) -> bool {
@@ -146,23 +150,29 @@ pub fn valid_code(code: &str) -> bool {
 
 /// Mints `count` unique codes, retrying per-code on primary-key
 /// collision. Returns the freshly minted rows in mint order.
+///
+/// `credits` is the face value: how many try-on credits the code buys
+/// when it is redeemed (1 = the classic one-code-one-credit).
 pub async fn mint_shop_tokens(
     db: &D1Database,
     count: usize,
     note: &str,
+    credits: i64,
     now_ms: i64,
 ) -> Result<Vec<ShopToken>> {
+    let credits = credits.clamp(1, 100_000);
     let mut out = Vec::with_capacity(count);
     for _ in 0..count {
         let mut code = new_code();
         for _ in 0..8 {
             let res = write(
                 db,
-                "INSERT INTO shop_tokens (code,shop_id,status,created_ms,note) VALUES (?,NULL,'active',?,?)",
+                "INSERT INTO shop_tokens (code,shop_id,status,created_ms,note,credits) VALUES (?,NULL,'active',?,?,?)",
                 vec![
                     code.clone().into(),
                     wasm_bindgen::JsValue::from(now_ms as f64),
                     note.into(),
+                    wasm_bindgen::JsValue::from(credits as f64),
                 ],
             )
             .await;
@@ -180,6 +190,55 @@ pub async fn mint_shop_tokens(
             redeemed_by: None,
             cancelled_ms: None,
             note: Some(note.to_string()),
+            credits,
+        });
+    }
+    Ok(out)
+}
+
+/// Mints `count` codes that belong to `shop_id` from the start: they
+/// cannot be redeemed by anyone else, they are only handed to that
+/// shop (and they carry the same face value).
+pub async fn mint_shop_tokens_for(
+    db: &D1Database,
+    shop_id: &str,
+    count: usize,
+    note: &str,
+    credits: i64,
+    now_ms: i64,
+) -> Result<Vec<ShopToken>> {
+    let credits = credits.clamp(1, 100_000);
+    let mut out = Vec::with_capacity(count);
+    for _ in 0..count {
+        let mut code = new_code();
+        for _ in 0..8 {
+            let res = write(
+                db,
+                "INSERT INTO shop_tokens (code,shop_id,status,created_ms,note,credits) VALUES (?,?,'active',?,?,?)",
+                vec![
+                    code.clone().into(),
+                    shop_id.into(),
+                    wasm_bindgen::JsValue::from(now_ms as f64),
+                    note.into(),
+                    wasm_bindgen::JsValue::from(credits as f64),
+                ],
+            )
+            .await;
+            if res.is_ok() {
+                break;
+            }
+            code = new_code();
+        }
+        out.push(ShopToken {
+            code,
+            shop_id: Some(shop_id.to_string()),
+            status: "active".into(),
+            created_ms: now_ms,
+            redeemed_ms: None,
+            redeemed_by: None,
+            cancelled_ms: None,
+            note: Some(note.to_string()),
+            credits,
         });
     }
     Ok(out)
@@ -355,13 +414,18 @@ pub async fn credit_usage(db: &D1Database, shop_id: &str) -> Result<(i64, i64, i
     })
 }
 
-/// How many 4-digit codes were redeemed by this shop.
+/// How many 4-digit codes were redeemed by this shop. A code minted
+/// unbound is bound to the shop when it is redeemed, so both columns
+/// are counted.
 pub async fn tokens_redeemed(db: &D1Database, shop_id: &str) -> Result<i64> {
     // The column has to be named: D1's first(None) hands over the whole
     // row (an object), which cannot become an i64.
     let row: Option<i64> = db
-        .prepare("SELECT COUNT(*) AS n FROM shop_tokens WHERE shop_id = ? AND status = 'used'")
-        .bind(&str_args([shop_id]))?
+        .prepare(
+            "SELECT COUNT(*) AS n FROM shop_tokens \
+             WHERE (shop_id = ? OR redeemed_by = ?) AND status = 'used'",
+        )
+        .bind(&str_args([shop_id, shop_id]))?
         .first::<i64>(Some("n"))
         .await?;
     Ok(row.unwrap_or(0))
@@ -473,6 +537,7 @@ mod tests {
             redeemed_by: None,
             cancelled_ms: None,
             note: Some("batch".into()),
+            credits: 5,
         };
         let used = redeem_shop_token_outcome(t.clone(), "shopA", 200);
         assert_eq!(used.code, "1234");
@@ -480,6 +545,9 @@ mod tests {
         assert_eq!(used.status, "used");
         assert_eq!(used.redeemed_ms, Some(200));
         assert_eq!(used.note.as_deref(), Some("batch"));
+        // The face value survives the redemption: that is what the
+        // shop is credited with.
+        assert_eq!(used.credits, 5);
     }
 
     #[test]
@@ -493,6 +561,7 @@ mod tests {
             redeemed_by: None,
             cancelled_ms: None,
             note: None,
+            credits: 1,
         };
         let c = cancel_shop_token_outcome(t, 300);
         assert_eq!(c.code, "5678");

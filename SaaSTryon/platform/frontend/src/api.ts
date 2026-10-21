@@ -269,6 +269,8 @@ export interface ShopToken {
   redeemed_by: string | null;
   cancelled_ms: number | null;
   note: string;
+  /** How many try-on credits the code is worth. */
+  credits: number;
 }
 
 export const adminTokens = (adminToken: string, status?: string): Promise<{ tokens: ShopToken[] }> =>
@@ -278,8 +280,14 @@ export const adminMintTokens = (
   adminToken: string,
   count: number,
   note?: string,
+  credits = 1,
 ): Promise<{ tokens: ShopToken[] }> =>
-  call("POST", "/api/v1/admin/tokens/mint", { count, ...(note ? { note } : {}) }, adminToken);
+  call(
+    "POST",
+    "/api/v1/admin/tokens/mint",
+    { count, credits, ...(note ? { note } : {}) },
+    adminToken,
+  );
 
 export const adminCancelToken = (adminToken: string, code: string): Promise<{ token: ShopToken }> =>
   call("POST", "/api/v1/admin/tokens/cancel", { code }, adminToken);

@@ -369,6 +369,9 @@ struct MintTokensIn {
     count: i64,
     #[serde(default)]
     note: String,
+    /// How many try-on credits each code is worth (rev 0005). Default 1.
+    #[serde(default)]
+    credits: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -395,26 +398,30 @@ pub async fn handle_list_tokens(env: Env, req: &Request) -> Result<Response> {
     Response::from_json(&json!({ "tokens": tokens }))
 }
 
-/// `POST /api/v1/admin/tokens/mint {count, note?}` -> {tokens:[...]}
+/// `POST /api/v1/admin/tokens/mint {count, note?, credits?}` ->
+/// {tokens:[...]} - `credits` is how many try-on credits each code
+/// buys when it is redeemed.
 pub async fn handle_mint_tokens(env: Env, req: &mut Request) -> Result<Response> {
     if !is_admin(req.headers(), &env) {
         return http::unauthorized();
     }
     let Some(body) = http::json_body::<MintTokensIn>(req).await else {
-        return http::bad_request("BAD_JSON", "expected {count, note?}");
+        return http::bad_request("BAD_JSON", "expected {count, note?, credits?}");
     };
     if !(1..=100).contains(&body.count) {
         return http::bad_request("BAD_COUNT", "count must be 1..=100");
     }
+    let credits = body.credits.unwrap_or(1).clamp(1, 100_000);
     let db = store::db(&env)?;
     let now = auth::now_ms();
-    let tokens = store::mint_shop_tokens(&db, body.count as usize, &body.note, now).await?;
+    let tokens =
+        store::mint_shop_tokens(&db, body.count as usize, &body.note, credits, now).await?;
     store::append_audit(
         &db,
         "admin",
         "tokens.mint",
         "",
-        &format!("count={}", body.count),
+        &format!("count={} credits={}", body.count, credits),
         now,
     )
     .await?;

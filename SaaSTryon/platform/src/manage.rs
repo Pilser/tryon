@@ -35,6 +35,14 @@ pub struct RedeployIn {
 pub struct MintIn {
     pub count: Option<i64>,
     pub note: Option<String>,
+    /// How many try-on credits the code is worth (rev 0005). Default 1.
+    pub credits: Option<i64>,
+}
+
+/// The studio token, chosen by hand.
+#[derive(Deserialize)]
+pub struct OwnerTokenIn {
+    pub token: Option<String>,
 }
 
 /// A code the owner claims for their shop.
@@ -240,43 +248,19 @@ pub async fn handle_mint_for(env: Env, req: &mut Request, id: &str) -> Result<Re
         return http::not_found("no such shop");
     };
     let Some(body) = http::json_body::<MintIn>(req).await else {
-        return http::bad_request("BAD_JSON", "expected {count?, note?}");
+        return http::bad_request("BAD_JSON", "expected {count?, note?, credits?}");
     };
     let count = body.count.unwrap_or(1).clamp(1, 50) as usize;
     let note = body.note.unwrap_or_default();
+    let credits = body.credits.unwrap_or(1).clamp(1, 100_000);
     let now = auth::now_ms();
-    let mut minted = Vec::new();
-    for _ in 0..count {
-        let code = shops::new_code();
-        let row = shops::ShopToken {
-            code: code.clone(),
-            shop_id: Some(shop.id.clone()),
-            status: "active".into(),
-            created_ms: now,
-            redeemed_ms: None,
-            redeemed_by: None,
-            cancelled_ms: None,
-            note: Some(note.clone()),
-        };
-        store::write(
-            &db,
-            "INSERT INTO shop_tokens (code,shop_id,status,created_ms,note) VALUES (?,?,'active',?,?)",
-            vec![
-                code.clone().into(),
-                shop.id.clone().into(),
-                auth::now_ms().into(),
-                note.clone().into(),
-            ],
-        )
-        .await?;
-        minted.push(row);
-    }
+    let minted = shops::mint_shop_tokens_for(&db, &shop.id, count, &note, credits, now).await?;
     store::append_audit(&db, &shop.id, "tokens.mint", &shop.id, &note, now).await?;
     Response::from_json(&json!({ "ok": true, "tokens": minted }))
 }
 
-/// `POST /api/v1/shop/tokens {count?, note?}` - the owner mints a code
-/// for their own shop.
+/// `POST /api/v1/shop/tokens {count?, note?, credits?}` - the owner mints
+/// a code for their own shop, worth as many credits as they say.
 pub async fn handle_owner_mint(env: Env, req: &mut Request) -> Result<Response> {
     let db = store::db(&env)?;
     let Some(session) = auth::verify_session(&db, req.headers()).await? else {
@@ -286,37 +270,13 @@ pub async fn handle_owner_mint(env: Env, req: &mut Request) -> Result<Response> 
         return http::json_error(404, "NO_SHOP", "deploy a shop first");
     };
     let Some(body) = http::json_body::<MintIn>(req).await else {
-        return http::bad_request("BAD_JSON", "expected {count?, note?}");
+        return http::bad_request("BAD_JSON", "expected {count?, note?, credits?}");
     };
     let count = body.count.unwrap_or(1).clamp(1, 50) as usize;
     let note = body.note.unwrap_or_default();
+    let credits = body.credits.unwrap_or(1).clamp(1, 100_000);
     let now = auth::now_ms();
-    let mut minted = Vec::new();
-    for _ in 0..count {
-        let code = shops::new_code();
-        let row = shops::ShopToken {
-            code: code.clone(),
-            shop_id: Some(shop.id.clone()),
-            status: "active".into(),
-            created_ms: now,
-            redeemed_ms: None,
-            redeemed_by: None,
-            cancelled_ms: None,
-            note: Some(note.clone()),
-        };
-        store::write(
-            &db,
-            "INSERT INTO shop_tokens (code,shop_id,status,created_ms,note) VALUES (?,?,'active',?,?)",
-            vec![
-                code.clone().into(),
-                shop.id.clone().into(),
-                auth::now_ms().into(),
-                note.clone().into(),
-            ],
-        )
-        .await?;
-        minted.push(row);
-    }
+    let minted = shops::mint_shop_tokens_for(&db, &shop.id, count, &note, credits, now).await?;
     store::append_audit(&db, &shop.id, "tokens.mint", &shop.id, &note, now).await?;
     Response::from_json(&json!({ "ok": true, "tokens": minted }))
 }
@@ -495,9 +455,17 @@ pub async fn handle_owner_claim(env: Env, req: &mut Request) -> Result<Response>
             return http::json_error(400, code, "that code cannot be claimed");
         }
     };
-    shops::grant_credits(&db, &shop.id, 1, now).await?;
+    // The code carries its face value (rev 0005): claiming a 25-credit
+    // code gives the shop 25 credits.
+    shops::grant_credits(&db, &shop.id, claimed.credits, now).await?;
     store::append_audit(&db, &shop.id, "tokens.claim", &code, "", now).await?;
-    Response::from_json(&json!({ "ok": true, "token": claimed, "shop_id": shop.id }))
+    Response::from_json(&json!({
+        "ok": true,
+        "token": claimed,
+        "shop_id": shop.id,
+        "credits": claimed.credits,
+        "balance": shops::credits_left(&db, &shop.id).await.unwrap_or(0),
+    }))
 }
 
 /// `POST /api/v1/admin/bundles/{version}/deploy-all` - every shop moves
@@ -509,7 +477,7 @@ pub async fn handle_bundle_deploy_all(env: Env, req: &Request, version: &str) ->
     let db = store::db(&env)?;
     let mut results = Vec::new();
     for shop in shops::all_shops(&db).await? {
-        let res = match run_deploy(&env, &shop, version).await {
+        let res = match run_deploy(&env, &shop, version, None).await {
             Ok(r) => json!({ "shop_id": shop.id, "ok": true, "url": r.url }),
             Err(e) => json!({ "shop_id": shop.id, "ok": false, "error": e }),
         };
@@ -518,10 +486,14 @@ pub async fn handle_bundle_deploy_all(env: Env, req: &Request, version: &str) ->
     Response::from_json(&json!({ "ok": true, "version": version, "results": results }))
 }
 
-/// `POST /api/v1/admin/shops/{id}/owner-token` - a new studio token.
-/// The token is a secret of the shop script, so this redeploys the shop
-/// (the data stays).
-pub async fn handle_rotate_owner_token(env: Env, req: &Request, id: &str) -> Result<Response> {
+/// `POST /api/v1/admin/shops/{id}/owner-token {token}` - SET the studio
+/// token, chosen by hand.
+///
+/// The token is a secret of the shop script, so the shop is redeployed
+/// with the chosen value (the products, the credits and the landing
+/// files stay). Without a body the admin gets a fresh minted one
+/// instead - the old "rotate".
+pub async fn handle_set_owner_token(env: Env, req: &mut Request, id: &str) -> Result<Response> {
     if !admin::is_admin(req.headers(), &env) {
         return http::unauthorized();
     }
@@ -529,6 +501,13 @@ pub async fn handle_rotate_owner_token(env: Env, req: &Request, id: &str) -> Res
     let Some(shop) = shops::shop_by_id(&db, id).await? else {
         return http::not_found("no such shop");
     };
+    let body = http::json_body::<OwnerTokenIn>(req).await;
+    let chosen = body.and_then(|b| b.token).map(|t| t.trim().to_string());
+    if let Some(token) = chosen.as_deref() {
+        if !crate::deployer::valid_studio_token(token) {
+            return http::bad_request("BAD_TOKEN", "use 8-64 letters, digits, dash or underscore");
+        }
+    }
     let bundle = if shop.depot_version.is_empty() {
         list_bundles(&env)
             .await?
@@ -541,7 +520,7 @@ pub async fn handle_rotate_owner_token(env: Env, req: &Request, id: &str) -> Res
     if bundle.is_empty() {
         return http::json_error(400, "NO_BUNDLE", "no bundle to redeploy from");
     }
-    let out = match run_deploy(&env, &shop, &bundle).await {
+    let out = match run_deploy(&env, &shop, &bundle, chosen).await {
         Ok(o) => o,
         Err(e) => return http::json_error(500, "DEPLOY_FAILED", &e),
     };
@@ -551,6 +530,132 @@ pub async fn handle_rotate_owner_token(env: Env, req: &Request, id: &str) -> Res
         "shop_id": id,
         "owner_token": fresh.and_then(|s| s.owner_token),
         "url": out.url,
+    }))
+}
+
+/// `POST /api/v1/shop/owner-token {token}` - the owner sets their own
+/// studio token (the one they type into /app).
+pub async fn handle_owner_set_token(env: Env, req: &mut Request) -> Result<Response> {
+    let db = store::db(&env)?;
+    let Some(session) = auth::verify_session(&db, req.headers()).await? else {
+        return http::unauthorized();
+    };
+    let Some(shop) = shops::owned_shop(&db, &session.user_id, None).await? else {
+        return http::json_error(404, "NO_SHOP", "deploy a shop first");
+    };
+    let body = http::json_body::<OwnerTokenIn>(req).await;
+    let token = body
+        .and_then(|b| b.token)
+        .map(|t| t.trim().to_string())
+        .unwrap_or_default();
+    if !crate::deployer::valid_studio_token(&token) {
+        return http::bad_request("BAD_TOKEN", "use 8-64 letters, digits, dash or underscore");
+    }
+    let bundle = if shop.depot_version.is_empty() {
+        list_bundles(&env)
+            .await?
+            .last()
+            .cloned()
+            .unwrap_or_default()
+    } else {
+        shop.depot_version.clone()
+    };
+    if bundle.is_empty() {
+        return http::json_error(400, "NO_BUNDLE", "no bundle to redeploy from");
+    }
+    let out = match run_deploy(&env, &shop, &bundle, Some(token)).await {
+        Ok(o) => o,
+        Err(e) => return http::json_error(500, "DEPLOY_FAILED", &e),
+    };
+    let fresh = shops::shop_by_id(&db, &shop.id).await?;
+    Response::from_json(&json!({
+        "ok": true,
+        "shop_id": shop.id,
+        "owner_token": fresh.and_then(|s| s.owner_token),
+        "url": out.url,
+    }))
+}
+
+/// `GET /api/v1/shop/codes` - the owner's own code ledger: every code
+/// that belongs to one of their shops or that one of their shops
+/// redeemed, with what it was worth and what became of it.
+pub async fn handle_owner_codes(env: Env, req: &Request) -> Result<Response> {
+    let db = store::db(&env)?;
+    let Some(session) = auth::verify_session(&db, req.headers()).await? else {
+        return http::unauthorized();
+    };
+    let shops = shops::all_shops(&db).await?;
+    let mine: Vec<String> = shops
+        .iter()
+        .filter(|s| s.owner_id == session.user_id)
+        .map(|s| s.id.clone())
+        .collect();
+    let all = shops::list_shop_tokens(&db, None).await?;
+    let codes: Vec<shops::ShopToken> = all
+        .into_iter()
+        .filter(|t| {
+            t.shop_id
+                .as_deref()
+                .map(|id| mine.iter().any(|m| m == id))
+                .unwrap_or(false)
+                || t.redeemed_by
+                    .as_deref()
+                    .map(|id| mine.iter().any(|m| m == id))
+                    .unwrap_or(false)
+        })
+        .collect();
+    let spent: i64 = codes
+        .iter()
+        .filter(|t| t.status == "used")
+        .map(|t| t.credits)
+        .sum();
+    Response::from_json(&json!({
+        "codes": codes,
+        "credits_from_codes": spent,
+        "shops": mine,
+    }))
+}
+
+/// `GET /api/v1/shop/credits` - the SHOP asks the platform what it has
+/// got: the balance, how much of it came from the codes it redeemed,
+/// and the codes themselves. Authenticated with the shop's
+/// PLATFORM_TOKEN (the cluster secret), like the redeem call.
+pub async fn handle_shop_credits(env: Env, req: &Request) -> Result<Response> {
+    let Some(token) = req
+        .headers()
+        .get("authorization")
+        .map(|v| v.to_string())
+        .unwrap_or_default()
+        .trim()
+        .strip_prefix("Bearer ")
+        .map(|v| v.trim().to_string())
+    else {
+        return http::unauthorized();
+    };
+    let db = store::db(&env)?;
+    let Some(shop) = store::shop_by_token(&db, &token).await? else {
+        return http::unauthorized();
+    };
+    let (granted, used, left) = shops::credit_usage(&db, &shop.id).await?;
+    let tokens = shops::list_shop_tokens(&db, Some("used")).await?;
+    let mine: Vec<&shops::ShopToken> = tokens
+        .iter()
+        .filter(|t| t.redeemed_by.as_deref() == Some(shop.id.as_str()))
+        .collect();
+    let from_codes: i64 = mine.iter().map(|t| t.credits).sum();
+    Response::from_json(&json!({
+        "shop_id": shop.id,
+        "granted_total": granted,
+        "used_total": used,
+        "left": left,
+        "from_codes": from_codes,
+        "codes_redeemed": mine.len(),
+        "codes": mine.iter().map(|t| json!({
+            "code": t.code,
+            "credits": t.credits,
+            "redeemed_ms": t.redeemed_ms,
+            "note": t.note,
+        })).collect::<Vec<_>>(),
     }))
 }
 
@@ -567,7 +672,7 @@ pub async fn handle_redeploy(env: Env, req: &mut Request, id: &str) -> Result<Re
     let Some(body) = http::json_body::<RedeployIn>(req).await else {
         return http::bad_request("BAD_JSON", "expected {bundle_id}");
     };
-    match run_deploy(&env, &shop, &body.bundle_id).await {
+    match run_deploy(&env, &shop, &body.bundle_id, None).await {
         Ok(o) => Response::from_json(&json!({ "ok": true, "shop_id": o.shop_id, "url": o.url })),
         Err(e) => http::json_error(500, "DEPLOY_FAILED", &e),
     }
@@ -586,7 +691,7 @@ pub async fn handle_owner_redeploy(env: Env, req: &mut Request) -> Result<Respon
     let Some(body) = http::json_body::<RedeployIn>(req).await else {
         return http::bad_request("BAD_JSON", "expected {bundle_id}");
     };
-    match run_deploy(&env, &shop, &body.bundle_id).await {
+    match run_deploy(&env, &shop, &body.bundle_id, None).await {
         Ok(o) => Response::from_json(&json!({ "ok": true, "shop_id": o.shop_id, "url": o.url })),
         Err(e) => http::json_error(500, "DEPLOY_FAILED", &e),
     }
@@ -600,11 +705,13 @@ pub struct DeployOutcome {
 }
 
 /// Deploy one shop from a bundle (the script and its database are
-/// reused, so the shop keeps its data).
+/// reused, so the shop keeps its data). `owner_token` carries the
+/// studio token the owner chose; `None` mints a fresh one.
 async fn run_deploy(
     env: &Env,
     shop: &shops::Shop,
     bundle_id: &str,
+    owner_token: Option<String>,
 ) -> std::result::Result<DeployOutcome, String> {
     let cfg = CfConfig::from_env(env).map_err(|e| e.to_string())?;
     let bucket = env
@@ -618,6 +725,7 @@ async fn run_deploy(
         tier: shop.tier.clone(),
         bundle_id: bundle_id.to_string(),
         now_ms: auth::now_ms(),
+        owner_token,
     };
     match crate::deployer::deploy_shop_with_source(env, source, &cfg, input).await {
         Ok(r) => Ok(DeployOutcome {

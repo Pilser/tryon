@@ -87,7 +87,7 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
             manage::handle_mint_for(env, &mut req, id).await
         }
         (Method::Post, ["admin", "shops", id, "owner-token"]) => {
-            manage::handle_rotate_owner_token(env, &req, id).await
+            manage::handle_set_owner_token(env, &mut req, id).await
         }
         (Method::Post, ["admin", "bundles", version, "deploy-all"]) => {
             manage::handle_bundle_deploy_all(env, &req, version).await
@@ -98,6 +98,11 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
         (Method::Get, ["admin", "bundles"]) => manage::handle_bundles(env, &req).await,
         (Method::Post, ["admin", "bundles"]) => manage::handle_bundle_upload(env, req).await,
         (Method::Post, ["shop", "tokens"]) => manage::handle_owner_mint(env, &mut req).await,
+        (Method::Post, ["shop", "owner-token"]) => {
+            manage::handle_owner_set_token(env, &mut req).await
+        }
+        (Method::Get, ["shop", "credits"]) => manage::handle_shop_credits(env, &req).await,
+        (Method::Get, ["shop", "codes"]) => manage::handle_owner_codes(env, &req).await,
         (Method::Post, ["shop", "tokens", "claim"]) => {
             manage::handle_owner_claim(env, &mut req).await
         }

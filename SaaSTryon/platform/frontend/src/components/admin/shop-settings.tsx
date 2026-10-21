@@ -3,12 +3,14 @@
    facts that do not change, and the STUDIO TOKEN.
 
    The studio token is the tenant's own secret for the studio at /app.
-   The admin sees it (the admin runs the shop) and may rotate it - but
-   the owner is a different person, so the copy never pretends
-   otherwise: a rotation redeploys the shop and the old token dies. */
+   The admin sees it (the admin runs the shop) and may SET it by hand:
+   the owner types it into their dashboard, so a readable one ("jam-fit-2026")
+   beats a random blob. Setting it redeploys the shop, so the old token
+   dies at once and the products, the credits and the landing files
+   stay. */
 import { useEffect, useState, type JSX } from "react";
 import { ApiError, type ShopView } from "../../api";
-import { adminRotateOwnerToken, adminUpdateShop } from "../../api-admin";
+import { adminSetOwnerToken, adminUpdateShop } from "../../api-admin";
 import { base as b, cx, pf, ui as u } from "../../kit";
 import { ConfirmBox } from "../shared/confirm-box";
 import { CopyCode } from "../shared/copy-code";
@@ -37,6 +39,8 @@ export function ShopSettings(props: {
   const [status, setStatus] = useState(s.status || "live");
   const [busy, setBusy] = useState(false);
   const [token, setToken] = useState(s.owner_token || "");
+  /* What the admin is typing: the token they want the shop to use. */
+  const [draft, setDraft] = useState(s.owner_token || "");
   const [armed, setArmed] = useState(false);
 
   /* The row is the truth: a reload moves the fields with it. */
@@ -45,6 +49,7 @@ export function ShopSettings(props: {
     setTier(s.tier || "");
     setStatus(s.status || "live");
     setToken(s.owner_token || "");
+    setDraft(s.owner_token || "");
   }, [s.name, s.tier, s.status, s.owner_token]);
 
   function save(): void {
@@ -67,25 +72,26 @@ export function ShopSettings(props: {
     })();
   }
 
-  /* A new studio token: the shop is redeployed, so the worker restarts
-     and the old token dies at once. */
-  function rotate(): void {
+  /* The studio token, typed by hand. The admin can also let the
+     platform mint a fresh one (the same call, no token). */
+  function applyToken(value: string): void {
     setBusy(true);
     props.onNote("", false);
     void (async () => {
       try {
-        const out = await adminRotateOwnerToken(props.adminToken, s.id);
+        const out = await adminSetOwnerToken(props.adminToken, s.id, value || undefined);
         setToken(out.owner_token || "");
+        setDraft(out.owner_token || "");
         props.onNote(
           out.owner_token
-            ? "The studio token is rotated - the old one no longer works."
+            ? `The studio token is now "${out.owner_token}" - the old one no longer works.`
             : "The shop was redeployed, but the platform returned no token.",
           false,
         );
         setArmed(false);
         props.onChanged();
       } catch (e) {
-        props.onNote(msg(e, "Could not rotate the studio token."), true);
+        props.onNote(msg(e, "Could not set the studio token."), true);
       } finally {
         setBusy(false);
       }
@@ -157,26 +163,47 @@ export function ShopSettings(props: {
       <p className={cx(pf.label)}>Studio token</p>
       <p className={cx(u.rowSub)}>
         The owner&apos;s secret for the studio at /app. You can see it because you
-        run the shop - the owner signs in with it. Hand it over carefully:
-        rotate it if it leaked.
+        run the shop - the owner signs in with it. Set it to something the owner
+        can type: letters, digits, dash and underscore, 8 to 64 of them.
       </p>
       {token ? (
         <CopyCode code={token} label="Copy token" />
       ) : (
         <p className={cx(u.meta)}>No token on this shop yet.</p>
       )}
+      <div className={cx(pf.fieldRow)}>
+        <input
+          className={cx(pf.field)}
+          value={draft}
+          placeholder="jam-fit-2026"
+          aria-label="the studio token to set"
+          autoComplete="off"
+          spellCheck={false}
+          disabled={busy}
+          onChange={(e) => setDraft(e.currentTarget.value)}
+        />
+        <button
+          className={cx(b.btn, b.btnPrimary, u.btnGrow, busy && b.btnDisabled)}
+          type="button"
+          disabled={busy || draft.trim().length < 8}
+          onClick={() => applyToken(draft.trim())}
+        >
+          {busy ? "Saving…" : "Set this token"}
+        </button>
+      </div>
       {armed ? (
         <ConfirmBox
-          title="Rotate the studio token?"
+          title="Mint a new studio token?"
           body={
             <>
-              The shop is redeployed: its worker restarts (about 20 seconds) and
-              the old token stops working at once. The owner needs the new one.
+              The platform picks a fresh token and redeploys the shop: its worker
+              restarts (about 20 seconds) and the old token stops working at once.
+              The owner needs the new one.
             </>
           }
-          confirmLabel="Rotate the token"
+          confirmLabel="Mint a new token"
           busy={busy}
-          onConfirm={rotate}
+          onConfirm={() => applyToken("")}
           onCancel={() => setArmed(false)}
         />
       ) : (
@@ -187,7 +214,7 @@ export function ShopSettings(props: {
             disabled={busy}
             onClick={() => setArmed(true)}
           >
-            Rotate the studio token
+            Mint a new token instead
           </button>
         </div>
       )}

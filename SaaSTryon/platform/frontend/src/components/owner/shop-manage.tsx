@@ -9,7 +9,7 @@
    for a confirm. */
 import { useEffect, useState, type JSX } from "react";
 import { ApiError, type AuditRow, type ShopToken, type ShopView } from "../../api";
-import { ownerBundles, ownerRedeploy } from "../../api-admin";
+import { ownerBundles, ownerRedeploy, ownerSetOwnerToken } from "../../api-admin";
 import { base as b, cx, pf, ui as u } from "../../kit";
 import { ConfirmBox } from "../shared/confirm-box";
 import { CopyCode } from "../shared/copy-code";
@@ -51,6 +51,9 @@ export function ShopManage(props: {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [bad, setBad] = useState(false);
+  /* The studio token the owner wants to use: they type it into their
+     own dashboard, so it has to be something they can remember. */
+  const [draftToken, setDraftToken] = useState(s.owner_token || "");
 
   useEffect(() => setBundle(s.bundle || ""), [s.bundle]);
 
@@ -164,6 +167,58 @@ export function ShopManage(props: {
                 },
               ]}
             />
+            <hr className={cx(u.hairline)} />
+            <p className={cx(pf.label)}>Your studio token</p>
+            <p className={cx(u.rowSub)}>
+              The secret you type into the studio at /app. Set it to something you
+              can remember - letters, digits, dash and underscore, 8 to 64 of them.
+              Changing it restarts the shop&apos;s worker (about 20 seconds); the
+              products, the credits and the landing files stay.
+            </p>
+            <div className={cx(pf.fieldRow)}>
+              <input
+                className={cx(pf.field)}
+                value={draftToken}
+                placeholder="jam-fit-2026"
+                aria-label="the studio token to set"
+                autoComplete="off"
+                spellCheck={false}
+                disabled={busy}
+                onChange={(e) => setDraftToken(e.currentTarget.value)}
+              />
+              <button
+                className={cx(b.btn, b.btnPrimary, u.btnGrow, busy && b.btnDisabled)}
+                type="button"
+                disabled={busy || draftToken.trim().length < 8}
+                onClick={() => {
+                  setBusy(true);
+                  setNote("");
+                  setBad(false);
+                  void (async () => {
+                    try {
+                      const out = await ownerSetOwnerToken(
+                        props.sessionId,
+                        draftToken.trim(),
+                      );
+                      setNote(
+                        out.owner_token
+                          ? `Your studio token is now "${out.owner_token}".`
+                          : "Saved, but the platform returned no token.",
+                      );
+                      props.onChanged();
+                    } catch (e) {
+                      setNote(msg(e, "Could not set the studio token."));
+                      setBad(true);
+                    } finally {
+                      setBusy(false);
+                    }
+                  })();
+                }}
+              >
+                {busy ? "Saving…" : "Set this token"}
+              </button>
+            </div>
+            {bad && note ? <p className={cx(u.meta)}>{note}</p> : null}
             <hr className={cx(u.hairline)} />
             <ShopDomain
               shop={s}

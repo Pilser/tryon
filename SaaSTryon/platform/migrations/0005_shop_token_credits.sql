@@ -1,0 +1,12 @@
+-- SaaSTryon platform schema, rev 0005: a code carries its own face value.
+--
+-- A platform code used to be worth exactly one try-on credit. Now the
+-- admin (or the shop owner) decides AT MINT TIME how many credits the
+-- code is worth; the redemption grants that many, and the shop's studio
+-- can show where its credits came from (the codes it redeemed).
+--
+-- The default keeps every existing code worth one credit.
+--
+-- ALTER TABLE is not idempotent in SQLite, so the migrator tolerates
+-- "duplicate column name" and keeps going.
+ALTER TABLE shop_tokens ADD COLUMN credits INTEGER NOT NULL DEFAULT 1;

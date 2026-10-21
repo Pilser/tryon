@@ -19,6 +19,7 @@ pub const MIGRATIONS: [&str; 4] = [
     include_str!("../migrations/0002_shop_tokens.sql"),
     include_str!("../migrations/0003_shop_token.sql"),
     include_str!("../migrations/0004_shop_owner_token.sql"),
+    include_str!("../migrations/0005_shop_token_credits.sql"),
 ];
 
 /// Kept for callers that referenced the first migration directly.

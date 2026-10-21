@@ -47,6 +47,7 @@ export function CodesTab(props: {
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState("10");
+  const [credits, setCredits] = useState("1");
   const [note, setNote] = useState("");
   const [shopId, setShopId] = useState("");
   const [minted, setMinted] = useState<ShopToken[]>([]);
@@ -89,6 +90,7 @@ export function CodesTab(props: {
   function mint(): void {
     const c = Math.max(1, Math.min(100, Number(count) || 0));
     if (!c) return;
+    const v = Math.max(1, Math.min(100000, Number(credits) || 1));
     setBusy(true);
     setSay("");
     setBad(false);
@@ -100,13 +102,14 @@ export function CodesTab(props: {
               shopId,
               c,
               note.trim() || undefined,
+              v,
             )
-          : await adminMintTokens(props.adminToken, c, note.trim() || undefined);
+          : await adminMintTokens(props.adminToken, c, note.trim() || undefined, v);
         setMinted(out.tokens);
         setSay(
           `${out.tokens.length} code(s) minted${
             shopId ? ` and bound to ${shopName(shopId)}` : ""
-          } - copy them now.`,
+          } - each worth ${v} credit(s). Copy them now.`,
         );
         props.onChanged();
       } catch (e) {
@@ -123,9 +126,9 @@ export function CodesTab(props: {
       {open ? (
         <Panel title="Mint codes">
           <p className={cx(u.rowSub)}>
-            A code buys one try-on credit. Bind it to a tenant at mint time and
-            nobody else can redeem it; leave it unbound and whoever has it may
-            spend it.
+            A code buys try-on credits - you decide how many when you mint it.
+            Bind it to a tenant at mint time and nobody else can redeem it;
+            leave it unbound and whoever has it may spend it.
           </p>
           <div className={cx(pf.fieldRow)}>
             <input
@@ -137,6 +140,16 @@ export function CodesTab(props: {
               aria-label="how many codes"
               disabled={busy}
               onChange={(e) => setCount(e.currentTarget.value)}
+            />
+            <input
+              className={cx(pf.num)}
+              type="number"
+              min={1}
+              max={100000}
+              value={credits}
+              aria-label="credits per code"
+              disabled={busy}
+              onChange={(e) => setCredits(e.currentTarget.value)}
             />
             <input
               className={cx(pf.field)}
@@ -227,7 +240,7 @@ export function CodesTab(props: {
         {props.codes.length === 0 ? (
           <EmptyState
             title="No code minted yet."
-            reason="A code buys one try-on credit. Mint a batch and hand it to an owner."
+            reason="A code buys try-on credits. Mint a batch and hand it to an owner."
             action={
               <button
                 className={cx(b.btn, b.btnPrimary)}
@@ -269,6 +282,10 @@ export function CodesTab(props: {
                     {t.note ? ` · ${t.note}` : ""} · created {day(t.created_ms)}
                     {t.redeemed_ms ? ` · redeemed ${day(t.redeemed_ms)}` : ""}
                     {t.cancelled_ms ? ` · frozen ${day(t.cancelled_ms)}` : ""}
+                  </p>
+                  <p className={cx(pa.fact)}>
+                    worth {n(t.credits ?? 1)} credit(s)
+                    {t.status === "used" ? " · spent" : ""}
                   </p>
                 </div>
                 <div className={cx(u.btnRow)}>

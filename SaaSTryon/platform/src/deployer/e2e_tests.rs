@@ -212,6 +212,7 @@ pub(crate) fn inputs() -> DeployInputs {
         tier: "starter".into(),
         bundle_id: "v2026-10-19".into(),
         now_ms: 1_760_000_000_000,
+        owner_token: None,
     }
 }
 

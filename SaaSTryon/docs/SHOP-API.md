@@ -636,8 +636,8 @@ path (`shops.id`, e.g. `shop_327a7e32`).
 | `PATCH /api/v1/admin/shops/{id}` | `{name?, tier?, status?}` | `{ok, id, name, tier, status}` |
 | `DELETE /api/v1/admin/shops/{id}` | — | `{ok, deleted, removed:[...]}` |
 | `POST /api/v1/admin/shops/{id}/redeploy` | `{bundle_id}` | `{ok, shop_id, url}` |
-| `POST /api/v1/admin/shops/{id}/tokens` | `{count?, note?}` | `{ok, tokens:[ShopToken]}` |
-| `POST /api/v1/admin/shops/{id}/owner-token` | — | `{ok, shop_id, owner_token, url}` - a NEW studio token (the shop is redeployed, the data stays) |
+| `POST /api/v1/admin/shops/{id}/tokens` | `{count?, note?, credits?}` | `{ok, tokens:[ShopToken]}` - `credits` is the face value (how many try-on credits the code buys when redeemed, default 1) |
+| `POST /api/v1/admin/shops/{id}/owner-token` | `{token?}` | `{ok, shop_id, owner_token, url}` - SET the studio token by hand. Without a token the platform mints a typeable one (`studio-` + 8 unambiguous characters). The shop is redeployed with it: the old token dies, the data stays. |
 | `POST /api/v1/admin/tokens/{code}/delete` | — | `{ok, deleted}` |
 | `GET /api/v1/admin/bundles` | — | `{bundles:["v0.9.52", ...]}` |
 | `POST /api/v1/admin/bundles?version=<label>` | multipart, every file under the field name `file` (the file name is its path inside the bundle) | `{ok, version, files:[...]}` |
@@ -668,8 +668,26 @@ same for their own shop:
 |---|---|---|
 | `GET /api/v1/shop/bundles` | owner session | — |
 | `POST /api/v1/shop/redeploy` | owner session | `{bundle_id}` |
-| `POST /api/v1/shop/tokens` | owner session | `{count?, note?}` - a code that belongs to the shop from the start |
-| `POST /api/v1/shop/tokens/claim` | owner session | `{code, shop_id?}` - the owner takes a code the admin gave them; the code becomes bound to their shop and buys one credit. A code that already belongs to another shop is never stolen (`400 TOKEN_BOUND`). |
+| `POST /api/v1/shop/tokens` | owner session | `{count?, note?, credits?}` - a code that belongs to the shop from the start |
+| `POST /api/v1/shop/tokens/claim` | owner session | `{code, shop_id?}` - the owner takes a code the admin gave them; the code becomes bound to their shop and buys its credits. A code that already belongs to another shop is never stolen (`400 TOKEN_BOUND`). |
+| `POST /api/v1/shop/owner-token` | owner session | `{token?}` - the owner sets their own studio token (the one they type into `/app`). Without a token the platform mints a typeable one. |
+| `GET /api/v1/shop/codes` | owner session | — - `{codes:[ShopToken], credits_from_codes}`: the owner's own ledger, used codes included |
+
+**The studio token** (the owner's secret for `/app`) is set BY HAND in
+both portals. The rules: 8 to 64 characters of letters, digits, `-`
+and `_`. The platform mints `studio-` + eight characters from an
+alphabet without `0/O/1/I`, so it can be typed without a second look.
+A **redeploy keeps the shop's token** (the owner must not lose their
+studio login because the admin moved the shop to another bundle);
+setting a token redeploys the shop, and the old one dies at once.
+
+**The codes carry a value.** `credits` is set at mint time (admin or
+owner) and the redemption grants exactly that many try-on credits.
+The shop's studio shows the split ("226 left of 226 granted, 26 of them
+came from the admin codes this shop redeemed") - the shop asks the
+platform for it at `GET /api/v1/shop/credits` with its cluster secret
+(`PLATFORM_TOKEN`), and the shop worker proxies it at
+`GET /api/studio/credits/platform`.
 
 **Codes** (the 4-digit platform codes) move in three steps:
 
@@ -984,10 +1002,11 @@ curl -s -X POST "$PLATFORM/api/v1/admin/reactivate" \
 | | |
 |---|---|
 | Auth | admin token |
-| Body | `{"count": i64, "note": string?}` — `count` is 1…100 |
+| Body | `{"count": i64, "note": string?, "credits": i64?}` — `count` is 1…100, `credits` is the face value of each code (1 by default, 1…100000) |
 
 Mints unique 4-digit codes (`"0000"`…`"9999"`), retrying on a primary-key
-collision.
+collision. **Each code is worth `credits` try-on credits** when it is
+redeemed — a code minted with `credits: 25` gives the shop 25 credits.
 
 **Answer 200** — `{"tokens": [ShopToken]}` in mint order.
 

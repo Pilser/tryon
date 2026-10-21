@@ -683,6 +683,9 @@ Facts that cost a deploy cycle each - do not re-derive them:
 | L8 | The API token budget is 1,200 req / 5 min (B7) and every wrangler R2 object put is one call. | The bundle ships ~26 files, not the whole frontend tree (69 files burned the budget). |
 | L9 | Every Cloudflare call is account-scoped: a bare `/workers/domains` has no route (error 7000). | `domain::attach_request` builds `/accounts/{id}/workers/domains`. |
 | L10 | The Genlook proxy lives INSIDE the platform worker (HTTP + `PLATFORM_TOKEN`), not as a separate service. | No `GENLOOK_PROXY` service binding on a shop script. |
+| L11 | A panic/trap inside a worker sets wasm-bindgen's re-init flag; the next request re-instantiates the module from the glue, and if that fails (`__wbindgen_start is not a function`) the whole isolate answers `error 1101` until a new script version spawns fresh isolates. A trap ALSO discards the buffered console logs. | Never leave a panic in a hot path. To find one: write breadcrumbs into D1 (they survive the trap) - console logs do not. |
+| L12 | `serde_wasm_bindgen` on a D1 row object fails (or traps) when the struct needs a field the SELECT did not return - a full `UserRow` from `SELECT id,shop_name,status` killed every deploy before its first step. | A projection gets its own row struct (or every field is `#[serde(default)]`). |
+| L13 | The first deploy of a shop re-uploads every asset (a redeploy's session is empty); hashing each asset per missing hash is O(n^2) and blows the CPU budget. | `hash_assets` hashes the bundle ONCE and the session manifest + the upload lookup share it. |
 
 Live shape (2026-10-20): control plane on the apex `latiforge.com`
 (landing page + `/api/v1/*`), tenant shops on `{sub}.latiforge.com`

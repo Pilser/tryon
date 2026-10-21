@@ -640,6 +640,7 @@ path (`shops.id`, e.g. `shop_327a7e32`).
 | `POST /api/v1/admin/shops/{id}/owner-token` | `{token?}` | `{ok, shop_id, owner_token, url}` - SET the studio token by hand. Without a token the platform mints a typeable one (`studio-` + 8 unambiguous characters). The shop is redeployed with it: the old token dies, the data stays. |
 | `POST /api/v1/admin/tokens/{code}/delete` | — | `{ok, deleted}` |
 | `GET /api/v1/admin/bundles` | — | `{bundles:["v0.9.52", ...]}` |
+| `GET /api/v1/admin/tryon-api` | — | `{configured, balance, message}` - the TRY-ON API's own balance (the provider account the generations spend). `configured:false` until the `GENLOOK_API_KEY` secret is set on the platform. |
 | `POST /api/v1/admin/bundles?version=<label>` | multipart, every file under the field name `file` (the file name is its path inside the bundle) | `{ok, version, files:[...]}` |
 | `POST /api/v1/admin/bundles/{version}/deploy-all` | — | `{ok, version, results:[{shop_id, ok, url?, error?}]}` - every shop moves to that bundle |
 
@@ -683,11 +684,17 @@ setting a token redeploys the shop, and the old one dies at once.
 
 **The codes carry a value.** `credits` is set at mint time (admin or
 owner) and the redemption grants exactly that many try-on credits.
-The shop's studio shows the split ("226 left of 226 granted, 26 of them
-came from the admin codes this shop redeemed") - the shop asks the
-platform for it at `GET /api/v1/shop/credits` with its cluster secret
+The shop's studio shows the split ("26 credits reached this shop
+through the admin codes it redeemed") - the shop asks the platform for
+it at `GET /api/v1/shop/credits` with its cluster secret
 (`PLATFORM_TOKEN`), and the shop worker proxies it at
 `GET /api/studio/credits/platform`.
+
+That answer carries **only what is the shop's**: `{shop_id, from_codes,
+codes_redeemed, codes[]}`. The platform's bookkeeping (the granted/used
+totals) is not part of it - a shop does not read the platform's ledger,
+and the admin reads it on `/admin/shops`. The provider account's balance
+belongs to the admin alone (`/admin/tryon-api`).
 
 **Codes** (the 4-digit platform codes) move in three steps:
 

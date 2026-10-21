@@ -508,6 +508,8 @@ pub async fn handle_set_owner_token(env: Env, req: &mut Request, id: &str) -> Re
             return http::bad_request("BAD_TOKEN", "use 8-64 letters, digits, dash or underscore");
         }
     }
+    // No token in the body: the platform mints a fresh, typeable one.
+    let token = chosen.unwrap_or_else(crate::deployer::new_studio_token);
     let bundle = if shop.depot_version.is_empty() {
         list_bundles(&env)
             .await?
@@ -520,7 +522,7 @@ pub async fn handle_set_owner_token(env: Env, req: &mut Request, id: &str) -> Re
     if bundle.is_empty() {
         return http::json_error(400, "NO_BUNDLE", "no bundle to redeploy from");
     }
-    let out = match run_deploy(&env, &shop, &bundle, chosen).await {
+    let out = match run_deploy(&env, &shop, &bundle, Some(token)).await {
         Ok(o) => o,
         Err(e) => return http::json_error(500, "DEPLOY_FAILED", &e),
     };
@@ -544,13 +546,14 @@ pub async fn handle_owner_set_token(env: Env, req: &mut Request) -> Result<Respo
         return http::json_error(404, "NO_SHOP", "deploy a shop first");
     };
     let body = http::json_body::<OwnerTokenIn>(req).await;
-    let token = body
-        .and_then(|b| b.token)
-        .map(|t| t.trim().to_string())
-        .unwrap_or_default();
-    if !crate::deployer::valid_studio_token(&token) {
-        return http::bad_request("BAD_TOKEN", "use 8-64 letters, digits, dash or underscore");
+    let chosen = body.and_then(|b| b.token).map(|t| t.trim().to_string());
+    if let Some(token) = chosen.as_deref() {
+        if !crate::deployer::valid_studio_token(token) {
+            return http::bad_request("BAD_TOKEN", "use 8-64 letters, digits, dash or underscore");
+        }
     }
+    // No token in the body: the platform mints a fresh, typeable one.
+    let token = chosen.unwrap_or_else(crate::deployer::new_studio_token);
     let bundle = if shop.depot_version.is_empty() {
         list_bundles(&env)
             .await?

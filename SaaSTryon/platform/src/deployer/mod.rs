@@ -390,10 +390,17 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     // The shop's own owner token (its studio access). The platform keeps
     // it so the owner can sign into their shop dashboard. When the owner
     // (or the admin) typed a token themselves, that exact value is
-    // used - it has to match the secret bound on the script.
+    // used - it has to match the secret bound on the script. A redeploy
+    // that does not name a token KEEPS the shop's current one: the
+    // owner must not lose their studio login because the admin moved
+    // the shop to a new bundle.
     let owner_token = match input.owner_token.as_deref() {
         Some(t) if valid_studio_token(t) => t.to_string(),
-        _ => new_studio_token(),
+        _ => existing
+            .as_ref()
+            .and_then(|row| row.owner_token.clone())
+            .filter(|t| valid_studio_token(t))
+            .unwrap_or_else(new_studio_token),
     };
 
     // Steps 3+5b: per-shop D1, then the bundled shop schema into it.

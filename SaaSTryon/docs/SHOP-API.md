@@ -87,18 +87,35 @@ Base: `$PLATFORM/api/v1`.
 | | |
 |---|---|
 | Auth | public |
-| Body | `{"email": string, "contact": string, "shop_name": string?}` |
+| Body | `{"email": string, "contact": string, "name": string?, "shop_name": string?}` |
 
 `contact` is normalised to digits (a leading `+` is kept) and must end up
 with 7–20 digits. `email` is lower-cased and trimmed. `shop_name` max 80
 characters; when present it also reserves the matching subdomain
 (`"Amina Studio"` ⇒ `amina-studio` is taken for everyone else).
+`name` is the **person's** name (max 80) - the admin sees it next to
+every user. The platform mints the **registration number**
+(`LGF-0042`) and answers it with the request.
 
 **Answer 200**
 
 ```json
-{ "status": "pending" }
+{ "status": "pending", "name": "Amina Nakato", "reg_no": "LGF-0042" }
 ```
+
+#### `PATCH /api/v1/account`
+
+| | |
+|---|---|
+| Auth | owner session |
+| Body | `{"name": string?, "email": string?, "contact": string?, "shop_name": string?}` |
+
+The owner changes their own details from their portal's **Account** tab.
+Only these four fields are touchable - the id, the status, the deploy
+allowance and the sign-in token are the platform's decisions. The email
+must stay unique; the contact must be 7-20 digits.
+
+**Answer 200** - the updated user (with `name` and `reg_no`).
 
 **Errors**
 
@@ -639,6 +656,7 @@ path (`shops.id`, e.g. `shop_327a7e32`).
 | `POST /api/v1/admin/shops/{id}/tokens` | `{count?, note?, credits?}` | `{ok, tokens:[ShopToken]}` - `credits` is the face value (how many try-on credits the code buys when redeemed, default 1) |
 | `POST /api/v1/admin/shops/{id}/owner-token` | `{token?}` | `{ok, shop_id, owner_token, url}` - SET the studio token by hand. Without a token the platform mints a typeable one (`studio-` + 8 unambiguous characters). The shop is redeployed with it: the old token dies, the data stays. |
 | `POST /api/v1/admin/tokens/{code}/delete` | — | `{ok, deleted}` |
+| `POST /api/v1/admin/tokens/purge` | `{statuses: ["used","cancelled"]}` | `{ok, deleted, statuses}` - delete MANY codes at once: the spent ones, the frozen ones, or both. The **active** codes are never purged. |
 | `GET /api/v1/admin/bundles` | — | `{bundles:["v0.9.52", ...]}` |
 | `GET /api/v1/admin/tryon-api` | — | `{configured, balance, source, message}` - the TRY-ON API's own balance (the provider account the generations spend). `configured:false` until the key is set. |
 | `POST /api/v1/admin/tryon-api` | `{api_key}` | `{ok, configured, tail}` - the operator sets the try-on API key. It lands in the platform database (`platform_settings`) and is read on every call, so it is live on the next request - **no redeploy, no isolate restart**. An empty value clears it. The key is never echoed back (only its last four characters). |
@@ -846,6 +864,8 @@ pending --reject--> rejected            (terminal)
     {
       "id": "usr_1a2b3c4d5e6f7081",
       "email": "amina@example.com",
+      "name": "Amina Nakato",
+      "reg_no": "LGF-0042",
       "contact": "+256772000111",
       "shop_name": "Amina Studio",
       "status": "pending",

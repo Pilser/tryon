@@ -637,9 +637,22 @@ path (`shops.id`, e.g. `shop_327a7e32`).
 | `DELETE /api/v1/admin/shops/{id}` | — | `{ok, deleted, removed:[...]}` |
 | `POST /api/v1/admin/shops/{id}/redeploy` | `{bundle_id}` | `{ok, shop_id, url}` |
 | `POST /api/v1/admin/shops/{id}/tokens` | `{count?, note?}` | `{ok, tokens:[ShopToken]}` |
+| `POST /api/v1/admin/shops/{id}/owner-token` | — | `{ok, shop_id, owner_token, url}` - a NEW studio token (the shop is redeployed, the data stays) |
 | `POST /api/v1/admin/tokens/{code}/delete` | — | `{ok, deleted}` |
 | `GET /api/v1/admin/bundles` | — | `{bundles:["v0.9.52", ...]}` |
 | `POST /api/v1/admin/bundles?version=<label>` | multipart, every file under the field name `file` (the file name is its path inside the bundle) | `{ok, version, files:[...]}` |
+| `POST /api/v1/admin/bundles/{version}/deploy-all` | — | `{ok, version, results:[{shop_id, ok, url?, error?}]}` - every shop moves to that bundle |
+
+**The bundle layout matters**: the files keep the paths they have inside
+the bundle (`manifest.json`, `shop.wasm`, `worker.js`, `shop-schema.sql`
+and `assets/**`). Pick the BUNDLE ROOT folder in the admin, not the
+`assets` folder inside it - the deployer looks for
+`bundles/<version>/assets/<path>`.
+
+**The studio token** (the owner's secret for `/app`) is visible in the
+admin's shop view. Rotating it redeploys the shop: the script is sent
+again with the new secret, and the products, the credits and the
+landing files stay.
 
 **`DELETE` is total**: the Worker script, the per-shop D1, the custom
 domains, the shop's images in the shared bucket, its landing files and
@@ -655,7 +668,8 @@ same for their own shop:
 |---|---|---|
 | `GET /api/v1/shop/bundles` | owner session | — |
 | `POST /api/v1/shop/redeploy` | owner session | `{bundle_id}` |
-| `POST /api/v1/shop/tokens` | owner session | `{count?, note?}` — a code that belongs to the shop from the start |
+| `POST /api/v1/shop/tokens` | owner session | `{count?, note?}` - a code that belongs to the shop from the start |
+| `POST /api/v1/shop/tokens/claim` | owner session | `{code, shop_id?}` - the owner takes a code the admin gave them; the code becomes bound to their shop and buys one credit. A code that already belongs to another shop is never stolen (`400 TOKEN_BOUND`). |
 
 **Codes** (the 4-digit platform codes) move in three steps:
 

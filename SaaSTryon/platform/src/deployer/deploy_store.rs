@@ -65,6 +65,19 @@ struct ShopClaimRow {
     status: String,
 }
 
+/// A signup's `shop_name` claim. Only the three columns the query
+/// selects: deserializing into the full `UserRow` (which needs `email`)
+/// made a claim read fail for every user.
+#[derive(serde::Deserialize)]
+struct UserClaimRow {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    shop_name: String,
+    #[serde(default)]
+    status: String,
+}
+
 impl DeployStore for D1Store<'_> {
     async fn owner(&self, owner_id: &str) -> Result<Option<OwnerGate>, String> {
         let u = store::user_by_id(self.db, owner_id).await.map_err(str_of)?;
@@ -113,6 +126,7 @@ impl DeployStore for D1Store<'_> {
             });
         }
         // The users-claimed list: OTHER users' signup shop_names.
+        let _ = self.audit("claim-users", sub, "", 0).await;
         let users = self
             .db
             .prepare(
@@ -123,8 +137,9 @@ impl DeployStore for D1Store<'_> {
             .all()
             .await
             .map_err(str_of)?
-            .results::<store::UserRow>()
+            .results::<UserClaimRow>()
             .map_err(str_of)?;
+        let _ = self.audit("claim-users-ok", sub, "", 0).await;
         for u in users {
             out.push(SubdomainClaim {
                 status: u.status,

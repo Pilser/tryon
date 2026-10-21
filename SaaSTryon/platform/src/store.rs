@@ -92,6 +92,9 @@ pub fn new_id(prefix: &str) -> String {
 #[derive(Deserialize)]
 pub struct UserRow {
     pub id: String,
+    /// Defaulted so a projection that does not select it still parses
+    /// (the deployer's claim scan reads only id/shop_name/status).
+    #[serde(default)]
     pub email: String,
     #[serde(default)]
     pub contact: String,

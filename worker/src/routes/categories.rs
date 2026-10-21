@@ -136,8 +136,10 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
             uploaded = Some(crate::routes::studio::public_url(&base, &key));
         }
     }
-    let image_url = next_image(uploaded.as_deref(), existing.as_deref())
-        .map_err(|e| crate::routes::errors::bad_request("IMAGE_REQUIRED", e))?;
+    let image_url = match next_image(uploaded.as_deref(), existing.as_deref()) {
+        Ok(u) => u,
+        Err(e) => return crate::routes::errors::bad_request("IMAGE_REQUIRED", e),
+    };
     if id.is_empty() {
         id = crate::routes::ids::new_id('c');
     }

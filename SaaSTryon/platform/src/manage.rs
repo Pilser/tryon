@@ -605,7 +605,7 @@ async fn run_deploy(
     env: &Env,
     shop: &shops::Shop,
     bundle_id: &str,
-) -> Result<DeployOutcome, String> {
+) -> std::result::Result<DeployOutcome, String> {
     let cfg = CfConfig::from_env(env).map_err(|e| e.to_string())?;
     let bucket = env
         .bucket("BUNDLES")

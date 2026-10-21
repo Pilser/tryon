@@ -38,6 +38,7 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
     let segs: Vec<&str> = rest.split('/').filter(|s| !s.is_empty()).collect();
     match (req.method(), segs.as_slice()) {
         (Method::Post, ["signup"]) => auth::signup(env, &mut req).await,
+        (Method::Patch, ["account"]) => auth::handle_account(env, &mut req).await,
         (Method::Post, ["login"]) => auth::login(env, &mut req).await,
         (Method::Post, ["revoke"]) => auth::revoke(env, req.headers()).await,
         (Method::Get, ["me"]) => auth::me(env, req.headers()).await,
@@ -94,6 +95,9 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
         }
         (Method::Post, ["admin", "tokens", code, "delete"]) => {
             manage::handle_token_delete(env, &req, code).await
+        }
+        (Method::Post, ["admin", "tokens", "purge"]) => {
+            manage::handle_token_purge(env, &mut req).await
         }
         (Method::Get, ["admin", "bundles"]) => manage::handle_bundles(env, &req).await,
         (Method::Get, ["admin", "tryon-api"]) => manage::handle_tryon_api(env, &req).await,

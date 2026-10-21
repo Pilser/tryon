@@ -11,10 +11,11 @@ import { ActivityTab } from "./activity-tab";
 import { CodesTab } from "./codes-tab";
 import { CreditsTab } from "./credits-tab";
 import { LandingTab } from "./landing-tab";
+import { AccountTab } from "./account-tab";
 import { SettingsTab } from "./settings-tab";
 import { ShopsTab } from "./shops-tab";
 
-const TABS = ["shops", "landing", "credits", "codes", "activity", "settings"] as const;
+const TABS = ["shops", "landing", "credits", "codes", "activity", "account", "settings"] as const;
 
 type Tab = (typeof TABS)[number];
 
@@ -43,6 +44,7 @@ export function OwnerConsole(props: {
     { id: "credits", label: `Credits (${creditsLeft})` },
     { id: "codes", label: `Codes (${props.codes.length})` },
     { id: "activity", label: `Activity (${props.activity.length})` },
+    { id: "account", label: "Account" },
     { id: "settings", label: "Settings" },
   ];
 
@@ -107,6 +109,14 @@ export function OwnerConsole(props: {
           me={props.me}
           sessionId={props.sessionId}
           onSignOut={props.onSignOut}
+          onPrimary={props.onPrimary}
+        />
+      ) : null}
+      {tab === "account" ? (
+        <AccountTab
+          me={props.me}
+          sessionId={props.sessionId}
+          onChanged={props.onChanged}
           onPrimary={props.onPrimary}
         />
       ) : null}

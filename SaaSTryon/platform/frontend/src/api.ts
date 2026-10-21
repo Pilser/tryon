@@ -7,6 +7,11 @@
 export interface PlatformUser {
   id: string;
   email: string;
+  /** The person's name (rev 0007). */
+  name: string;
+  /** The registration number (rev 0007) - it tells two users with the
+      same name apart and the admin filters by it. */
+  reg_no: string;
   contact: string;
   shop_name: string;
   status: "pending" | "approved" | "suspended" | "rejected";
@@ -15,6 +20,11 @@ export interface PlatformUser {
   created_ms: number;
   approved_by?: string | null;
 }
+
+/** How a user is written in the admin portal: the name first, then the
+    registration number, then the email - never the email alone. */
+export const userLabel = (u: PlatformUser): string =>
+  [u.name || u.shop_name, u.reg_no, u.email].filter(Boolean).join(" · ");
 
 const SESSION_KEY = "tryon.platform.v1";
 
@@ -59,7 +69,7 @@ export class ApiError extends Error {
 }
 
 async function call<T>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
   bearer?: string,
@@ -100,8 +110,26 @@ async function callForm<T>(
 
 /* ------------------------------------------------------------ user --- */
 
-export const signup = (input: { email: string; contact: string; shop_name?: string }): Promise<{ status: string }> =>
+export const signup = (input: {
+  email: string;
+  contact: string;
+  shop_name?: string;
+  /** The person's name (rev 0007). */
+  name?: string;
+}): Promise<{ status: string; name: string; reg_no: string }> =>
   call("POST", "/api/v1/signup", input);
+
+/** The owner changes their own details. The id, the status, the
+    allowance and the sign-in token are not touchable. */
+export const updateAccount = (
+  sessionId: string,
+  input: {
+    name?: string;
+    email?: string;
+    contact?: string;
+    shop_name?: string;
+  },
+): Promise<PlatformUser> => call("PATCH", "/api/v1/account", input, sessionId);
 
 export const login = (token: string): Promise<Session> =>
   call("POST", "/api/v1/login", { token });
@@ -301,6 +329,14 @@ export const adminMintTokens = (
 
 export const adminCancelToken = (adminToken: string, code: string): Promise<{ token: ShopToken }> =>
   call("POST", "/api/v1/admin/tokens/cancel", { code }, adminToken);
+
+/** Delete many codes at once: the spent ones, the frozen ones, or
+    both. The active codes are never purged. */
+export const adminPurgeTokens = (
+  adminToken: string,
+  statuses: ("used" | "cancelled")[],
+): Promise<{ ok: boolean; deleted: number }> =>
+  call("POST", "/api/v1/admin/tokens/purge", { statuses }, adminToken);
 
 /** Phase G manual billing gate: pending credit requests from shops. */
 export interface CreditRequest {

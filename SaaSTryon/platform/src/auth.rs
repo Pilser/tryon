@@ -129,15 +129,29 @@ pub async fn signup(env: worker::Env, req: &mut worker::Request) -> Result<Respo
     if shop_name.len() > 80 {
         return http::bad_request("BAD_SHOP_NAME", "shop_name too long (max 80)");
     }
+    // The person's name (rev 0007): the admin sees it everywhere a user
+    // appears, and the owner can change it in their own portal.
+    let name = body.name.unwrap_or_default().trim().to_string();
+    if name.len() > 80 {
+        return http::bad_request("BAD_NAME", "name too long (max 80)");
+    }
     let db = store::db(&env)?;
     if store::user_by_email(&db, &email).await?.is_some() {
         return http::json_error(409, "EMAIL_TAKEN", "that email already signed up");
     }
     let id = store::new_id("usr");
+    let reg_no = store::next_reg_no(&db).await?;
     let created = now_ms();
-    store::insert_user(&db, &id, &email, &contact, &shop_name, created).await?;
+    store::insert_user(
+        &db, &id, &email, &name, &reg_no, &contact, &shop_name, created,
+    )
+    .await?;
     store::append_audit(&db, "system", "signup", &id, &email, created).await?;
-    Response::from_json(&SignupOut { status: "pending" })
+    Response::from_json(&SignupOut {
+        status: "pending",
+        name,
+        reg_no,
+    })
 }
 
 #[derive(Deserialize)]
@@ -146,11 +160,91 @@ pub struct SignupIn {
     pub contact: String,
     #[serde(default)]
     pub shop_name: Option<String>,
+    /// The person's name (rev 0007).
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 #[derive(Serialize)]
 pub struct SignupOut {
     pub status: &'static str,
+    /// Echoed so the signup page can show "we registered you as LGF-0042".
+    pub name: String,
+    pub reg_no: String,
+}
+
+/// `PATCH /api/v1/account` - the owner changes their own details (the
+/// name, the email, the WhatsApp number, the shop name). The id, the
+/// status, the allowance and the sign-in token are NOT touched: the
+/// owner cannot change what the platform decided.
+pub async fn handle_account(env: worker::Env, req: &mut worker::Request) -> Result<Response> {
+    let db = store::db(&env)?;
+    let Some(session) = verify_session(&db, req.headers()).await? else {
+        return http::unauthorized();
+    };
+    let Some(body) = http::json_body::<AccountIn>(req).await else {
+        return http::bad_request("BAD_JSON", "expected {name?, email?, contact?, shop_name?}");
+    };
+    let Some(user) = store::user_by_id(&db, &session.user_id).await? else {
+        return http::unauthorized();
+    };
+    let name = body
+        .name
+        .map(|v| v.trim().to_string())
+        .filter(|v| v.len() <= 80);
+    let email = body
+        .email
+        .map(|v| v.trim().to_lowercase())
+        .filter(|v| !v.is_empty());
+    if let Some(e) = email.as_deref() {
+        if !cfg::valid_email(e) {
+            return http::bad_request("BAD_EMAIL", "email does not look deliverable");
+        }
+        // The email identifies the account: another one may not have it.
+        if let Some(other) = store::user_by_email(&db, e).await? {
+            if other.id != user.id {
+                return http::json_error(409, "EMAIL_TAKEN", "that email already signed up");
+            }
+        }
+    }
+    let contact = body
+        .contact
+        .map(|v| cfg::normalise_contact(&v))
+        .filter(|v| !v.is_empty());
+    if let Some(c) = contact.as_deref() {
+        if !cfg::valid_contact(c) {
+            return http::bad_request("BAD_CONTACT", "contact needs 7-20 digits");
+        }
+    }
+    let shop_name = body
+        .shop_name
+        .map(|v| v.trim().to_string())
+        .filter(|v| v.len() <= 80);
+    store::update_user_profile(
+        &db,
+        &user.id,
+        name.as_deref(),
+        email.as_deref(),
+        contact.as_deref(),
+        shop_name.as_deref(),
+    )
+    .await?;
+    let now = now_ms();
+    store::append_audit(&db, &user.id, "account.update", &user.id, "", now).await?;
+    let fresh = store::user_by_id(&db, &session.user_id).await?;
+    let view = fresh
+        .as_ref()
+        .map(store::UserView::from)
+        .unwrap_or_else(|| store::UserView::from(&user));
+    Response::from_json(&view)
+}
+
+#[derive(Deserialize)]
+pub struct AccountIn {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub contact: Option<String>,
+    pub shop_name: Option<String>,
 }
 
 /// `POST /api/v1/login {token}` — shows the token ONCE at approval; the

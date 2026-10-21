@@ -132,6 +132,14 @@ export const adminMintShopTokens = (
     adminToken,
   );
 
+/** Delete many codes at once: the spent ones, the frozen ones, or
+    both. The active codes are never purged. */
+export const adminPurgeTokens = (
+  adminToken: string,
+  statuses: ("used" | "cancelled")[],
+): Promise<{ ok: boolean; deleted: number }> =>
+  call("POST", "/api/v1/admin/tokens/purge", { statuses }, adminToken);
+
 /** A code removed for good (a cancelled code keeps its row). */
 export const adminDeleteToken = (
   adminToken: string,

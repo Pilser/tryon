@@ -92,6 +92,16 @@ export function BundlesTab(props: {
 
   return (
     <>
+      {/* The tenants and their versions come FIRST: moving a tenant to
+          another version is the work of this tab, and the version list
+          is long - it must not push the work below the fold. */}
+      <AssignmentTable
+        shops={props.shops}
+        bundles={props.bundles}
+        adminToken={props.adminToken}
+        onChanged={props.onChanged}
+      />
+
       <Panel title="Versions">
         <p className={cx(u.rowSub)}>
           Every version the platform holds, newest last. Nothing is deleted when
@@ -104,7 +114,12 @@ export function BundlesTab(props: {
             reason="A version is the shop itself - the worker script, the wasm, the schema and the assets. Upload the first one below."
           />
         ) : (
-          <div className={cx(u.rows)}>
+          <div
+            className={cx(u.rows)}
+            /* The version list is long: it scrolls inside its own box
+               instead of pushing the rest of the tab down. */
+            style={{ maxHeight: 420, overflowY: "auto" }}
+          >
             {props.bundles
               .slice()
               .reverse()
@@ -214,13 +229,6 @@ export function BundlesTab(props: {
           props.onReload();
           props.onChanged();
         }}
-      />
-
-      <AssignmentTable
-        shops={props.shops}
-        bundles={props.bundles}
-        adminToken={props.adminToken}
-        onChanged={props.onChanged}
       />
     </>
   );

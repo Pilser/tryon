@@ -35,13 +35,18 @@ function AccountRow(props: {
   return (
     <div className={cx(u.row)}>
       <div className={cx(u.rowMain)}>
-        <p className={cx(u.rowTitle)}>{x.shop_name || x.email}</p>
+        <p className={cx(u.rowTitle)}>
+          {x.name || x.shop_name || x.email}
+          {x.reg_no ? (
+            <span className={cx(pf.chip, pf.chipAdmin)}> {x.reg_no}</span>
+          ) : null}
+        </p>
         <p className={cx(u.rowSub)}>
           {x.email} · {x.contact || "no contact"} · {x.deploy_used} of{" "}
           {x.deploy_allowance} deploy(s) used
         </p>
         {props.issued ? (
-          <TokenNote owner={x.shop_name || x.email} token={props.issued} />
+          <TokenNote owner={x.name || x.shop_name || x.email} token={props.issued} />
         ) : null}
         <div className={cx(pf.fieldRow)}>
           <input
@@ -97,7 +102,12 @@ function ClosedRow(props: { user: PlatformUser }): JSX.Element {
   return (
     <div className={cx(u.row)}>
       <div className={cx(u.rowMain)}>
-        <p className={cx(u.rowTitle)}>{props.user.shop_name || props.user.email}</p>
+        <p className={cx(u.rowTitle)}>
+          {props.user.name || props.user.shop_name || props.user.email}
+          {props.user.reg_no ? (
+            <span className={cx(pf.chip, pf.chipAdmin)}> {props.user.reg_no}</span>
+          ) : null}
+        </p>
         <p className={cx(u.rowSub)}>
           {props.user.email} · {props.user.contact || "no contact"}
         </p>
@@ -139,7 +149,7 @@ export function AccountsTab(props: {
   const rows = accounts.filter((u) => {
     if (state && u.status !== state) return false;
     if (!q) return true;
-    return [u.email, u.contact, u.shop_name, u.status]
+    return [u.email, u.contact, u.shop_name, u.status, u.name, u.reg_no]
       .join(" ")
       .toLowerCase()
       .includes(q);

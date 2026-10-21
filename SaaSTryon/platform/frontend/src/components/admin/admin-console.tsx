@@ -67,6 +67,8 @@ export interface AdminActions {
   creditReject: (id: string, reason: string) => void;
   cancelToken: (code: string) => void;
   deleteToken: (code: string) => void;
+  /** Delete many codes at once (the spent, the frozen, or both). */
+  purgeTokens: (statuses: ("used" | "cancelled")[]) => void;
   /** The bundle list changed (a new version was uploaded). */
   reloadBundles: () => void;
   /** Something changed on the server: read it all again. */
@@ -202,6 +204,7 @@ export function AdminConsole(props: {
           onFilter={setFilter}
           onCancel={props.actions.cancelToken}
           onDelete={props.actions.deleteToken}
+          onPurge={props.actions.purgeTokens}
           onChanged={props.actions.changed}
           onPrimary={props.onPrimary}
         />

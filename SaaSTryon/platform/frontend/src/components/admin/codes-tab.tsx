@@ -10,6 +10,7 @@ import { useMemo, useState, type JSX } from "react";
 import { ApiError, adminMintTokens, type ShopToken, type ShopView } from "../../api";
 import { adminDeleteToken, adminMintShopTokens } from "../../api-admin";
 import { base as b, cx, pa, pf, ui as u } from "../../kit";
+import { ConfirmBox } from "../shared/confirm-box";
 import { EmptyState } from "../shared/empty-state";
 import { FilterBar } from "../shared/filter-bar";
 import { Panel } from "../shared/panel";
@@ -42,6 +43,8 @@ export function CodesTab(props: {
   onFilter: (value: string) => void;
   onCancel: (code: string) => void;
   onDelete: (code: string) => void;
+  /** Delete many codes at once (the spent, the frozen, or both). */
+  onPurge: (statuses: ("used" | "cancelled")[]) => void;
   onChanged: () => void;
   onPrimary: (action: PrimaryAction | null) => void;
 }): JSX.Element {
@@ -54,6 +57,8 @@ export function CodesTab(props: {
   const [busy, setBusy] = useState(false);
   const [say, setSay] = useState("");
   const [bad, setBad] = useState(false);
+  /** Which bulk delete is armed: "used" | "cancelled" | "both". */
+  const [purge, setPurge] = useState<"used" | "cancelled" | "both" | null>(null);
 
   const action = useMemo<PrimaryAction | null>(
     () => ({
@@ -85,6 +90,8 @@ export function CodesTab(props: {
   });
 
   const active = props.codes.filter((t) => t.status === "active").length;
+  const usedCount = props.codes.filter((t) => t.status === "used").length;
+  const cancelledCount = props.codes.filter((t) => t.status === "cancelled").length;
 
   /* Mint: bound to a tenant when one is picked, free otherwise. */
   function mint(): void {
@@ -217,6 +224,66 @@ export function CodesTab(props: {
           stands. Freezing keeps the row for the audit trail; deleting takes it
           away for good.
         </p>
+        <div className={cx(u.btnRow)}>
+          <button
+            className={cx(b.btn, b.btnSecondary, u.btnGrow)}
+            type="button"
+            disabled={rows.length === 0}
+            onClick={() => {
+              const text = rows.map((t) => t.code).join(" ");
+              void navigator.clipboard
+                ?.writeText(text)
+                .then(() => setSay(`Copied ${n(rows.length)} code(s).`))
+                .catch(() => window.prompt("Copy them by hand:", text));
+            }}
+          >
+            Copy the {n(rows.length)} shown code(s)
+          </button>
+          <button
+            className={cx(b.btn, b.btnSecondary, u.btnGrow)}
+            type="button"
+            disabled={props.busy || usedCount === 0}
+            onClick={() => setPurge("used")}
+          >
+            Delete the {n(usedCount)} used
+          </button>
+          <button
+            className={cx(b.btn, b.btnSecondary, u.btnGrow)}
+            type="button"
+            disabled={props.busy || cancelledCount === 0}
+            onClick={() => setPurge("cancelled")}
+          >
+            Delete the {n(cancelledCount)} frozen
+          </button>
+          <button
+            className={cx(b.btn, b.btnDanger, u.btnGrow)}
+            type="button"
+            disabled={props.busy || usedCount + cancelledCount === 0}
+            onClick={() => setPurge("both")}
+          >
+            Delete used + frozen
+          </button>
+        </div>
+        {purge ? (
+          <ConfirmBox
+            title={`Delete ${n(purge === "both" ? usedCount + cancelledCount : purge === "used" ? usedCount : cancelledCount)} code(s)?`}
+            body={
+              <>
+                The rows are gone for good - the spent and frozen codes only. The
+                codes that are still ready are NOT touched.
+              </>
+            }
+            confirmLabel="Delete them"
+            busy={props.busy}
+            onConfirm={() => {
+              const statuses =
+                purge === "both" ? (["used", "cancelled"] as const) : ([purge] as const);
+              props.onPurge([...statuses]);
+              setPurge(null);
+            }}
+            onCancel={() => setPurge(null)}
+          />
+        ) : null}
         <FilterBar
           search={props.query}
           onSearch={props.onQuery}

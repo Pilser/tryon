@@ -810,6 +810,65 @@ pub async fn handle_set_tryon_api(env: Env, req: &mut Request) -> Result<Respons
     }))
 }
 
+/// `POST /api/v1/admin/tokens/purge {statuses: ["used","cancelled"]}` -
+/// delete MANY codes at once: the spent ones, the frozen ones, or both.
+/// The active ones are never touched (they are money).
+pub async fn handle_token_purge(env: Env, req: &mut Request) -> Result<Response> {
+    if !admin::is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let body = http::json_body::<PurgeIn>(req).await;
+    let wanted: Vec<String> = body
+        .and_then(|b| b.statuses)
+        .unwrap_or_else(|| vec!["used".into(), "cancelled".into()])
+        .into_iter()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| matches!(s.as_str(), "used" | "cancelled"))
+        .collect();
+    if wanted.is_empty() {
+        return http::bad_request(
+            "BAD_STATUS",
+            "choose used and/or cancelled - the active codes are never purged",
+        );
+    }
+    let db = store::db(&env)?;
+    let all = shops::list_shop_tokens(&db, None).await?;
+    let mut deleted = 0usize;
+    for t in all {
+        if !wanted.iter().any(|w| w == &t.status) {
+            continue;
+        }
+        store::write(
+            &db,
+            "DELETE FROM shop_tokens WHERE code = ?",
+            vec![t.code.clone().into()],
+        )
+        .await?;
+        deleted += 1;
+    }
+    let now = auth::now_ms();
+    store::append_audit(
+        &db,
+        "admin",
+        "tokens.purge",
+        "",
+        &format!("{} code(s) ({})", deleted, wanted.join("+")),
+        now,
+    )
+    .await?;
+    Response::from_json(&json!({
+        "ok": true,
+        "deleted": deleted,
+        "statuses": wanted,
+    }))
+}
+
+/// A bulk delete of the codes.
+#[derive(Deserialize)]
+pub struct PurgeIn {
+    pub statuses: Option<Vec<String>>,
+}
+
 /// `POST /api/v1/admin/users/{id}/token {token}` - the admin sets a
 /// platform user's LOGIN token by hand (a readable one the user can
 /// type) or rotates it. Only the hash is stored, like every other

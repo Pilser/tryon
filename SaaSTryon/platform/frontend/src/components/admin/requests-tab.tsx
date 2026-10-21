@@ -39,12 +39,17 @@ function RequestRow(props: {
   return (
     <div className={cx(u.row)}>
       <div className={cx(u.rowMain)}>
-        <p className={cx(u.rowTitle)}>{x.shop_name || x.email}</p>
+        <p className={cx(u.rowTitle)}>
+          {x.name || x.shop_name || x.email}
+          {x.reg_no ? (
+            <span className={cx(pf.chip, pf.chipAdmin)}> {x.reg_no}</span>
+          ) : null}
+        </p>
         <p className={cx(u.rowSub)}>
           {x.email} · {x.contact || "no contact"} · asked {age(x.created_ms)}
         </p>
         {props.issued ? (
-          <TokenNote owner={x.shop_name || x.email} token={props.issued} />
+          <TokenNote owner={x.name || x.shop_name || x.email} token={props.issued} />
         ) : null}
       </div>
       <div className={cx(u.btnRow)}>
@@ -97,7 +102,7 @@ export function RequestsTab(props: {
   const q = props.query.trim().toLowerCase();
   const rows = pending.filter((u) => {
     if (!q) return true;
-    return [u.email, u.contact, u.shop_name]
+    return [u.email, u.contact, u.shop_name, u.name, u.reg_no]
       .join(" ")
       .toLowerCase()
       .includes(q);

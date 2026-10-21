@@ -24,7 +24,7 @@ import {
   adminUsers,
   type PlatformUser,
 } from "../../api";
-import { adminBundles, adminDeleteToken, adminSetUserToken } from "../../api-admin";
+import { adminBundles, adminDeleteToken, adminPurgeTokens, adminSetUserToken } from "../../api-admin";
 import type { AdminActions, AdminData } from "./admin-console";
 
 const EMPTY: AdminData = {
@@ -253,6 +253,16 @@ export function useAdmin(token: string | null): AdminState {
     [token, run],
   );
 
+  /* Delete many codes at once: the spent, the frozen, or both. */
+  const purgeTokens = useCallback(
+    (statuses: ("used" | "cancelled")[]): void =>
+      run(
+        () => adminPurgeTokens(token || "", statuses),
+        () => setNote(`Deleted the ${statuses.join(" and ")} codes.`),
+      ),
+    [token, run],
+  );
+
   const actions: AdminActions = {
     approve,
     reject,
@@ -265,6 +275,7 @@ export function useAdmin(token: string | null): AdminState {
     creditReject,
     cancelToken,
     deleteToken,
+    purgeTokens,
     reloadBundles: () => {
       if (!token) return;
       void (async () => {

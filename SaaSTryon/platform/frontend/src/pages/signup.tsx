@@ -8,13 +8,17 @@ import { ApiError, signup } from "../api";
 import { base as b, boot, cx, pf, ui as u } from "../kit";
 
 export default function SignupPage(): JSX.Element {
-  const [form, setForm] = useState({ email: "", contact: "", shopName: "" });
+  const [form, setForm] = useState({ name: "", email: "", contact: "", shopName: "" });
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  /** The registration number the platform gave this request. */
+  const [regNo, setRegNo] = useState("");
 
-  const edit = (key: "email" | "contact" | "shopName") => (e: ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, [key]: e.currentTarget.value });
+  const edit =
+    (key: "name" | "email" | "contact" | "shopName") =>
+    (e: ChangeEvent<HTMLInputElement>) =>
+      setForm({ ...form, [key]: e.currentTarget.value });
 
   function submit(ev: FormEvent<HTMLFormElement>): void {
     ev.preventDefault();
@@ -26,11 +30,13 @@ export default function SignupPage(): JSX.Element {
     setBusy(true);
     void (async () => {
       try {
-        await signup({
+        const out = await signup({
           email,
           contact,
+          ...(form.name.trim() ? { name: form.name.trim() } : {}),
           ...(form.shopName.trim() ? { shop_name: form.shopName.trim() } : {}),
         });
+        setRegNo(out.reg_no || "");
         setSent(true);
       } catch (e) {
         setError(e instanceof ApiError ? e.message : "Could not send the request - offline?");
@@ -61,12 +67,32 @@ export default function SignupPage(): JSX.Element {
             Your request is in. Every shop is approved by hand; once approved a
             sign-in token lands on your WhatsApp contact.
           </p>
+          {regNo ? (
+            <p className={cx(u.inlineNote)}>
+              Your registration number is <b>{regNo}</b> - keep it: it tells your
+              shop apart from anyone with the same name.
+            </p>
+          ) : null}
           <p className={cx(u.inlineNote)}>
             Enter that token on <a href="login.html">the login page</a> to open your platform home.
           </p>
         </div>
       ) : (
         <form className={cx(u.card)} onSubmit={submit}>
+          <label className={cx(pf.label)} htmlFor="su-name">Your name</label>
+          <input
+            className={cx(pf.field)}
+            id="su-name"
+            type="text"
+            placeholder="e.g. Amina Nakato"
+            autoComplete="name"
+            value={form.name}
+            onChange={edit("name")}
+          />
+          <p className={cx(u.rowSub)}>
+            The platform shows your name next to your shops. You can change it
+            later in your own account tab.
+          </p>
           <label className={cx(pf.label)} htmlFor="su-email">Email</label>
           <input
             className={cx(pf.field)}

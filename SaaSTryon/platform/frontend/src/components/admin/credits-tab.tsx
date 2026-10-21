@@ -92,93 +92,6 @@ export function CreditsTab(props: {
 
   return (
     <>
-      <Panel title="Credit requests">
-        <p className={cx(u.rowSub)}>
-          The tenants that asked for more try-ons. Approving grants the asked
-          amount and closes the request; rejecting stores the reason the tenant
-          is told.
-        </p>
-        {props.requests.length === 0 ? (
-          <EmptyState
-            title="No pending request."
-            reason="The queue is empty - a tenant asks from its own console, and the request lands here."
-          />
-        ) : (
-          <div className={cx(u.rows)}>
-            {props.requests.map((r, i) => (
-              <div key={r.id}>
-                {i ? <hr className={cx(u.hairline)} /> : null}
-                <div className={cx(u.row)}>
-                  <div className={cx(u.rowMain)}>
-                    <p className={cx(u.rowTitle)}>
-                      {shopName(r.shop_id)} asks for {n(r.requested)} credit(s)
-                    </p>
-                    <p className={cx(pa.fact)}>
-                      {r.reason || "no reason given"} · asked {age(r.created_ms)}
-                      {" · "}
-                      {when(r.created_ms)}
-                    </p>
-                  </div>
-                  <div className={cx(u.btnRow)}>
-                    <button
-                      className={cx(b.btn, b.btnPrimary, u.btnGrow, props.busy && b.btnDisabled)}
-                      type="button"
-                      disabled={props.busy}
-                      onClick={() => props.onApprove(r.id)}
-                    >
-                      Approve and grant
-                    </button>
-                    {armed === r.id ? (
-                      <>
-                        <input
-                          className={cx(pf.field)}
-                          value={reason[r.id] || ""}
-                          placeholder="why (the tenant is told)"
-                          aria-label="the reason of the rejection"
-                          autoComplete="off"
-                          disabled={props.busy}
-                          onChange={(e) =>
-                            setReason((prev) => ({ ...prev, [r.id]: e.currentTarget.value }))
-                          }
-                        />
-                        <button
-                          className={cx(b.btn, b.btnDanger, u.btnGrow, props.busy && b.btnDisabled)}
-                          type="button"
-                          disabled={props.busy}
-                          onClick={() => {
-                            props.onReject(r.id, (reason[r.id] || "").trim());
-                            setArmed("");
-                          }}
-                        >
-                          Reject
-                        </button>
-                        <button
-                          className={cx(b.btn, b.btnSecondary, u.btnGrow)}
-                          type="button"
-                          disabled={props.busy}
-                          onClick={() => setArmed("")}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        className={cx(b.btn, b.btnDanger, u.btnGrow, props.busy && b.btnDisabled)}
-                        type="button"
-                        disabled={props.busy}
-                        onClick={() => setArmed(r.id)}
-                      >
-                        Reject
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Panel>
-
       <Panel title="The try-on API">
         <p className={cx(u.rowSub)}>
           The platform&apos;s own balance on the try-on API - the account the
@@ -280,6 +193,93 @@ export function CreditsTab(props: {
           The key is stored in the platform database and read on every call, so
           it takes effect immediately - no worker restart, no new deploy.
         </p>
+      </Panel>
+
+      <Panel title="Credit requests">
+        <p className={cx(u.rowSub)}>
+          The tenants that asked for more try-ons. Approving grants the asked
+          amount and closes the request; rejecting stores the reason the tenant
+          is told.
+        </p>
+        {props.requests.length === 0 ? (
+          <EmptyState
+            title="No pending request."
+            reason="The queue is empty - a tenant asks from its own console, and the request lands here."
+          />
+        ) : (
+          <div className={cx(u.rows)}>
+            {props.requests.map((r, i) => (
+              <div key={r.id}>
+                {i ? <hr className={cx(u.hairline)} /> : null}
+                <div className={cx(u.row)}>
+                  <div className={cx(u.rowMain)}>
+                    <p className={cx(u.rowTitle)}>
+                      {shopName(r.shop_id)} asks for {n(r.requested)} credit(s)
+                    </p>
+                    <p className={cx(pa.fact)}>
+                      {r.reason || "no reason given"} · asked {age(r.created_ms)}
+                      {" · "}
+                      {when(r.created_ms)}
+                    </p>
+                  </div>
+                  <div className={cx(u.btnRow)}>
+                    <button
+                      className={cx(b.btn, b.btnPrimary, u.btnGrow, props.busy && b.btnDisabled)}
+                      type="button"
+                      disabled={props.busy}
+                      onClick={() => props.onApprove(r.id)}
+                    >
+                      Approve and grant
+                    </button>
+                    {armed === r.id ? (
+                      <>
+                        <input
+                          className={cx(pf.field)}
+                          value={reason[r.id] || ""}
+                          placeholder="why (the tenant is told)"
+                          aria-label="the reason of the rejection"
+                          autoComplete="off"
+                          disabled={props.busy}
+                          onChange={(e) =>
+                            setReason((prev) => ({ ...prev, [r.id]: e.currentTarget.value }))
+                          }
+                        />
+                        <button
+                          className={cx(b.btn, b.btnDanger, u.btnGrow, props.busy && b.btnDisabled)}
+                          type="button"
+                          disabled={props.busy}
+                          onClick={() => {
+                            props.onReject(r.id, (reason[r.id] || "").trim());
+                            setArmed("");
+                          }}
+                        >
+                          Reject
+                        </button>
+                        <button
+                          className={cx(b.btn, b.btnSecondary, u.btnGrow)}
+                          type="button"
+                          disabled={props.busy}
+                          onClick={() => setArmed("")}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className={cx(b.btn, b.btnDanger, u.btnGrow, props.busy && b.btnDisabled)}
+                        type="button"
+                        disabled={props.busy}
+                        onClick={() => setArmed(r.id)}
+                      >
+                        Reject
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Panel>
 
       <Panel title="Balances">

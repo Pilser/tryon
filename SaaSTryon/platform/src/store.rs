@@ -14,13 +14,14 @@ pub use crate::shops::{
 };
 
 /// The migrations applied by [`ensure_schema`], in order.
-pub const MIGRATIONS: [&str; 6] = [
+pub const MIGRATIONS: [&str; 7] = [
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_shop_tokens.sql"),
     include_str!("../migrations/0003_shop_token.sql"),
     include_str!("../migrations/0004_shop_owner_token.sql"),
     include_str!("../migrations/0005_shop_token_credits.sql"),
     include_str!("../migrations/0006_platform_settings.sql"),
+    include_str!("../migrations/0007_user_name_regno.sql"),
 ];
 
 /// Kept for callers that referenced the first migration directly.
@@ -97,6 +98,14 @@ pub struct UserRow {
     /// (the deployer's claim scan reads only id/shop_name/status).
     #[serde(default)]
     pub email: String,
+    /// The person's name (rev 0007). Empty for the accounts that
+    /// signed up before it.
+    #[serde(default)]
+    pub name: String,
+    /// The registration number (rev 0007): two users with the same name
+    /// are told apart by it.
+    #[serde(default)]
+    pub reg_no: String,
     #[serde(default)]
     pub contact: String,
     #[serde(default)]
@@ -122,6 +131,12 @@ pub struct UserRow {
 pub struct UserView {
     pub id: String,
     pub email: String,
+    /// The person's name (rev 0007) - the admin sees it everywhere a
+    /// user appears.
+    pub name: String,
+    /// The registration number (rev 0007) - it tells two users with the
+    /// same name apart, and the admin can filter by it.
+    pub reg_no: String,
     pub contact: String,
     pub shop_name: String,
     pub status: String,
@@ -136,6 +151,8 @@ impl From<&UserRow> for UserView {
         UserView {
             id: u.id.clone(),
             email: u.email.clone(),
+            name: u.name.clone(),
+            reg_no: u.reg_no.clone(),
             contact: u.contact.clone(),
             shop_name: u.shop_name.clone(),
             status: u.status.clone(),
@@ -148,7 +165,7 @@ impl From<&UserRow> for UserView {
 }
 
 const USER_SELECT_ALL: &str =
-    "SELECT id,email,contact,shop_name,status,deploy_allowance,deploy_used,created_ms,approved_by,note FROM users";
+    "SELECT id,email,name,reg_no,contact,shop_name,status,deploy_allowance,deploy_used,created_ms,approved_by,note FROM users";
 
 // ------------------------------------------------------------- users
 
@@ -203,22 +220,86 @@ pub async fn insert_user(
     db: &D1Database,
     id: &str,
     email: &str,
+    name: &str,
+    reg_no: &str,
     contact: &str,
     shop_name: &str,
     created_ms: i64,
 ) -> Result<()> {
     write(
         db,
-        "INSERT INTO users (id,email,contact,shop_name,status,deploy_allowance,deploy_used,created_ms) VALUES (?,?,?,?,'pending',0,0,?)",
+        "INSERT INTO users (id,email,name,reg_no,contact,shop_name,status,deploy_allowance,deploy_used,created_ms) VALUES (?,?,?,?,?,?,'pending',0,0,?)",
         vec![
             id.into(),
             email.into(),
+            name.into(),
+            reg_no.into(),
             contact.into(),
             shop_name.into(),
             JsValue::from(created_ms as f64),
         ],
     )
     .await
+}
+
+/// The registration number of a new account: `LGF-0042`, a short
+/// human reference the admin can read out and filter by. The number is
+/// unique per account (the sequence counts the existing rows).
+pub async fn next_reg_no(db: &D1Database) -> Result<String> {
+    let row: Option<i64> = db
+        .prepare("SELECT COUNT(*) AS n FROM users")
+        .bind(&[] as &[JsValue])
+        .map_err(|e| Error::RustError(e.to_string()))?
+        .first::<i64>(Some("n"))
+        .await?;
+    let n = row.unwrap_or(0) + 1;
+    Ok(format!("LGF-{n:04}"))
+}
+
+/// The owner's own details, changed from their own portal. Only the
+/// fields the platform owns are touched; the id, the status, the
+/// allowance and the token stay exactly as they are.
+pub async fn update_user_profile(
+    db: &D1Database,
+    id: &str,
+    name: Option<&str>,
+    email: Option<&str>,
+    contact: Option<&str>,
+    shop_name: Option<&str>,
+) -> Result<()> {
+    if let Some(n) = name {
+        write(
+            db,
+            "UPDATE users SET name = ? WHERE id = ?",
+            vec![n.into(), id.into()],
+        )
+        .await?;
+    }
+    if let Some(e) = email {
+        write(
+            db,
+            "UPDATE users SET email = ? WHERE id = ?",
+            vec![e.into(), id.into()],
+        )
+        .await?;
+    }
+    if let Some(c) = contact {
+        write(
+            db,
+            "UPDATE users SET contact = ? WHERE id = ?",
+            vec![c.into(), id.into()],
+        )
+        .await?;
+    }
+    if let Some(s) = shop_name {
+        write(
+            db,
+            "UPDATE users SET shop_name = ? WHERE id = ?",
+            vec![s.into(), id.into()],
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 pub async fn set_status(

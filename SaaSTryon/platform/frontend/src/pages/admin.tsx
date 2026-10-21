@@ -10,9 +10,9 @@
 
    The people in here are the platform's own customers: the owner of a
    shop is never the operator. */
-import { useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { createRoot } from "react-dom/client";
-import { adminPlatformRedeploy } from "../api-admin";
+import { adminPlatformRedeploy, adminTryonApi, type TryonApiOut } from "../api-admin";
 import { AdminConsole } from "../components/admin/admin-console";
 import { useAdmin } from "../components/admin/use-admin";
 import { ConsoleHeader } from "../components/shared/console-header";
@@ -26,7 +26,27 @@ export default function AdminPage(): JSX.Element {
   const [primary, setPrimary] = useState<PrimaryAction | null>(null);
   const [healing, setHealing] = useState(false);
   const [healNote, setHealNote] = useState("");
+  /* The try-on API's own balance: the one number the admin has to
+     watch, so it sits in the header of every tab. */
+  const [tryon, setTryon] = useState<TryonApiOut | null>(null);
   const admin = useAdmin(token);
+
+  /* Read the balance whenever the console opens (and after a change). */
+  useEffect(() => {
+    if (!token) return;
+    let live = true;
+    void (async () => {
+      try {
+        const out = await adminTryonApi(token);
+        if (live) setTryon(out);
+      } catch {
+        if (live) setTryon(null);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [token, admin.data]);
 
   if (!token) {
     return (
@@ -58,17 +78,31 @@ export default function AdminPage(): JSX.Element {
         lead="Requests at the top, the tenants below. You run the shops of the platform - the owner of a shop is a customer with their own sign-in."
         primary={primary}
         aside={
-          <button
-            className={cx(b.btn, b.btnSecondary)}
-            type="button"
-            onClick={() => {
-              setPrimary(null);
-              setToken(null);
-              admin.lock();
-            }}
-          >
-            Lock the console
-          </button>
+          <>
+            <span className={cx(pf.chips)} title="The balance of the try-on API - the account the generations spend">
+              <span className={cx(pf.chip, tryon?.configured ? pf.chipGood : pf.chip)}>
+                try-on API:{" "}
+                {tryon === null
+                  ? "…"
+                  : !tryon.configured
+                    ? "not set"
+                    : tryon.balance === null
+                      ? "unknown"
+                      : `${tryon.balance} left`}
+              </span>
+            </span>
+            <button
+              className={cx(b.btn, b.btnSecondary)}
+              type="button"
+              onClick={() => {
+                setPrimary(null);
+                setToken(null);
+                admin.lock();
+              }}
+            >
+              Lock the console
+            </button>
+          </>
         }
       />
       {admin.note ? <p className={cx(u.inlineNote)}>{admin.note}</p> : null}

@@ -640,7 +640,10 @@ path (`shops.id`, e.g. `shop_327a7e32`).
 | `POST /api/v1/admin/shops/{id}/owner-token` | `{token?}` | `{ok, shop_id, owner_token, url}` - SET the studio token by hand. Without a token the platform mints a typeable one (`studio-` + 8 unambiguous characters). The shop is redeployed with it: the old token dies, the data stays. |
 | `POST /api/v1/admin/tokens/{code}/delete` | — | `{ok, deleted}` |
 | `GET /api/v1/admin/bundles` | — | `{bundles:["v0.9.52", ...]}` |
-| `GET /api/v1/admin/tryon-api` | — | `{configured, balance, message}` - the TRY-ON API's own balance (the provider account the generations spend). `configured:false` until the `GENLOOK_API_KEY` secret is set on the platform. |
+| `GET /api/v1/admin/tryon-api` | — | `{configured, balance, source, message}` - the TRY-ON API's own balance (the provider account the generations spend). `configured:false` until the key is set. |
+| `POST /api/v1/admin/tryon-api` | `{api_key}` | `{ok, configured, tail}` - the operator sets the try-on API key. It lands in the platform database (`platform_settings`) and is read on every call, so it is live on the next request - **no redeploy, no isolate restart**. An empty value clears it. The key is never echoed back (only its last four characters). |
+| `POST /api/v1/admin/users/{id}/token` | `{token}` | `{ok, user_id, email, token}` - the admin sets (or rotates) a user's sign-in token by hand. 8-64 letters, digits, dash or underscore. Only the hash is stored. |
+| `POST /api/v1/admin/platform/redeploy` | — | `{ok, script, version}` - the platform redeploys **itself** from the copy it keeps in R2 (`platform/self/*`). A new script version spawns fresh isolates, which is the cure for a poisoned one. |
 | `POST /api/v1/admin/bundles?version=<label>` | multipart, every file under the field name `file` (the file name is its path inside the bundle) | `{ok, version, files:[...]}` |
 | `POST /api/v1/admin/bundles/{version}/deploy-all` | — | `{ok, version, results:[{shop_id, ok, url?, error?}]}` - every shop moves to that bundle |
 
@@ -689,6 +692,19 @@ through the admin codes it redeemed") - the shop asks the platform for
 it at `GET /api/v1/shop/credits` with its cluster secret
 (`PLATFORM_TOKEN`), and the shop worker proxies it at
 `GET /api/studio/credits/platform`.
+
+**The sign-in tokens are the admin's to give.** The approve call takes
+an optional `token` - when the admin types one, that exact value
+becomes the owner's login token (8-64 letters, digits, dash or
+underscore); without one the platform mints a readable
+`plat-XXXXXXXX` (no 0/O/1/I). The same value can be set or rotated
+later with `POST /api/v1/admin/users/{id}/token`.
+
+**A replaced photo gets a new URL.** A product photo keeps its R2 key
+(one file per slot), so the URL would stay the same and the browser
+would serve the cached image - the owner's "update" would look
+refused. The saved URL carries a version stamp (`?v=<stamp>`), so a
+replaced photo is fetched again.
 
 That answer carries **only what is the shop's**: `{shop_id, from_codes,
 codes_redeemed, codes[]}`. The platform's bookkeeping (the granted/used

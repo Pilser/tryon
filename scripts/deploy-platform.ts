@@ -210,6 +210,16 @@ await fetch(
     }),
   },
 );
+/* The assets manifest too: a self-deploy needs an assets session, and
+   the session needs the manifest of the files that are already there. */
+await fetch(
+  `https://api.cloudflare.com/client/v4/accounts/${account}/r2/buckets/${r2Bucket}/objects/platform%2Fself%2Fassets-manifest.json`,
+  {
+    method: "PUT",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ manifest }),
+  },
+);
 console.log("self-heal copy stored in R2 (platform/self/*)");
 
 /* 5. secrets: PLATFORM_SECRET_x=y pairs, one PUT each. */

@@ -647,12 +647,44 @@ pub async fn handle_platform_redeploy(env: Env, req: &Request) -> Result<Respons
 
     let cfg = CfConfig::from_env(&env).map_err(|e| worker::Error::RustError(e))?;
     let transport = crate::deployer::cf_api::FetchTransport::new(cfg.clone());
+
+    // The assets session: a script PUT with an assets binding needs the
+    // completion token. The files are already in the script, so the
+    // session's bucket list comes back empty and the session jwt IS the
+    // completion token (§3.3 first-upload-sync).
+    let manifest_raw = read("platform/self/assets-manifest.json").await?;
+    let manifest_doc: serde_json::Value = serde_json::from_slice(&manifest_raw)
+        .map_err(|e| worker::Error::RustError(format!("assets-manifest.json: {e}")))?;
+    let assets_manifest = manifest_doc
+        .get("manifest")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let session = crate::deployer::cf_api::call_with_retry(
+        &transport,
+        crate::deployer::cf_api::CfRequest {
+            method: worker::Method::Post,
+            path: format!(
+                "/accounts/{}/workers/scripts/{}/assets-upload-session",
+                cfg.account, script_name
+            ),
+            body: crate::deployer::cf_api::CfBody::Json(serde_json::json!({
+                "manifest": assets_manifest
+            })),
+            jwt: None,
+        },
+    )
+    .await
+    .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let completion = crate::deployer::bundle::assets::parse_session_jwt(&session)
+        .ok_or_else(|| worker::Error::RustError("the assets session returned no jwt".into()))?;
+
     let mp = crate::deployer::bundle::multipart::MultipartBuilder::new();
     let body = mp.script_put_body(
         &serde_json::json!({
             "main_module": "index.js",
             "compatibility_date": compat_date,
             "bindings": bindings,
+            "assets": { "jwt": completion },
         }),
         "index.js",
         &glue,

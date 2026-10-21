@@ -419,24 +419,34 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
             .unwrap_or_else(new_studio_token),
     };
 
+    // A breadcrumb per phase: a runtime trap loses the console logs, so
+    // the deploy writes its progress into the audit table - the last row
+    // tells us where a hang happened.
+    let mark = |m: &'static str| {
+        let store = &store;
+        let subject = input.subdomain.clone();
+        async move {
+            let _ = store.audit("deploy.step", &subject, m, input.now_ms).await;
+        }
+    };
+
     // Steps 3+5b: per-shop D1, then the bundled shop schema into it.
-    worker::console_log!("deploy: loading bundle {}", input.bundle_id);
+    mark("bundle").await;
     let data = bundles
         .load_bundle(&input.bundle_id)
         .await
         .map_err(DeployError::bundle)?;
-    worker::console_log!("deploy: bundle loaded ({} assets)", data.assets.len());
+    mark("bundle-loaded").await;
     data.verify().map_err(DeployError::bundle)?;
-    worker::console_log!("deploy: bundle verified");
+    mark("verified").await;
     let mp = MultipartBuilder::new();
     let d1_uuid = if existing.is_some() {
         d1_uuid
     } else {
-        worker::console_log!("deploy: creating d1");
-        let uuid = provision::provision(cf_cfg, cf, &id8, &data.schema_sql).await?;
-        worker::console_log!("deploy: d1 ready {}", uuid);
-        uuid
+        mark("d1-create").await;
+        provision::provision(cf_cfg, cf, &id8, &data.schema_sql).await?
     };
+    mark("d1-ready").await;
     let bindings = provision::bindings_for(
         &id8,
         &d1_uuid,
@@ -448,12 +458,9 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     );
 
     // 3-step assets, then the script-PUT carrying the completion jwt.
-    worker::console_log!("deploy: staging assets");
+    mark("assets").await;
     let staged = bundle::stage_assets(cf, &cf_cfg.account, &script, &data, &mp).await?;
-    worker::console_log!(
-        "deploy: assets staged ({} upload(s))",
-        staged.uploaded_parts
-    );
+    mark("assets-staged").await;
     let put = bundle::ScriptPut {
         account: &cf_cfg.account,
         script_name: &script,
@@ -468,13 +475,14 @@ pub async fn deploy_shop_with<S: DeployStore, B: BundleSource, T: Transport>(
     call_with_retry(cf, put.request(&mp))
         .await
         .map_err(DeployError::from)?;
-    worker::console_log!("deploy: script uploaded");
+    mark("script-uploaded").await;
 
     // Phase D: attach {sub}.latiforge.com to the new script so the shop
     // is reachable on its own hostname (DNS + cert auto-issued, B6).
     let custom_url = domain::attach_shop_domain(cf, cf_cfg, &input.subdomain, &script)
         .await
         .map_err(DeployError::from)?;
+    mark("domain-attached").await;
 
     // Steps 7-8: bookkeeping (§7.3; status live - first PUT is sync, B2).
     let row = ShopRow {

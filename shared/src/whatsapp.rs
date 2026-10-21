@@ -2,7 +2,10 @@ use urlencoding::encode;
 
 /// Build a `wa.me` inquire link. Pure function, no network.
 pub fn inquire_url(owner_whatsapp: &str, shop_name: &str, title: &str, product_id: &str) -> String {
-    let digits: String = owner_whatsapp.chars().filter(|c| c.is_ascii_digit()).collect();
+    let digits: String = owner_whatsapp
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .collect();
     let text = format!("Hi {shop_name}! I like {title} ({product_id}). Is it available?");
     format!("https://wa.me/{digits}?text={}", encode(&text))
 }

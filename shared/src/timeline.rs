@@ -41,7 +41,13 @@ mod tests {
     use super::*;
 
     fn e(kind: &str, thumb: &str) -> Entry {
-        Entry { kind: kind.into(), thumb: thumb.into(), image_id: "img".into(), url: "".into(), ts: 0 }
+        Entry {
+            kind: kind.into(),
+            thumb: thumb.into(),
+            image_id: "img".into(),
+            url: "".into(),
+            ts: 0,
+        }
     }
 
     #[test]

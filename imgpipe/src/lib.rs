@@ -33,7 +33,13 @@ pub fn prepare(mut bytes: Vec<u8>, mime: &str) -> Result<Prepared, &'static str>
         return Err("file over 10 MB");
     }
     if is_heic(mime) {
-        return Ok(Prepared { bytes, mime: mime.to_string(), width: 0, height: 0, processed: false });
+        return Ok(Prepared {
+            bytes,
+            mime: mime.to_string(),
+            width: 0,
+            height: 0,
+            processed: false,
+        });
     }
     let img = ImageReader::new(Cursor::new(&bytes))
         .with_guessed_format()
@@ -45,7 +51,13 @@ pub fn prepare(mut bytes: Vec<u8>, mime: &str) -> Result<Prepared, &'static str>
         return Err("photo too small: use at least 256x256");
     }
     if w.max(h) <= MAX_EDGE && mime.eq_ignore_ascii_case("image/jpeg") {
-        return Ok(Prepared { bytes, mime: mime.to_string(), width: w, height: h, processed: false });
+        return Ok(Prepared {
+            bytes,
+            mime: mime.to_string(),
+            width: w,
+            height: h,
+            processed: false,
+        });
     }
     let scale = MAX_EDGE as f64 / w.max(h) as f64;
     let (tw, th) = (
@@ -58,10 +70,22 @@ pub fn prepare(mut bytes: Vec<u8>, mime: &str) -> Result<Prepared, &'static str>
         .encode_image(&small)
         .map_err(|_| "encode failed")?;
     if out.len() >= bytes.len() {
-        return Ok(Prepared { bytes, mime: mime.to_string(), width: w, height: h, processed: false });
+        return Ok(Prepared {
+            bytes,
+            mime: mime.to_string(),
+            width: w,
+            height: h,
+            processed: false,
+        });
     }
     bytes = out;
-    Ok(Prepared { bytes, mime: "image/jpeg".to_string(), width: tw, height: th, processed: true })
+    Ok(Prepared {
+        bytes,
+        mime: "image/jpeg".to_string(),
+        width: tw,
+        height: th,
+        processed: true,
+    })
 }
 
 /// WASM export: `{ bytes: Uint8Array, mime, width, height, processed }`.
@@ -69,7 +93,11 @@ pub fn prepare(mut bytes: Vec<u8>, mime: &str) -> Result<Prepared, &'static str>
 pub fn prepare_image(data: &[u8], mime: &str) -> Result<JsValue, JsValue> {
     let p = prepare(data.to_vec(), mime).map_err(|e| JsValue::from_str(e))?;
     let obj = js_sys::Object::new();
-    js_sys::Reflect::set(&obj, &"bytes".into(), &js_sys::Uint8Array::from(p.bytes.as_slice()).into())?;
+    js_sys::Reflect::set(
+        &obj,
+        &"bytes".into(),
+        &js_sys::Uint8Array::from(p.bytes.as_slice()).into(),
+    )?;
     js_sys::Reflect::set(&obj, &"mime".into(), &p.mime.into())?;
     js_sys::Reflect::set(&obj, &"width".into(), &(p.width as f64).into())?;
     js_sys::Reflect::set(&obj, &"height".into(), &(p.height as f64).into())?;
@@ -85,7 +113,9 @@ mod tests {
     fn jpeg(w: u32, h: u32) -> Vec<u8> {
         let img = RgbImage::from_pixel(w, h, Rgb([200u8, 100, 50]));
         let mut buf = Vec::new();
-        JpegEncoder::new_with_quality(&mut buf, 90).encode_image(&img).unwrap();
+        JpegEncoder::new_with_quality(&mut buf, 90)
+            .encode_image(&img)
+            .unwrap();
         buf
     }
 

@@ -88,6 +88,9 @@ mod tests {
 
     #[test]
     fn share_url_trims_slash() {
-        assert_eq!(share_url("https://shop.com/", "p1"), "https://shop.com/product/p1");
+        assert_eq!(
+            share_url("https://shop.com/", "p1"),
+            "https://shop.com/product/p1"
+        );
     }
 }

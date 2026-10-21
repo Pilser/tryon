@@ -69,9 +69,21 @@ mod tests {
     #[test]
     fn filters_by_query_and_category() {
         let all = sample();
-        let out = apply_filter(&all, &ProductFilter { query: "silk".into(), ..Default::default() });
+        let out = apply_filter(
+            &all,
+            &ProductFilter {
+                query: "silk".into(),
+                ..Default::default()
+            },
+        );
         assert_eq!(out.len(), 1);
-        let out = apply_filter(&all, &ProductFilter { category: "Jackets".into(), ..Default::default() });
+        let out = apply_filter(
+            &all,
+            &ProductFilter {
+                category: "Jackets".into(),
+                ..Default::default()
+            },
+        );
         assert_eq!(out.len(), 1);
     }
 }

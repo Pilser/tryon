@@ -57,6 +57,10 @@ export interface AdminActions {
   approve: (user: PlatformUser) => void;
   reject: (user: PlatformUser) => void;
   setAllowance: (id: string, value: string) => void;
+  /** The sign-in token the operator is typing for a user. */
+  setUserToken: (id: string, value: string) => void;
+  /** The operator sets (or rotates) a user's sign-in token. */
+  setUserLoginToken: (user: PlatformUser) => void;
   saveAllowance: (user: PlatformUser) => void;
   toggleUser: (user: PlatformUser) => void;
   creditApprove: (id: string) => void;
@@ -78,6 +82,8 @@ export function AdminConsole(props: {
   issued: Record<string, string>;
   /** The allowance the operator is typing but has not saved yet. */
   allowance: Record<string, string>;
+  /** The sign-in token the operator is typing for a user. */
+  userToken: Record<string, string>;
   onPrimary: (action: PrimaryAction | null) => void;
 }): JSX.Element {
   const [tabParam, setTabParam] = useUrlParam("tab", "requests");
@@ -127,9 +133,11 @@ export function AdminConsole(props: {
           busy={props.busy}
           issued={props.issued}
           allowance={props.allowance}
+          userToken={props.userToken}
           query={query}
           onQuery={setQuery}
           onAllowance={props.actions.setAllowance}
+          onUserToken={props.actions.setUserToken}
           onApprove={props.actions.approve}
           onReject={props.actions.reject}
           onPrimary={props.onPrimary}
@@ -141,11 +149,14 @@ export function AdminConsole(props: {
           busy={props.busy}
           issued={props.issued}
           allowance={props.allowance}
+          userToken={props.userToken}
           query={query}
           filter={filter}
           onQuery={setQuery}
           onFilter={setFilter}
           onAllowance={props.actions.setAllowance}
+          onUserToken={props.actions.setUserToken}
+          onSetToken={props.actions.setUserLoginToken}
           onSave={props.actions.saveAllowance}
           onToggle={props.actions.toggleUser}
           onPrimary={props.onPrimary}

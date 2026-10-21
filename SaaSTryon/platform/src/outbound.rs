@@ -28,7 +28,20 @@ pub fn base(env: &Env) -> String {
 
 /// The platform's own Genlook key. Missing secret = hard error, never a
 /// silent unauthenticated call.
-fn api_key(env: &Env) -> Result<String> {
+///
+/// The key may live in two places: the `GENLOOK_API_KEY` secret (set
+/// at deploy time) or the `platform_settings` row the admin console
+/// writes (rev 0006). The row wins: it is what the operator can change
+/// from the UI without a redeploy - and a redeploy is exactly what a
+/// poisoned isolate needs, so the setting must not depend on one.
+pub fn api_key(env: &Env) -> Result<String> {
+    if let Ok(db) = store::db(env) {
+        if let Ok(k) = store::setting(&db, GENLOOK_KEY_SETTING) {
+            if !k.trim().is_empty() {
+                return Ok(k);
+            }
+        }
+    }
     let k = env
         .var("GENLOOK_API_KEY")
         .map(|v| v.to_string())
@@ -38,6 +51,9 @@ fn api_key(env: &Env) -> Result<String> {
     }
     Ok(k)
 }
+
+/// The setting name the admin console writes the try-on API key into.
+pub const GENLOOK_KEY_SETTING: &str = "genlook_api_key";
 
 /// Pure: the Genlook URL a proxied shop call maps to (tested).
 pub fn genlook_target(base: &str, path: &str) -> String {

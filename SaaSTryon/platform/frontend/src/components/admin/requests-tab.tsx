@@ -29,7 +29,9 @@ function RequestRow(props: {
   user: PlatformUser;
   allowance: string;
   issued: string | null;
+  userToken: string;
   onAllowance: (value: string) => void;
+  onUserToken: (value: string) => void;
   onApprove: () => void;
   onReject: () => void;
 }): JSX.Element {
@@ -55,6 +57,15 @@ function RequestRow(props: {
           aria-label={`shops ${x.email} may deploy`}
           onChange={(e) => props.onAllowance(e.currentTarget.value)}
         />
+        <input
+          className={cx(pf.field)}
+          type="text"
+          value={props.userToken}
+          placeholder="sign-in token (optional)"
+          aria-label={`the sign-in token for ${x.email}`}
+          autoComplete="off"
+          onChange={(e) => props.onUserToken(e.currentTarget.value)}
+        />
         <button className={cx(b.btn, b.btnPrimary)} type="button" onClick={props.onApprove}>
           Approve
         </button>
@@ -71,9 +82,11 @@ export function RequestsTab(props: {
   busy: boolean;
   issued: Record<string, string>;
   allowance: Record<string, string>;
+  userToken: Record<string, string>;
   query: string;
   onQuery: (value: string) => void;
   onAllowance: (id: string, value: string) => void;
+  onUserToken: (id: string, value: string) => void;
   onApprove: (user: PlatformUser) => void;
   onReject: (user: PlatformUser) => void;
   onPrimary: (action: PrimaryAction | null) => void;
@@ -129,7 +142,9 @@ export function RequestsTab(props: {
                 user={x}
                 allowance={props.allowance[x.id] || String(x.deploy_allowance || 3)}
                 issued={props.issued[x.id] || null}
+                userToken={props.userToken[x.id] || ""}
                 onAllowance={(v) => props.onAllowance(x.id, v)}
+                onUserToken={(v) => props.onUserToken(x.id, v)}
                 onApprove={() => props.onApprove(x)}
                 onReject={() => props.onReject(x)}
               />

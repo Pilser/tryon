@@ -24,7 +24,7 @@ import {
   adminUsers,
   type PlatformUser,
 } from "../../api";
-import { adminBundles, adminDeleteToken } from "../../api-admin";
+import { adminBundles, adminDeleteToken, adminSetUserToken } from "../../api-admin";
 import type { AdminActions, AdminData } from "./admin-console";
 
 const EMPTY: AdminData = {
@@ -45,6 +45,11 @@ export interface AdminState {
   issued: Record<string, string>;
   /** The allowance the operator is typing but has not saved yet. */
   allowance: Record<string, string>;
+  /** The sign-in token the operator is typing for a user. */
+  userToken: Record<string, string>;
+  /** True when the platform API itself is not answering (a poisoned
+      isolate answers 1101 for everything). */
+  unreachable: boolean;
   actions: AdminActions;
   /** Read the console again (the token is already known - or hand it
       over when it was just pasted). */
@@ -60,6 +65,8 @@ export function useAdmin(token: string | null): AdminState {
   const [note, setNote] = useState("");
   const [issued, setIssued] = useState<Record<string, string>>({});
   const [allowance, setAllowance] = useState<Record<string, string>>({});
+  const [userToken, setUserToken] = useState<Record<string, string>>({});
+  const [unreachable, setUnreachable] = useState(false);
 
   /* One read fills the console. */
   const collect = useCallback((tok: string): void => {
@@ -83,9 +90,20 @@ export function useAdmin(token: string | null): AdminState {
           bundles: v.bundles,
         });
         setError("");
+        setUnreachable(false);
       } catch (e) {
+        // A worker that answers "error 1101" is a POISONED isolate:
+        // every request fails until a new script version spawns fresh
+        // ones. The console must say so instead of "offline?".
+        const raw = e instanceof Error ? e.message : String(e);
+        const dead = /1101|error code/i.test(raw);
+        setUnreachable(dead);
         setError(
-          e instanceof ApiError ? e.message : "Could not load the platform - offline?",
+          dead
+            ? "The platform worker is not answering (its isolate is poisoned). Redeploy the platform below - a new script version spawns fresh isolates."
+            : e instanceof ApiError
+              ? e.message
+              : "Could not load the platform - offline?",
         );
       } finally {
         setBusy(false);
@@ -116,20 +134,48 @@ export function useAdmin(token: string | null): AdminState {
   );
 
   /* Approve: the sign-in token of the owner is minted here and shown
-     once, in the row it belongs to. */
+     once, in the row it belongs to. The operator may type the token
+     themselves (a readable one the owner can type) - then the platform
+     stores that exact value. */
   const approve = useCallback(
     (x: PlatformUser): void => {
       if (!token) return;
       const allowanceNow = Number(allowance[x.id] || x.deploy_allowance || 3);
+      const chosen = (userToken[x.id] || "").trim();
       run(async () => {
-        const res = await adminApprove(token, x.id, allowanceNow);
+        const res = await adminApprove(
+          token,
+          x.id,
+          allowanceNow,
+          chosen || undefined,
+        );
         setIssued((prev) => ({ ...prev, [x.id]: res.token }));
+        setUserToken((prev) => ({ ...prev, [x.id]: "" }));
         setNote(
           `Approved ${x.email} - the sign-in token is in the row, copy it to the owner.`,
         );
       });
     },
-    [token, allowance, run],
+    [token, allowance, userToken, run],
+  );
+
+  /* The admin sets (or rotates) a user's sign-in token by hand. */
+  const setUserLoginToken = useCallback(
+    (x: PlatformUser): void => {
+      if (!token) return;
+      const value = (userToken[x.id] || "").trim();
+      if (!value) {
+        setError("Type the token first (8-64 letters, digits, dash or underscore).");
+        return;
+      }
+      run(async () => {
+        const res = await adminSetUserToken(token, x.id, value);
+        setIssued((prev) => ({ ...prev, [x.id]: res.token }));
+        setUserToken((prev) => ({ ...prev, [x.id]: "" }));
+        setNote(`The sign-in token for ${x.email} is now "${res.token}".`);
+      });
+    },
+    [token, userToken, run],
   );
 
   const reject = useCallback(
@@ -211,6 +257,8 @@ export function useAdmin(token: string | null): AdminState {
     approve,
     reject,
     setAllowance: (id, value) => setAllowance((prev) => ({ ...prev, [id]: value })),
+    setUserToken: (id, value) => setUserToken((prev) => ({ ...prev, [id]: value })),
+    setUserLoginToken,
     saveAllowance,
     toggleUser,
     creditApprove,
@@ -240,6 +288,8 @@ export function useAdmin(token: string | null): AdminState {
     note,
     issued,
     allowance,
+    userToken,
+    unreachable,
     actions,
     reload: (tok?: string) => {
       const t = tok || token;

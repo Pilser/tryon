@@ -14,12 +14,13 @@ pub use crate::shops::{
 };
 
 /// The migrations applied by [`ensure_schema`], in order.
-pub const MIGRATIONS: [&str; 5] = [
+pub const MIGRATIONS: [&str; 6] = [
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_shop_tokens.sql"),
     include_str!("../migrations/0003_shop_token.sql"),
     include_str!("../migrations/0004_shop_owner_token.sql"),
     include_str!("../migrations/0005_shop_token_credits.sql"),
+    include_str!("../migrations/0006_platform_settings.sql"),
 ];
 
 /// Kept for callers that referenced the first migration directly.
@@ -296,6 +297,32 @@ pub async fn delete_session(db: &D1Database, id: &str) -> Result<()> {
 // ------------------------------------------------------------- audit
 
 /// Admin-action audit trail (§7.2). `meta` is a JSON payload string.
+/// A platform setting (rev 0006): a value the operator can change from
+/// the admin console without a redeploy. Empty = not set.
+pub async fn setting(db: &D1Database, name: &str) -> Result<String> {
+    let row: Option<String> = db
+        .prepare("SELECT value FROM platform_settings WHERE name = ?")
+        .bind(&str_args([name]))?
+        .first::<String>(Some("value"))
+        .await?;
+    Ok(row.unwrap_or_default())
+}
+
+/// Writes a platform setting and stamps when it changed.
+pub async fn set_setting(db: &D1Database, name: &str, value: &str, now_ms: i64) -> Result<()> {
+    write(
+        db,
+        "INSERT INTO platform_settings (name,value,updated_ms) VALUES (?,?,?) \
+         ON CONFLICT(name) DO UPDATE SET value=excluded.value, updated_ms=excluded.updated_ms",
+        vec![
+            name.into(),
+            value.into(),
+            wasm_bindgen::JsValue::from(now_ms as f64),
+        ],
+    )
+    .await
+}
+
 pub async fn append_audit(
     db: &D1Database,
     actor: &str,

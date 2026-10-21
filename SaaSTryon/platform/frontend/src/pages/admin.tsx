@@ -12,6 +12,7 @@
    shop is never the operator. */
 import { useState, type JSX } from "react";
 import { createRoot } from "react-dom/client";
+import { adminPlatformRedeploy } from "../api-admin";
 import { AdminConsole } from "../components/admin/admin-console";
 import { useAdmin } from "../components/admin/use-admin";
 import { ConsoleHeader } from "../components/shared/console-header";
@@ -23,6 +24,8 @@ import { base as b, boot, cx, pf, ui as u } from "../kit";
 export default function AdminPage(): JSX.Element {
   const [token, setToken] = useState<string | null>(null);
   const [primary, setPrimary] = useState<PrimaryAction | null>(null);
+  const [healing, setHealing] = useState(false);
+  const [healNote, setHealNote] = useState("");
   const admin = useAdmin(token);
 
   if (!token) {
@@ -70,6 +73,44 @@ export default function AdminPage(): JSX.Element {
       />
       {admin.note ? <p className={cx(u.inlineNote)}>{admin.note}</p> : null}
       {admin.error ? <p className={cx(b.error)}>{admin.error}</p> : null}
+      {admin.unreachable ? (
+        <div className={cx(u.card, b.error)}>
+          <p className={cx(u.rowTitle)}>The platform worker is poisoned</p>
+          <p className={cx(u.rowSub)}>
+            A panic inside a Worker leaves the isolate unable to start again
+            (every request answers &quot;error 1101&quot;). The script itself is
+            fine - a new version spawns fresh isolates, and the platform
+            keeps a copy of itself in R2 for exactly this.
+          </p>
+          <div className={cx(u.btnRow)}>
+            <button
+              className={cx(b.btn, b.btnPrimary)}
+              type="button"
+              disabled={healing}
+              onClick={() => {
+                setHealing(true);
+                void (async () => {
+                  try {
+                    await adminPlatformRedeploy(token || "");
+                    setHealNote("The platform was redeployed - give it a few seconds.");
+                  } catch (e) {
+                    setHealNote(
+                      e instanceof Error
+                        ? e.message
+                        : "The redeploy did not go through.",
+                    );
+                  } finally {
+                    setHealing(false);
+                  }
+                })();
+              }}
+            >
+              {healing ? "Redeploying…" : "Redeploy the platform"}
+            </button>
+          </div>
+          {healNote ? <p className={cx(u.meta)}>{healNote}</p> : null}
+        </div>
+      ) : null}
       {!admin.data ? (
         <>
           <p className={cx(u.empty)}>
@@ -85,6 +126,7 @@ export default function AdminPage(): JSX.Element {
           busy={admin.busy}
           issued={admin.issued}
           allowance={admin.allowance}
+          userToken={admin.userToken}
           onPrimary={setPrimary}
         />
       )}

@@ -8,7 +8,8 @@
    tenant can be told what happened. */
 import { useEffect, useMemo, useState, type JSX } from "react";
 import type { CreditRequest, ShopView } from "../../api";
-import { adminTryonApi, type TryonApiOut } from "../../api-admin";
+import { ApiError } from "../../api";
+import { adminSetTryonApi, adminTryonApi, type TryonApiOut } from "../../api-admin";
 import { base as b, cx, pa, pf, ui as u } from "../../kit";
 import { EmptyState } from "../shared/empty-state";
 import { Panel } from "../shared/panel";
@@ -17,6 +18,9 @@ import { usePrimary, type PrimaryAction } from "../shared/primary-action";
 const n = (x: number): string => new Intl.NumberFormat("en-US").format(x);
 
 const when = (ms: number): string => (ms ? new Date(ms).toLocaleString() : "unknown");
+
+const msg = (e: unknown, fallback: string): string =>
+  e instanceof ApiError ? e.message : fallback;
 
 const age = (ms: number): string => {
   if (!ms) return "unknown";
@@ -39,6 +43,8 @@ export function CreditsTab(props: {
 
   /* The try-on API's own balance: the one number the admin watches. */
   const [api, setApi] = useState<TryonApiOut | null>(null);
+  const [keyDraft, setKeyDraft] = useState("");
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     let live = true;
     void (async () => {
@@ -186,7 +192,7 @@ export function CreditsTab(props: {
             <div className={cx(u.rowMain)}>
               <p className={cx(u.rowTitle)}>Try-on API balance</p>
               <p className={cx(pa.fact)}>
-                {api.message || "read from the provider account"}
+                {api.message || `read from the provider account (${api.source})`}
               </p>
             </div>
             <span className={cx(pf.chips)}>
@@ -200,10 +206,80 @@ export function CreditsTab(props: {
             title="The try-on API is not configured."
             reason={
               api.message ||
-              "Set the GENLOOK_API_KEY secret on the platform and the provider balance appears here."
+              "Paste the provider key below - it is live on the next request, no deploy needed."
             }
           />
         )}
+        <div className={cx(pf.fieldRow)}>
+          <input
+            className={cx(pf.field)}
+            type="password"
+            value={keyDraft}
+            placeholder="paste the try-on API key"
+            aria-label="the try-on API key"
+            autoComplete="off"
+            disabled={busy}
+            onChange={(e) => setKeyDraft(e.currentTarget.value)}
+          />
+          <button
+            className={cx(b.btn, b.btnPrimary, u.btnGrow, busy && b.btnDisabled)}
+            type="button"
+            disabled={busy || !keyDraft.trim()}
+            onClick={() => {
+              setBusy(true);
+              void (async () => {
+                try {
+                  await adminSetTryonApi(props.adminToken, keyDraft.trim());
+                  setKeyDraft("");
+                  setApi(await adminTryonApi(props.adminToken));
+                } catch (e) {
+                  setApi({
+                    configured: false,
+                    balance: null,
+                    message: msg(e, "Could not save the key."),
+                    source: null,
+                  });
+                } finally {
+                  setBusy(false);
+                }
+              })();
+            }}
+          >
+            {busy ? "Saving…" : "Save the key"}
+          </button>
+          {api?.configured ? (
+            <button
+              className={cx(b.btn, b.btnSecondary, u.btnGrow)}
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void (async () => {
+                  try {
+                    await adminSetTryonApi(props.adminToken, "");
+                    setKeyDraft("");
+                    setApi(await adminTryonApi(props.adminToken));
+                  } catch (e) {
+                    setApi({
+                      configured: false,
+                      balance: null,
+                      message: msg(e, "Could not clear the key."),
+                      source: null,
+                    });
+                  } finally {
+                    setBusy(false);
+                  }
+                })();
+              }}
+            >
+              Clear the key
+            </button>
+          ) : null}
+        </div>
+        <p className={cx(u.meta)}>
+          The key is stored in the platform database and read on every call, so
+          it takes effect immediately - no worker restart, no new deploy.
+        </p>
       </Panel>
 
       <Panel title="Balances">

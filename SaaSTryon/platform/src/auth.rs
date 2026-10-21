@@ -11,9 +11,9 @@ use worker::{Env, Error, Headers, Request, Response, Result};
 
 use crate::{cfg, http, store};
 
-pub const TOKEN_PREFIX: &str = "plat_";
-/// 8 random bytes = 16 hex chars, as the signin-token convention.
-const TOKEN_BYTES: usize = 8;
+pub const TOKEN_PREFIX: &str = "plat-";
+/// How many readable characters a minted signin token carries.
+const TOKEN_CHARS: usize = 8;
 /// Session lifetime: 30 days.
 pub const SESSION_TTL_MS: i64 = 30 * 24 * 60 * 60 * 1000;
 
@@ -33,8 +33,13 @@ pub fn random_hex(n_bytes: usize) -> String {
 }
 
 /// A fresh signin token — shown ONCE, in the admin UI, at approval time.
+///
+/// It is READABLE on purpose: the owner types it into the login form,
+/// so it is `plat-` plus eight characters from an alphabet without
+/// 0/O/1/I (no "is that a zero or an O?"). The admin can also set the
+/// token by hand (POST /api/v1/admin/users/{id}/token).
 pub fn new_token() -> String {
-    format!("{TOKEN_PREFIX}{}", random_hex(TOKEN_BYTES))
+    format!("{TOKEN_PREFIX}{}", random_typable(TOKEN_CHARS))
 }
 
 /// `n` characters from an alphabet a human can type without a second
@@ -236,7 +241,7 @@ mod tests {
         for _ in 0..512 {
             let t = new_token();
             assert!(t.starts_with(TOKEN_PREFIX));
-            assert_eq!(t.len(), TOKEN_PREFIX.len() + TOKEN_BYTES * 2);
+            assert_eq!(t.len(), TOKEN_PREFIX.len() + TOKEN_CHARS);
             seen.insert(t);
         }
         assert_eq!(seen.len(), 512, "every minted token must be unique");

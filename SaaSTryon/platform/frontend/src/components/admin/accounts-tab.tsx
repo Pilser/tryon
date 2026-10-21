@@ -23,7 +23,10 @@ function AccountRow(props: {
   user: PlatformUser;
   allowance: string;
   issued: string | null;
+  userToken: string;
   onAllowance: (value: string) => void;
+  onUserToken: (value: string) => void;
+  onSetToken: () => void;
   onSave: () => void;
   onToggle: () => void;
 }): JSX.Element {
@@ -40,6 +43,25 @@ function AccountRow(props: {
         {props.issued ? (
           <TokenNote owner={x.shop_name || x.email} token={props.issued} />
         ) : null}
+        <div className={cx(pf.fieldRow)}>
+          <input
+            className={cx(pf.field)}
+            type="text"
+            value={props.userToken}
+            placeholder="set a sign-in token (optional)"
+            aria-label={`the sign-in token for ${x.email}`}
+            autoComplete="off"
+            onChange={(e) => props.onUserToken(e.currentTarget.value)}
+          />
+          <button
+            className={cx(b.btn, b.btnSecondary)}
+            type="button"
+            disabled={!props.userToken.trim()}
+            onClick={props.onSetToken}
+          >
+            Set the token
+          </button>
+        </div>
       </div>
       <div className={cx(u.btnRow)}>
         <span className={cx(pf.chips)}>
@@ -95,11 +117,14 @@ export function AccountsTab(props: {
   busy: boolean;
   issued: Record<string, string>;
   allowance: Record<string, string>;
+  userToken: Record<string, string>;
   query: string;
   filter: string;
   onQuery: (value: string) => void;
   onFilter: (value: string) => void;
   onAllowance: (id: string, value: string) => void;
+  onUserToken: (id: string, value: string) => void;
+  onSetToken: (user: PlatformUser) => void;
   onSave: (user: PlatformUser) => void;
   onToggle: (user: PlatformUser) => void;
   onPrimary: (action: PrimaryAction | null) => void;
@@ -180,7 +205,10 @@ export function AccountsTab(props: {
                   user={x}
                   allowance={props.allowance[x.id] || String(x.deploy_allowance || 0)}
                   issued={props.issued[x.id] || null}
+                  userToken={props.userToken[x.id] || ""}
                   onAllowance={(v) => props.onAllowance(x.id, v)}
+                  onUserToken={(v) => props.onUserToken(x.id, v)}
+                  onSetToken={() => props.onSetToken(x)}
                   onSave={() => props.onSave(x)}
                   onToggle={() => props.onToggle(x)}
                 />

@@ -237,8 +237,18 @@ export const adminApprove = (
   adminToken: string,
   userId: string,
   deployAllowance: number,
+  token?: string,
 ): Promise<{ token: string; user: PlatformUser }> =>
-  call("POST", "/api/v1/admin/approve", { user_id: userId, deploy_allowance: deployAllowance }, adminToken);
+  call(
+    "POST",
+    "/api/v1/admin/approve",
+    {
+      user_id: userId,
+      deploy_allowance: deployAllowance,
+      ...(token ? { token } : {}),
+    },
+    adminToken,
+  );
 
 export const adminReject = (adminToken: string, userId: string, reason?: string): Promise<void> =>
   call("POST", "/api/v1/admin/reject", { user_id: userId, ...(reason ? { reason } : {}) }, adminToken);

@@ -74,6 +74,14 @@ pub fn public_url(base: &str, key: &str) -> String {
     format!("{}/{}", base.trim_end_matches('/'), key)
 }
 
+/// A media URL with a version stamp, so a replaced photo is fetched
+/// again instead of served from the browser's cache. The query is
+/// ignored by the media route - it only changes the URL.
+pub fn versioned_url(url: &str, stamp: u64) -> String {
+    let sep = if url.contains('?') { '&' } else { '?' };
+    format!("{url}{sep}v={stamp}")
+}
+
 /// New product id (`p…`), owner-form uploads only.
 pub fn new_product_id() -> String {
     crate::routes::ids::new_id('p')
@@ -130,6 +138,9 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
     };
     let mut urls = [String::new(), String::new(), String::new()];
     let mut first_key = String::new();
+    // One stamp per save: every slot of this save shares it, and a later
+    // save gets a new one (so a replaced photo is a new URL).
+    let stamp = js_sys::Date::now() as u64;
     for (i, (slot, field)) in [
         ("garment", "image0"),
         ("model", "image1"),
@@ -164,7 +175,12 @@ pub async fn handle_create(mut req: Request, env: Env) -> worker::Result<Respons
             if first_key.is_empty() {
                 first_key = key.clone();
             }
-            urls[i] = public_url(&base, &key);
+            // The version stamp matters: the object keeps its key (one
+            // file per slot), so without it the browser serves the
+            // CACHED photo and the owner's "update" looks refused. A new
+            // photo in the same slot gets a new URL, so the browser
+            // fetches the new bytes.
+            urls[i] = versioned_url(&public_url(&base, &key), stamp);
         }
     }
     if urls[0].is_empty() && !updating {

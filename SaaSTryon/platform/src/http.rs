@@ -97,6 +97,13 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
         }
         (Method::Get, ["admin", "bundles"]) => manage::handle_bundles(env, &req).await,
         (Method::Get, ["admin", "tryon-api"]) => manage::handle_tryon_api(env, &req).await,
+        (Method::Post, ["admin", "tryon-api"]) => manage::handle_set_tryon_api(env, &mut req).await,
+        (Method::Post, ["admin", "platform", "redeploy"]) => {
+            manage::handle_platform_redeploy(env, &req).await
+        }
+        (Method::Post, ["admin", "users", id, "token"]) => {
+            manage::handle_set_user_token(env, &mut req, id).await
+        }
         (Method::Post, ["admin", "bundles"]) => manage::handle_bundle_upload(env, req).await,
         (Method::Post, ["shop", "tokens"]) => manage::handle_owner_mint(env, &mut req).await,
         (Method::Post, ["shop", "owner-token"]) => {

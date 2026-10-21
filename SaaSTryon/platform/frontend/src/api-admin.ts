@@ -260,10 +260,37 @@ export interface TryonApiOut {
   configured: boolean;
   balance: number | null;
   message: string | null;
+  /** Where the key comes from: the console (D1) or the deploy secret. */
+  source?: string | null;
 }
 
 export const adminTryonApi = (adminToken: string): Promise<TryonApiOut> =>
   call("GET", "/api/v1/admin/tryon-api", undefined, adminToken);
+
+/** The operator sets the try-on API key. It lands in the platform
+    database, so it is live on the next request - no redeploy, no
+    isolate restart. An empty value clears it. */
+export const adminSetTryonApi = (
+  adminToken: string,
+  apiKey: string,
+): Promise<{ ok: boolean; configured: boolean; tail: string }> =>
+  call("POST", "/api/v1/admin/tryon-api", { api_key: apiKey }, adminToken);
+
+/** The admin sets (or rotates) a platform user's sign-in token by
+    hand. The token is returned once so it can be handed over. */
+export const adminSetUserToken = (
+  adminToken: string,
+  userId: string,
+  token: string,
+): Promise<{ ok: boolean; user_id: string; email: string; token: string }> =>
+  call("POST", `/api/v1/admin/users/${encodeURIComponent(userId)}/token`, { token }, adminToken);
+
+/** The platform redeploys ITSELF from the copy it keeps in R2. A new
+    script version spawns fresh isolates - the cure for a poisoned one. */
+export const adminPlatformRedeploy = (
+  adminToken: string,
+): Promise<{ ok: boolean; script: string; version: unknown }> =>
+  call("POST", "/api/v1/admin/platform/redeploy", undefined, adminToken);
 
 /* ------------------------------------------------------------- owner --- */
 

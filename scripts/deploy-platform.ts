@@ -178,6 +178,40 @@ if (!put.ok || putJson.success === false) {
 }
 console.log(`script ${scriptName} deployed, version ${putJson.result?.id ?? "?"}`);
 
+/* 4b. the self-heal copy: the platform keeps its own script parts in
+   R2 so it can re-deploy ITSELF (a fresh script version spawns fresh
+   isolates - the cure for a poisoned one) from the admin console. */
+for (const [name, file] of [
+  ["index.js", glueFile],
+  ["index_bg.wasm", wasmFile],
+] as const) {
+  const r = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${account}/r2/buckets/${r2Bucket}/objects/platform%2Fself%2F${name}`,
+    {
+      method: "PUT",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/octet-stream",
+      },
+      body: readFileSync(file),
+    },
+  );
+  if (!r.ok) console.log(`self-heal copy of ${name} failed: ${r.status}`);
+}
+await fetch(
+  `https://api.cloudflare.com/client/v4/accounts/${account}/r2/buckets/${r2Bucket}/objects/platform%2Fself%2Fmeta.json`,
+  {
+    method: "PUT",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      script_name: scriptName,
+      compat_date: compatDate,
+      bindings: metadata.bindings,
+    }),
+  },
+);
+console.log("self-heal copy stored in R2 (platform/self/*)");
+
 /* 5. secrets: PLATFORM_SECRET_x=y pairs, one PUT each. */
 for (const pair of Object.entries(process.env)) {
   if (!pair[0].startsWith("PLATFORM_SECRET_")) continue;

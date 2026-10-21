@@ -45,6 +45,18 @@ pub struct OwnerTokenIn {
     pub token: Option<String>,
 }
 
+/// The try-on API key, pasted into the admin console.
+#[derive(Deserialize)]
+pub struct TryonApiIn {
+    pub api_key: Option<String>,
+}
+
+/// A platform user's login token, chosen by the admin.
+#[derive(Deserialize)]
+pub struct UserTokenIn {
+    pub token: Option<String>,
+}
+
 /// A code the owner claims for their shop.
 #[derive(Deserialize)]
 pub struct ClaimIn {
@@ -579,6 +591,101 @@ pub async fn handle_owner_set_token(env: Env, req: &mut Request) -> Result<Respo
     }))
 }
 
+/// `POST /api/v1/admin/platform/redeploy` - the platform redeploys
+/// ITSELF from the copy it keeps in R2 (`platform/self/*`).
+///
+/// Why: a panic inside a Worker poisons the isolate (wasm-bindgen's
+/// recovery path re-instantiates the module and fails), and every
+/// request then answers `error 1101` until a NEW script version spawns
+/// fresh isolates. A self-deploy is that new version - and the copy in
+/// R2 means the platform can heal without a human at the terminal.
+pub async fn handle_platform_redeploy(env: Env, req: &Request) -> Result<Response> {
+    if !admin::is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let bucket = env
+        .bucket("BUNDLES")
+        .map_err(|_| worker::Error::RustError("the BUNDLES bucket is missing".into()))?;
+    let mut read = |key: &str| {
+        let b = &bucket;
+        let key = key.to_string();
+        async move {
+            let obj = b
+                .get(&key)
+                .execute()
+                .await
+                .map_err(|e| worker::Error::RustError(e.to_string()))?
+                .ok_or_else(|| worker::Error::RustError(format!("{key} missing")))?;
+            let body = obj
+                .body()
+                .ok_or_else(|| worker::Error::RustError(format!("{key} has no body")))?;
+            body.bytes()
+                .await
+                .map_err(|e| worker::Error::RustError(e.to_string()))
+        }
+    };
+    let meta_raw = read("platform/self/meta.json").await?;
+    let meta: serde_json::Value = serde_json::from_slice(&meta_raw)
+        .map_err(|e| worker::Error::RustError(format!("meta.json: {e}")))?;
+    let glue = String::from_utf8(read("platform/self/index.js").await?)
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let wasm = read("platform/self/index_bg.wasm").await?;
+    let script_name = meta
+        .get("script_name")
+        .and_then(|s| s.as_str())
+        .unwrap_or("tryon-platform")
+        .to_string();
+    let compat_date = meta
+        .get("compat_date")
+        .and_then(|s| s.as_str())
+        .unwrap_or("2026-10-19")
+        .to_string();
+    let bindings = meta
+        .get("bindings")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+
+    let cfg = CfConfig::from_env(&env).map_err(|e| worker::Error::RustError(e))?;
+    let transport = crate::deployer::cf_api::FetchTransport::new(cfg.clone());
+    let mp = crate::deployer::bundle::multipart::MultipartBuilder::new();
+    let body = mp.script_put_body(
+        &serde_json::json!({
+            "main_module": "index.js",
+            "compatibility_date": compat_date,
+            "bindings": bindings,
+        }),
+        "index.js",
+        &glue,
+        "index_bg.wasm",
+        &wasm,
+    );
+    let put = crate::deployer::cf_api::CfRequest {
+        method: worker::Method::Put,
+        path: format!("/accounts/{}/workers/scripts/{}", cfg.account, script_name),
+        body: crate::deployer::cf_api::CfBody::Raw(body),
+        jwt: None,
+    };
+    let res = crate::deployer::cf_api::call_with_retry(&transport, put)
+        .await
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let db = store::db(&env)?;
+    let now = auth::now_ms();
+    store::append_audit(
+        &db,
+        "admin",
+        "platform.redeploy",
+        &script_name,
+        "self-heal",
+        now,
+    )
+    .await?;
+    Response::from_json(&json!({
+        "ok": true,
+        "script": script_name,
+        "version": res.get("result").and_then(|r| r.get("id")).cloned(),
+    }))
+}
+
 /// `GET /api/v1/admin/tryon-api` - the TRY-ON API's own balance (the
 /// Genlook account). This is the admin's number: it is what the
 /// generations actually spend. The shop never sees it.
@@ -586,20 +693,23 @@ pub async fn handle_tryon_api(env: Env, req: &Request) -> Result<Response> {
     if !admin::is_admin(req.headers(), &env) {
         return http::unauthorized();
     }
-    let key = match env
-        .var("GENLOOK_API_KEY")
-        .map(|v| v.to_string())
-        .unwrap_or_default()
-    {
-        k if !k.is_empty() => k,
-        _ => {
-            return Response::from_json(&json!({
-                "configured": false,
-                "balance": null,
-                "message": "the try-on API key is not set on the platform yet",
-            }))
-        }
+    let db = store::db(&env)?;
+    let stored = store::setting(&db, crate::outbound::GENLOOK_KEY_SETTING).await?;
+    let key = if !stored.trim().is_empty() {
+        stored
+    } else {
+        env.var("GENLOOK_API_KEY")
+            .map(|v| v.to_string())
+            .unwrap_or_default()
     };
+    if key.trim().is_empty() {
+        return Response::from_json(&json!({
+            "configured": false,
+            "balance": null,
+            "source": null,
+            "message": "the try-on API key is not set on the platform yet",
+        }));
+    }
     let url = format!("{}/account/credits", crate::outbound::base(&env));
     let mut headers = worker::Headers::new();
     headers.set("authorization", &format!("Bearer {key}"))?;
@@ -611,10 +721,16 @@ pub async fn handle_tryon_api(env: Env, req: &Request) -> Result<Response> {
         .await?;
     let status = upstream.status_code();
     let text = upstream.text().await?;
+    let source = if !stored.trim().is_empty() {
+        "console"
+    } else {
+        "secret"
+    };
     if !(200..300).contains(&status) {
         return Response::from_json(&json!({
             "configured": true,
             "balance": null,
+            "source": source,
             "message": format!("the try-on API answered {status}"),
         }));
     }
@@ -624,7 +740,82 @@ pub async fn handle_tryon_api(env: Env, req: &Request) -> Result<Response> {
     Response::from_json(&json!({
         "configured": true,
         "balance": balance,
+        "source": source,
         "message": null,
+    }))
+}
+
+/// `POST /api/v1/admin/tryon-api {api_key}` - the operator sets the
+/// try-on API key from the console. It lands in the platform database,
+/// so it is live on the next request - no redeploy, no isolate restart.
+/// An empty value clears it.
+pub async fn handle_set_tryon_api(env: Env, req: &mut Request) -> Result<Response> {
+    if !admin::is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let body = http::json_body::<TryonApiIn>(req).await;
+    let key = body
+        .and_then(|b| b.api_key)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if !key.is_empty() && key.len() < 12 {
+        return http::bad_request("BAD_KEY", "that does not look like an API key");
+    }
+    let db = store::db(&env)?;
+    let now = auth::now_ms();
+    store::set_setting(&db, crate::outbound::GENLOOK_KEY_SETTING, &key, now).await?;
+    store::append_audit(
+        &db,
+        "admin",
+        "settings.tryon_api",
+        "",
+        if key.is_empty() { "cleared" } else { "set" },
+        now,
+    )
+    .await?;
+    Response::from_json(&json!({
+        "ok": true,
+        "configured": !key.is_empty(),
+        "tail": if key.is_empty() { String::new() } else { key.chars().rev().take(4).collect::<String>().chars().rev().collect::<String>() },
+    }))
+}
+
+/// `POST /api/v1/admin/users/{id}/token {token}` - the admin sets a
+/// platform user's LOGIN token by hand (a readable one the user can
+/// type) or rotates it. Only the hash is stored, like every other
+/// token.
+pub async fn handle_set_user_token(env: Env, req: &mut Request, id: &str) -> Result<Response> {
+    if !admin::is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let db = store::db(&env)?;
+    let Some(user) = store::user_by_id(&db, id).await? else {
+        return http::not_found("no such user");
+    };
+    let body = http::json_body::<UserTokenIn>(req).await;
+    let token = body
+        .and_then(|b| b.token)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if token.len() < 8 || token.len() > 64 {
+        return http::bad_request("BAD_TOKEN", "use 8 to 64 characters");
+    }
+    if !token
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return http::bad_request("BAD_TOKEN", "use letters, digits, dash or underscore");
+    }
+    let now = auth::now_ms();
+    store::set_auth(&db, &user.id, &auth::hash_token(&token), now).await?;
+    store::append_audit(&db, "admin", "user.token", &user.id, "set", now).await?;
+    Response::from_json(&json!({
+        "ok": true,
+        "user_id": user.id,
+        "email": user.email,
+        "token": token,
     }))
 }
 

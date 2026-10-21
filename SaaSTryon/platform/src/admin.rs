@@ -122,8 +122,30 @@ pub async fn handle_approve(env: Env, req: &mut Request) -> Result<Response> {
         return http::conflict("approve only from pending");
     };
     apply_allowance(&db, &body, &next).await?;
-    // Mint the signin token; only its hash is stored.
-    let token = auth::new_token();
+    // The signin token: the one the admin typed, or a readable minted
+    // one. Only its hash is stored.
+    let token = match body
+        .token
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+    {
+        Some(t) => {
+            if t.len() < 8
+                || t.len() > 64
+                || !t
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            {
+                return http::bad_request(
+                    "BAD_TOKEN",
+                    "the token needs 8-64 letters, digits, dash or underscore",
+                );
+            }
+            t.to_string()
+        }
+        None => auth::new_token(),
+    };
     let now = auth::now_ms();
     store::set_auth(&db, &user.id, &auth::hash_token(&token), now).await?;
     audit(&db, "approve", &user.id, &allowance_meta(&body), now).await?;
@@ -270,6 +292,11 @@ async fn refresh(db: &worker::d1::D1Database, user_id: &str) -> Result<store::Us
 pub struct AllowanceIn {
     pub user_id: String,
     pub deploy_allowance: i64,
+    /// The signin token the ADMIN chooses for this user. When it is
+    /// empty the platform mints a readable one. The token is handed to
+    /// the user once (only its hash is stored).
+    #[serde(default)]
+    pub token: Option<String>,
 }
 
 #[derive(Deserialize)]

@@ -16,7 +16,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { cx, ld } from "../../kit";
-import { PAIRS, mediaUrl, type Pair } from "../../media";
+import { FLIP_PAIRS, mediaUrl, type Pair } from "../../media";
 
 /* The sweep: 50 -> 88 -> 12 -> 50, over ten seconds, eased. */
 function sweepAt(seconds: number): number {
@@ -33,7 +33,7 @@ export function TryonFlip(): JSX.Element | null {
   const [pos, setPos] = useState(50);
   const [auto, setAuto] = useState(true);
   const boxRef = useRef<HTMLDivElement | null>(null);
-  const pair: Pair | undefined = PAIRS[idx];
+  const pair: Pair | undefined = FLIP_PAIRS[idx];
 
   /* The automatic sweep - it restarts whenever the pair changes. */
   useEffect(() => {
@@ -132,9 +132,9 @@ export function TryonFlip(): JSX.Element | null {
         <span className={cx(ld.flipTag, ld.flipTagRight)}>The try-on</span>
       </div>
 
-      {PAIRS.length > 1 ? (
+      {FLIP_PAIRS.length > 1 ? (
         <div className={cx(ld.flipTabs)}>
-          {PAIRS.map((p, i) => (
+          {FLIP_PAIRS.map((p, i) => (
             <button
               key={p.id}
               type="button"

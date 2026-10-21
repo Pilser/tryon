@@ -569,19 +569,19 @@ export const ld = stylex.create({
   footerLink: { color: t.muted, textDecoration: "none", ":hover": { color: t.text } },
 
   /* ----------------------------------------------------------- video --- */
-  /* The baked hero video: a box that keeps its ratio whatever the
-     screen is, so nothing shifts while it loads. */
+  /* The baked hero video: the clip is portrait (a phone-shot try-on),
+     so the box is portrait too - nothing is cropped away. */
   videoBox: {
     position: "relative",
     width: "100%",
-    aspectRatio: "16 / 10",
+    maxWidth: 420,
+    aspectRatio: "3 / 4",
     backgroundColor: t.surface,
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: t.line,
     borderRadius: 10,
     overflow: "hidden",
-    "@media (min-width: 1000px)": { aspectRatio: "16 / 11" },
   },
   heroVideo: {
     display: "block",
@@ -596,8 +596,8 @@ export const ld = stylex.create({
   flipBox: {
     position: "relative",
     width: "100%",
-    aspectRatio: "4 / 5",
-    maxWidth: 520,
+    aspectRatio: "3 / 4",
+    maxWidth: 460,
     marginInline: "auto",
     backgroundColor: t.surface,
     borderWidth: 1,
@@ -608,7 +608,6 @@ export const ld = stylex.create({
     cursor: "ew-resize",
     touchAction: "none",
     userSelect: "none",
-    "@media (min-width: 720px)": { aspectRatio: "1 / 1" },
   },
   flipImg: {
     position: "absolute",
@@ -682,12 +681,15 @@ export const ld = stylex.create({
   galleryGrid: {
     display: "grid",
     gap: 14,
-    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))",
   },
   galleryItem: { margin: 0, display: "grid", gap: 6 },
   galleryImg: {
     display: "block",
     width: "100%",
+    /* The height attribute on the tag would win over the ratio - the
+       ratio has to be asked for explicitly. */
+    height: "auto",
     aspectRatio: "3 / 4",
     objectFit: "cover",
     backgroundColor: t.surface,

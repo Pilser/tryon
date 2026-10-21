@@ -621,15 +621,7 @@ pub async fn handle_owner_codes(env: Env, req: &Request) -> Result<Response> {
 /// and the codes themselves. Authenticated with the shop's
 /// PLATFORM_TOKEN (the cluster secret), like the redeem call.
 pub async fn handle_shop_credits(env: Env, req: &Request) -> Result<Response> {
-    let Some(token) = req
-        .headers()
-        .get("authorization")
-        .map(|v| v.to_string())
-        .unwrap_or_default()
-        .trim()
-        .strip_prefix("Bearer ")
-        .map(|v| v.trim().to_string())
-    else {
+    let Some(token) = auth::bearer(req.headers()) else {
         return http::unauthorized();
     };
     let db = store::db(&env)?;

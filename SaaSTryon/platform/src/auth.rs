@@ -312,7 +312,7 @@ pub async fn handle_redeem(env: Env, req: &mut Request) -> Result<Response> {
     // gives the shop 25 credits (rev 0005).
     store::grant_credits(&db, &shop.id, redeemed.credits, now).await?;
     store::append_audit(&db, &shop.id, "tokens.redeem", &body.code, "", now).await?;
-    Response::from_json(serde_json::json!({
+    Response::from_json(&serde_json::json!({
         "token": redeemed,
         "shop_id": shop.id,
         "credits": redeemed.credits,

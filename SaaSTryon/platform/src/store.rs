@@ -9,12 +9,12 @@ use worker::{Error, Result};
 
 use crate::auth::{random_hex, Session};
 pub use crate::shops::{
-    cancel_shop_token, grant_credits, list_shop_tokens, mint_shop_tokens, redeem_shop_token,
-    shop_by_id, shop_by_token, token_by_code, Shop, ShopToken,
+    cancel_shop_token, credit_usage, credits_left, grant_credits, list_shop_tokens,
+    mint_shop_tokens, redeem_shop_token, shop_by_id, shop_by_token, token_by_code, Shop, ShopToken,
 };
 
 /// The migrations applied by [`ensure_schema`], in order.
-pub const MIGRATIONS: [&str; 4] = [
+pub const MIGRATIONS: [&str; 5] = [
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_shop_tokens.sql"),
     include_str!("../migrations/0003_shop_token.sql"),

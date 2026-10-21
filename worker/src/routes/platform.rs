@@ -92,12 +92,19 @@ pub async fn handle_redeem(mut req: Request, env: Env) -> Result<Response> {
     let status = upstream.status_code();
     let text = upstream.text().await?;
     if (200..300).contains(&status) {
-        // The platform answers {token, shop_id}; the shop only needs to
-        // know it worked.
+        // The platform answers {token, shop_id, credits, balance}; the
+        // shop only needs to know it worked and what it was worth.
+        let credits = serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .and_then(|v| v.get("credits").and_then(|c| c.as_i64()))
+            .unwrap_or(1);
         return Response::from_json(&RedeemOut {
             ok: true,
             balance: None,
-            message: Some("Code redeemed - your try-on balance was topped up.".into()),
+            message: Some(format!(
+                "Code redeemed - {credits} try-on credit{} landed on this shop's balance.",
+                if credits == 1 { "" } else { "s" }
+            )),
         });
     }
     let msg = serde_json::from_str::<serde_json::Value>(&text)
@@ -112,6 +119,65 @@ pub struct RequestIn {
     pub requested: i64,
     #[serde(default)]
     pub reason: String,
+}
+
+/// What the platform knows about this shop's credits: the balance, how
+/// much of it came from the codes the shop redeemed, and the codes
+/// themselves.
+#[derive(Deserialize, Serialize, Default)]
+pub struct PlatformCredits {
+    pub granted_total: i64,
+    pub used_total: i64,
+    pub left: i64,
+    pub from_codes: i64,
+    pub codes_redeemed: i64,
+    #[serde(default)]
+    pub codes: Vec<PlatformCode>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct PlatformCode {
+    pub code: String,
+    pub credits: i64,
+    #[serde(default)]
+    pub redeemed_ms: Option<i64>,
+    #[serde(default)]
+    pub note: Option<String>,
+}
+
+/// `GET /api/studio/credits/platform` - owner-gated. Asks the platform
+/// (with the shop's cluster secret) what credits the shop has and where
+/// they came from: the codes the shop redeemed carry a face value, so
+/// the studio can show "40 of your 120 credits came from admin codes".
+pub async fn handle_platform_credits(req: Request, env: Env) -> Result<Response> {
+    if !crate::routes::owner::authorized(&req, &env) {
+        return crate::routes::errors::unauthorized();
+    }
+    if !configured(&env) {
+        return crate::routes::errors::json_error(
+            501,
+            "PLATFORM_NOT_CONFIGURED",
+            "this shop does not run on the platform yet",
+        );
+    }
+    let url = format!("{}/api/v1/shop/credits", base(&env));
+    let mut headers = Headers::new();
+    headers.set("authorization", &format!("Bearer {}", secret(&env)))?;
+    let mut upstream = Fetch::Request(Request::new_with_init(&url, &RequestInit::new())?)
+        .send()
+        .await?;
+    let status = upstream.status_code();
+    let text = upstream.text().await?;
+    if !(200..300).contains(&status) {
+        return crate::routes::errors::json_error(
+            502,
+            "PLATFORM_ERROR",
+            "the platform did not answer",
+        );
+    }
+    let out: PlatformCredits =
+        serde_json::from_str(&text).map_err(|e| worker::Error::RustError(e.to_string()))?;
+    Response::from_json(&out)
 }
 
 #[derive(Deserialize, Serialize)]

@@ -140,6 +140,9 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/api/studio/credits", |req, ctx| async move {
             routes::usage::handle_credits(req, ctx.env).await
         })
+        .get_async("/api/studio/credits/platform", |req, ctx| async move {
+            routes::platform::handle_platform_credits(req, ctx.env).await
+        })
         .post_async("/api/studio/tokens/redeem", |req, ctx| async move {
             routes::platform::handle_redeem(req, ctx.env).await
         })

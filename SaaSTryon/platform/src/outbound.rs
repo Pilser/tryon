@@ -34,9 +34,9 @@ pub fn base(env: &Env) -> String {
 /// writes (rev 0006). The row wins: it is what the operator can change
 /// from the UI without a redeploy - and a redeploy is exactly what a
 /// poisoned isolate needs, so the setting must not depend on one.
-pub fn api_key(env: &Env) -> Result<String> {
+pub async fn api_key(env: &Env) -> Result<String> {
     if let Ok(db) = store::db(env) {
-        if let Ok(k) = store::setting(&db, GENLOOK_KEY_SETTING) {
+        if let Ok(k) = store::setting(&db, GENLOOK_KEY_SETTING).await {
             if !k.trim().is_empty() {
                 return Ok(k);
             }
@@ -105,7 +105,7 @@ pub async fn handle_genlook(env: Env, req: &mut Request, path: String) -> Result
     };
 
     let mut headers = Headers::new();
-    headers.set("x-api-key", &api_key(&env)?)?;
+    headers.set("x-api-key", &api_key(&env).await?)?;
     if !ct.is_empty() {
         headers.set("content-type", &ct)?;
     }

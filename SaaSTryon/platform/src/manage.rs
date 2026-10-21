@@ -695,7 +695,8 @@ pub async fn handle_tryon_api(env: Env, req: &Request) -> Result<Response> {
     }
     let db = store::db(&env)?;
     let stored = store::setting(&db, crate::outbound::GENLOOK_KEY_SETTING).await?;
-    let key = if !stored.trim().is_empty() {
+    let from_console = !stored.trim().is_empty();
+    let key = if from_console {
         stored
     } else {
         env.var("GENLOOK_API_KEY")
@@ -721,11 +722,7 @@ pub async fn handle_tryon_api(env: Env, req: &Request) -> Result<Response> {
         .await?;
     let status = upstream.status_code();
     let text = upstream.text().await?;
-    let source = if !stored.trim().is_empty() {
-        "console"
-    } else {
-        "secret"
-    };
+    let source = if from_console { "console" } else { "secret" };
     if !(200..300).contains(&status) {
         return Response::from_json(&json!({
             "configured": true,

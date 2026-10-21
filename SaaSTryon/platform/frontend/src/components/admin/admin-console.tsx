@@ -197,6 +197,7 @@ export function AdminConsole(props: {
       ) : null}
       {tab === "credits" ? (
         <CreditsTab
+          adminToken={props.adminToken}
           requests={d.credits}
           shops={d.shops}
           busy={props.busy}

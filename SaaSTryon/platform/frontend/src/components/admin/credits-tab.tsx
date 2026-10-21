@@ -6,8 +6,9 @@
    approve cannot double-grant, because the server checks the state
    before it writes. Rejecting is red and asks for a reason, so the
    tenant can be told what happened. */
-import { useMemo, useState, type JSX } from "react";
+import { useEffect, useMemo, useState, type JSX } from "react";
 import type { CreditRequest, ShopView } from "../../api";
+import { adminTryonApi, type TryonApiOut } from "../../api-admin";
 import { base as b, cx, pa, pf, ui as u } from "../../kit";
 import { EmptyState } from "../shared/empty-state";
 import { Panel } from "../shared/panel";
@@ -26,6 +27,7 @@ const age = (ms: number): string => {
 };
 
 export function CreditsTab(props: {
+  adminToken: string;
   requests: CreditRequest[];
   shops: ShopView[];
   busy: boolean;
@@ -34,6 +36,29 @@ export function CreditsTab(props: {
   onPrimary: (action: PrimaryAction | null) => void;
 }): JSX.Element {
   usePrimary(props.onPrimary, null);
+
+  /* The try-on API's own balance: the one number the admin watches. */
+  const [api, setApi] = useState<TryonApiOut | null>(null);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const out = await adminTryonApi(props.adminToken);
+        if (live) setApi(out);
+      } catch {
+        if (live) {
+          setApi({
+            configured: false,
+            balance: null,
+            message: "the platform did not answer",
+          });
+        }
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [props.adminToken]);
 
   const [reason, setReason] = useState<Record<string, string>>({});
   const [armed, setArmed] = useState("");
@@ -145,6 +170,39 @@ export function CreditsTab(props: {
               </div>
             ))}
           </div>
+        )}
+      </Panel>
+
+      <Panel title="The try-on API">
+        <p className={cx(u.rowSub)}>
+          The platform&apos;s own balance on the try-on API - the account the
+          generations actually spend. It is the only balance the admin needs to
+          watch; the tenants&apos; numbers are theirs.
+        </p>
+        {api === null ? (
+          <p className={cx(u.meta)}>Reading the try-on API…</p>
+        ) : api.configured ? (
+          <div className={cx(u.row)}>
+            <div className={cx(u.rowMain)}>
+              <p className={cx(u.rowTitle)}>Try-on API balance</p>
+              <p className={cx(pa.fact)}>
+                {api.message || "read from the provider account"}
+              </p>
+            </div>
+            <span className={cx(pf.chips)}>
+              <span className={cx(pf.chip)}>
+                {api.balance === null ? "unknown" : `${n(api.balance)} left`}
+              </span>
+            </span>
+          </div>
+        ) : (
+          <EmptyState
+            title="The try-on API is not configured."
+            reason={
+              api.message ||
+              "Set the GENLOOK_API_KEY secret on the platform and the provider balance appears here."
+            }
+          />
         )}
       </Panel>
 

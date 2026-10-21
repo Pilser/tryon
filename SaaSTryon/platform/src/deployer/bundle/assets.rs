@@ -16,10 +16,10 @@ upload, updated 2026-08-10:
 The platform token NEVER touches the upload call: it is signed for the
 account API, while the session jwt is scoped to this one upload. */
 use super::multipart::{mime_for_path, MultipartBuilder};
-use super::{asset_hash, normalize_asset_path, BundleData, BundleManifest};
+use super::{hash_assets, hashed_manifest, BundleData, BundleManifest};
 use serde_json::{json, Value};
 
-use crate::deployer::cf_api::{call_with_retry, CfBody, CfError, CfRequest, RawBody, Transport};
+use crate::deployer::cf_api::{call_with_retry, CfBody, CfError, CfRequest, Transport};
 /// Engine trait must be in scope for `STANDARD.encode` (asset bodies).
 use base64::Engine as _;
 
@@ -80,6 +80,12 @@ pub async fn stage_assets(
 
 /// The same flow for an explicit asset set - the landing page re-upload
 /// serves the app assets AND the customer's landing files in one go.
+///
+/// The assets are hashed ONCE up front: the manifest and the upload
+/// lookup both need the hashes, and re-hashing the bundle per missing
+/// hash (the old shape) is what made the FIRST deploy of a shop die on
+/// the Worker CPU budget while redeploys (already-uploaded assets, so
+/// an empty bucket list) stayed cheap.
 pub async fn stage_asset_set(
     cf: &impl Transport,
     account: &str,
@@ -87,12 +93,13 @@ pub async fn stage_asset_set(
     assets: &[(String, Vec<u8>)],
     b: &MultipartBuilder,
 ) -> Result<StageOutcome, CfError> {
+    let hashed = hash_assets(assets);
     let session = call_with_retry(
         cf,
         CfRequest {
             method: worker::Method::Post,
             path: asset_session_path(account, script_name),
-            body: CfBody::Json(json!({ "manifest": super::assets_manifest(assets) })),
+            body: CfBody::Json(json!({ "manifest": hashed_manifest(&hashed) })),
             jwt: None,
         },
     )
@@ -113,12 +120,18 @@ pub async fn stage_asset_set(
         // bucket is a valid batching (the endpoint keys upload parts on
         // the hash field name only).
         uploaded_parts += 1;
+        let mut files = Vec::new();
+        for h in &group {
+            if let Some(a) = hashed.iter().find(|a| &a.hash == h) {
+                files.push((h.clone(), base64_encode(a.bytes), mime_for_path(&a.path)));
+            }
+        }
         let up = call_with_retry(
             cf,
             CfRequest {
                 method: worker::Method::Post,
                 path: ASSET_UPLOAD_PATH.replace("{account}", account),
-                body: CfBody::Raw(upload_body_for(b, &group, assets)),
+                body: CfBody::Raw(b.asset_upload_body(&files)),
                 jwt: Some(session_jwt.clone()),
             },
         )
@@ -145,34 +158,12 @@ fn group_missing(flat: &[String]) -> Vec<Vec<String>> {
     vec![one]
 }
 
-fn resolve_hash_in(hash: &str, assets: &[(String, Vec<u8>)]) -> Option<(String, Vec<u8>)> {
-    for (path, bytes) in assets {
-        if asset_hash(path, bytes) == hash {
-            return Some((normalize_asset_path(path), bytes.clone()));
-        }
-    }
-    None
-}
-
-fn upload_body_for(
-    b: &MultipartBuilder,
-    hashes: &[String],
-    assets: &[(String, Vec<u8>)],
-) -> RawBody {
-    let mut files = Vec::new();
-    for h in hashes {
-        if let Some((path, bytes)) = resolve_hash_in(h, assets) {
-            files.push((h.clone(), base64_encode(&bytes), mime_for_path(&path)));
-        }
-    }
-    b.asset_upload_body(&files)
-}
-
 // keep the module growth honest: staging is steps 1+2 only.
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::deployer::bundle::{asset_hash, BundleManifest};
     use crate::deployer::cf_api::CfResponse;
     use std::cell::RefCell;
 

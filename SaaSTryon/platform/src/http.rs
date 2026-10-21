@@ -96,6 +96,7 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
             manage::handle_token_delete(env, &req, code).await
         }
         (Method::Get, ["admin", "bundles"]) => manage::handle_bundles(env, &req).await,
+        (Method::Get, ["admin", "tryon-api"]) => manage::handle_tryon_api(env, &req).await,
         (Method::Post, ["admin", "bundles"]) => manage::handle_bundle_upload(env, req).await,
         (Method::Post, ["shop", "tokens"]) => manage::handle_owner_mint(env, &mut req).await,
         (Method::Post, ["shop", "owner-token"]) => {

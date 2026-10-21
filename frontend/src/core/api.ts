@@ -252,14 +252,12 @@ export const studioCredits = (token: string): Promise<{ creditBalance: number }>
     ...(token ? { headers: { Authorization: "Bearer " + token } } : {}),
   });
 
-/** What the PLATFORM says about this shop's credits: the balance, how
-    much of it came from the admin codes the shop redeemed, and the
-    codes themselves. Empty when the shop does not run on the platform. */
+/** What the PLATFORM says about this shop: the credits that reached
+    it through the admin codes it redeemed, and the codes themselves.
+    The platform's own bookkeeping (granted/used totals) is NOT part of
+    this answer - that is the admin's view. */
 export type PlatformCredits = {
   shop_id: string;
-  granted_total: number;
-  used_total: number;
-  left: number;
   from_codes: number;
   codes_redeemed: number;
   codes: Array<{

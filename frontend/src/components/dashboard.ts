@@ -173,11 +173,11 @@ function settingsTab(d: UsageOut): string {
         gets a photo.</p>
       ${
         platform
-          ? `<p class="${cx(s.body)}">On the platform: <b>${n(platform.left)}</b> left of
-             ${n(platform.granted_total)} granted, ${n(platform.used_total)} used.
-             <b>${n(platform.from_codes)}</b> of them came from
+          ? `<p class="${cx(s.body)}"><b>${n(platform.from_codes)}</b> credit${
+              platform.from_codes === 1 ? "" : "s"
+            } reached this shop through
              ${platform.codes_redeemed === 1 ? "the admin code" : "the admin codes"}
-             this shop redeemed.</p>
+             it redeemed.</p>
              ${
                platform.codes.length
                  ? `<div class="${cx(u.rows)}">${platform.codes

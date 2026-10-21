@@ -191,6 +191,42 @@ pub fn assets_manifest(assets: &[(String, Vec<u8>)]) -> Value {
     Value::Object(manifest)
 }
 
+/// One asset with its Cloudflare hash already computed. The upload flow
+/// needs the hash of every asset TWICE (the session manifest and the
+/// upload part lookup) - and hashing is the expensive part on a Worker
+/// (base64 + sha256 over the whole bundle). Computing it once keeps the
+/// first deploy of a shop inside the CPU budget: the old lookup
+/// re-hashed every asset for every missing hash (54 x 54 passes).
+pub struct HashedAsset<'a> {
+    pub hash: String,
+    /// `/`-prefixed path the browser asks for.
+    pub path: String,
+    pub bytes: &'a [u8],
+}
+
+pub fn hash_assets(assets: &[(String, Vec<u8>)]) -> Vec<HashedAsset<'_>> {
+    assets
+        .iter()
+        .map(|(path, bytes)| HashedAsset {
+            hash: asset_hash(path, bytes),
+            path: normalize_asset_path(path),
+            bytes: bytes.as_slice(),
+        })
+        .collect()
+}
+
+/// The manifest for already-hashed assets.
+pub fn hashed_manifest(hashed: &[HashedAsset<'_>]) -> Value {
+    let mut manifest = serde_json::Map::new();
+    for a in hashed {
+        manifest.insert(
+            a.path.clone(),
+            json!({ "hash": a.hash, "size": a.bytes.len() }),
+        );
+    }
+    Value::Object(manifest)
+}
+
 // ------------------------------------------------- async R2 loading
 
 #[allow(async_fn_in_trait)]

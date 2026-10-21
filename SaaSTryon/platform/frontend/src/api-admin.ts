@@ -254,6 +254,17 @@ export const ownerCodes = (
 ): Promise<{ codes: ShopToken[]; credits_from_codes: number }> =>
   call("GET", "/api/v1/shop/codes", undefined, sessionId);
 
+/** The try-on API's own balance (the provider account the generations
+    spend). The shop never sees this - it is the admin's number. */
+export interface TryonApiOut {
+  configured: boolean;
+  balance: number | null;
+  message: string | null;
+}
+
+export const adminTryonApi = (adminToken: string): Promise<TryonApiOut> =>
+  call("GET", "/api/v1/admin/tryon-api", undefined, adminToken);
+
 /* ------------------------------------------------------------- owner --- */
 
 /** The owner mints a code for their own shop. */

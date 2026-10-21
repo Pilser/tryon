@@ -579,6 +579,55 @@ pub async fn handle_owner_set_token(env: Env, req: &mut Request) -> Result<Respo
     }))
 }
 
+/// `GET /api/v1/admin/tryon-api` - the TRY-ON API's own balance (the
+/// Genlook account). This is the admin's number: it is what the
+/// generations actually spend. The shop never sees it.
+pub async fn handle_tryon_api(env: Env, req: &Request) -> Result<Response> {
+    if !admin::is_admin(req.headers(), &env) {
+        return http::unauthorized();
+    }
+    let key = match env
+        .var("GENLOOK_API_KEY")
+        .map(|v| v.to_string())
+        .unwrap_or_default()
+    {
+        k if !k.is_empty() => k,
+        _ => {
+            return Response::from_json(&json!({
+                "configured": false,
+                "balance": null,
+                "message": "the try-on API key is not set on the platform yet",
+            }))
+        }
+    };
+    let url = format!("{}/account/credits", crate::outbound::base(&env));
+    let mut headers = worker::Headers::new();
+    headers.set("authorization", &format!("Bearer {key}"))?;
+    let mut init = worker::RequestInit::new();
+    init.with_method(worker::Method::Get);
+    init.with_headers(headers);
+    let mut upstream = worker::Fetch::Request(worker::Request::new_with_init(&url, &init)?)
+        .send()
+        .await?;
+    let status = upstream.status_code();
+    let text = upstream.text().await?;
+    if !(200..300).contains(&status) {
+        return Response::from_json(&json!({
+            "configured": true,
+            "balance": null,
+            "message": format!("the try-on API answered {status}"),
+        }));
+    }
+    let balance = serde_json::from_str::<serde_json::Value>(&text)
+        .ok()
+        .and_then(|v| v.get("creditBalance").and_then(|b| b.as_i64()));
+    Response::from_json(&json!({
+        "configured": true,
+        "balance": balance,
+        "message": null,
+    }))
+}
+
 /// `GET /api/v1/shop/codes` - the owner's own code ledger: every code
 /// that belongs to one of their shops or that one of their shops
 /// redeemed, with what it was worth and what became of it.
@@ -631,18 +680,18 @@ pub async fn handle_shop_credits(env: Env, req: &Request) -> Result<Response> {
     let Some(shop) = store::shop_by_token(&db, &token).await? else {
         return http::unauthorized();
     };
-    let (granted, used, left) = shops::credit_usage(&db, &shop.id).await?;
     let tokens = shops::list_shop_tokens(&db, Some("used")).await?;
     let mine: Vec<&shops::ShopToken> = tokens
         .iter()
         .filter(|t| t.redeemed_by.as_deref() == Some(shop.id.as_str()))
         .collect();
     let from_codes: i64 = mine.iter().map(|t| t.credits).sum();
+    // What the SHOP is told: the credits that reached it through the
+    // codes it redeemed, and the codes themselves. The platform's
+    // bookkeeping (the granted/used totals) stays on the admin side - a
+    // shop does not read the platform's ledger.
     Response::from_json(&json!({
         "shop_id": shop.id,
-        "granted_total": granted,
-        "used_total": used,
-        "left": left,
         "from_codes": from_codes,
         "codes_redeemed": mine.len(),
         "codes": mine.iter().map(|t| json!({

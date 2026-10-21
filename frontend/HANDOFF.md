@@ -7,9 +7,9 @@ reskin freely; the contract below is stable.
 ## Run locally
 
 ```bash
-# serves worker API + this folder at /app/
-bun /tmp/opencode/wbg/harness4.cjs
-# landing : http://localhost:8787/app/
+# the shop worker + this folder, together
+./dev-all.sh
+# landing : http://localhost:8811/app/
 ```
 
 ## Pages

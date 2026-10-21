@@ -1,42 +1,37 @@
-# SaaSTryon — Platform
+# SaaSTryon — the platform half
 
-This folder is the **platform**: the control plane that signs shop owners up,
-approves them, and deploys each approved owner's shop as its own isolated
-Worker (their own subdomain, optionally their own custom domain), with a
-platform-side proxy for Genlook try-on calls and per-shop token limits.
+The control plane of Latiforge: it signs the shop owners up, approves
+them, deploys each approved owner's shop as its own Worker (its own
+subdomain, optionally its own domain), meters the try-on credits and
+keeps the console.
 
-- Research notes: `docs/PLATFORM.md` (Workers for Platforms background, the
-  plain-script deploy decision, Cloudflare for SaaS, caching plan — all with
-  sources).
-- Reference implementation cloned read-only into `-example-templates/cf-templates/`
-  (the `worker-publisher-template`). Do not edit that folder; it mirrors an
-  upstream GitHub repo.
-
-## Planned layout (build order in PLATFORM.md §9)
+**The repository index (folders, files, workflows, the runtime picture)
+is the root [`README.md`](../README.md).**
 
 ```
 SaaSTryon/
-  docs/PLATFORM.md     <- research + decisions (this file's neighbour)
-  platform/            <- control plane (Rust worker `crates/platform/`):
-                          signup/login/admin approval, script-PUT deployer
-                          (calls the Cloudflare REST API), hostname registrar
-                          (custom domains), token/credit grants
-  platform/frontend/   <- React + StyleX admin/signup UI (tryon design kit,
-                          shared with the shop) -> dist/ served as static
-                          assets with edge caching + `_headers` cache tags
-  genlook-proxy/       <- small Rust worker (`crates/genlook-proxy/`):
-                          shops' Genlook calls via service binding — key
-                          injection + per-shop credit metering/rewrites
-  tenant-glue/         <- generator for the wasm glue/config the deployer
-                          uploads with each shop script
-  scripts/             <- CI packaging: bundle shop wasm + assets -> R2
-  tests/               <- Rust `ram-test` suites + frontend tsc/vitest
-  migrations/          <- platform D1 SQL (users, shops, hostnames, credits)
+├── docs/        the platform documentation
+│   ├── PLATFORM.md   architecture, decisions, live findings (§10 = the traps)
+│   ├── SHOP-API.md   every endpoint of both halves, with examples
+│   ├── Deploy.md     how a release is shipped (CI → artifact → API deploy)
+│   ├── DESIGN.md     the research-backed UX spec for the console + landing
+│   └── PLAN-UX.md    the UX plan the spec came from
+└── platform/
+    ├── migrations/    the platform D1 schema, one file per revision
+    ├── src/           the platform worker (Rust → Wasm)
+    │   ├── http.rs    the router: every /api/v1 path
+    │   ├── auth.rs    signup, login, sessions, the owner's account
+    │   ├── admin.rs   the admin queue: approve, allowance, suspend
+    │   ├── manage.rs  the control plane: bundles, redeploy, studio tokens
+    │   └── deployer/  the deployer: the Cloudflare API, the bundle format
+    └── frontend/      the platform console (React + StyleX)
+        ├── src/pages/     admin, home (owner), landing (public), login, signup
+        ├── src/components/admin/ owner/ landing/ shared/
+        ├── src/assets/tryon/  the baked photos + the hero video (the manifest)
+        ├── src/kit.ts     the design kit (u.*, pf.*, ld.* slots)
+        └── src/api.ts     the ONE fetch boundary of this frontend
 ```
 
-No WfP plan is involved (PLATFORM.md §4.1 D-P1 rev): shops are plain
-Workers deployed by the script PUT API; each gets a free `workers.dev`
-subdomain plus a custom domain on our zone via the `/workers/domains`
-API. Backend Rust is strictly modular (one domain per file, ≤300 lines
-target / 500 hard, bloat gate per phase); frontend never calls gateway
-internals — only `POST /api/v1/<command>` on the control plane.
+The *other* half of the repo (the shop worker, the storefront, the
+shared crate) lives at the root: `worker/`, `frontend/`, `shared/`,
+`imgpipe/`.

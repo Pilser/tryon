@@ -21,7 +21,7 @@ Premium e-commerce shop where:
 - UI: Leptos (Wasm in browser) + SSR HTML from Worker for SEO/first paint + hydration.
 - API provider: Genlook Try-On API. 3 calls: `POST /images/upload` -> `POST /try-on` -> `GET /generations/:id` (poll or webhook).
 - Storage: R2 for product/person images, D1 for products + shop settings (owner WhatsApp, shop name, currency).
-- Delivery: one Worker + Workers static assets (`[assets]` in `wrangler.toml`). `/app/*` is served from the edge via `frontend/_redirects` (200 proxy) and never invokes the Worker; `/`, `/product/:id`, `/studio`, `/healthz`, `/api/*` are `run_worker_first`. Cache policy + deploy steps: `docs/DEPLOY.md`.
+- Delivery: one Worker + Workers static assets (`[assets]` in `wrangler.toml`). `/app/*` is served from the edge via `frontend/_redirects` (200 proxy) and never invokes the Worker; `/`, `/product/:id`, `/studio`, `/healthz`, `/api/*` are `run_worker_first`. Cache policy + deploy steps: `SaaSTryon/docs/Deploy.md` (this doc is the historical shop-only plan; the shop is now deployed by the platform).
 - Build: local = `ram-check.sh` + `ram-test.sh` + `check-bloat.sh` only. Binaries = CI `release.yml` only.
 
 ### UI kit (one language across pages)

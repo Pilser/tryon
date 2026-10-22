@@ -3,6 +3,7 @@
    inline; styled slot also accepts the latest try-on result; submit posts
    multipart with the saved owner token. */
 import { createProduct, listProducts, ownerLogin, ownerLogout, listCategories, createCategory, getShop, saveShop } from "../core/api";
+import { invalidateProducts } from "../core/shop-cache";
 import { capturePhoto } from "./capture";
 import { esc, brandHTML, toMinor, toMajor } from "../core/format";
 import { currencyOptions, currencyInfo, DEFAULT_CURRENCY } from "../core/currencies";
@@ -365,6 +366,7 @@ export function initOwnerForm(): void {
       btn.disabled = true; btn.textContent = "Uploading…";
       try {
         const j = await createProduct(fd, loadOwner());
+        invalidateProducts(); // the landing grid must not serve pre-add rows
         btn.disabled = false; btn.textContent = editingId ? "Save changes" : "Save bundle";
         const ok = el("bd-ok");
         ok.innerHTML = `Saved: <a href="/app/product.html?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> - now on the landing grid.`;

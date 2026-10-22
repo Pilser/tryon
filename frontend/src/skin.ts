@@ -151,6 +151,8 @@ if ((import.meta as any).env?.DEV) {
   import("/@id/virtual:stylex:runtime").catch(() => {});
 }
 
+export { MAP };
+
 export function skin(scope: ParentNode = document): void {
   for (const [sel, styles] of MAP) {
     scope.querySelectorAll(sel).forEach((n) => {

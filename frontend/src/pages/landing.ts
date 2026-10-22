@@ -1,8 +1,13 @@
-/* pages/landing.ts - compose only: shop + inline search/filter + cards. */
+/* pages/landing.ts - compose only: shop + inline search/filter + cards.
+   Paints the grid from the previous page's cache instantly, then one
+   parallel round trip replaces it with live data (the old code chained
+   THREE round trips before anything appeared). */
 import { getShop, listProducts } from "../core/api";
+import { all as allProducts, shopSync, productsSync } from "../core/shop-cache";
 import { esc, brandHTML } from "../core/format";
 import { cardHTML, armAll } from "../components/product-card";
 import { skin } from "../skin";
+import type { Product } from "../core/types";
 
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
   const n = document.getElementById(id);
@@ -10,24 +15,42 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
   return n as T;
 }
 
+function paintGrid(list: Product[], name: string, wa: string): void {
+  el("count").textContent = list.length + " products";
+  el("grid").innerHTML = list.map((p) => cardHTML(p, name, wa)).join("");
+  armAll();
+  skin();
+}
+
 export async function landing(): Promise<void> {
-  const shop = await getShop();
   const q = new URLSearchParams(location.search);
   const query = q.get("q") || "", category = q.get("category") || "";
+
+  // instant paint from the cache a previous page left behind
+  const cachedShop = shopSync();
   const brand = document.querySelector(".brand");
-  if (brand) brand.innerHTML = brandHTML(shop);
+  if (brand && cachedShop) brand.innerHTML = brandHTML(cachedShop);
+  const cached = productsSync();
+  if (cached && !query && !category) {
+    paintGrid(cached, cachedShop?.shop_name || "Shop", cachedShop?.owner_whatsapp || "");
+  }
+
   el<HTMLInputElement>("q").value = query;
-  const all = await listProducts();
-  const cats = [...new Set(all.map((p) => (p.category || "").trim()).filter(Boolean))].sort();
+
+  // one parallel round trip replaces what the cache showed. Unfiltered
+  // pages reuse the all-list as THE list (single note: the cache-aware
+  // all() keeps the next page's instant paint alive); filtered pages
+  // still ask the server (exact semantics), now in PARALLEL not chain.
+  const allP = allProducts(); // cache-aware; fresh hits paint from cache alone
+  const listP = query || category ? listProducts({ q: query, category }) : allP;
+  const [shopNow, allList, list] = await Promise.all([getShop(), allP, listP]);
+  if (brand) brand.innerHTML = brandHTML(shopNow);
+  const cats = [...new Set(allList.map((p) => (p.category || "").trim()).filter(Boolean))].sort();
   const sel = el<HTMLSelectElement>("cat");
   sel.innerHTML = `<option value="">All</option>` + cats.map((c) =>
     `<option value="${esc(c)}"${c === category ? " selected" : ""}>${esc(c)}</option>`).join("");
-  const list = await listProducts({ q: query, category });
-  el("count").textContent = list.length + " products";
-  el("grid").innerHTML =
-    list.map((p) => cardHTML(p, shop.shop_name, shop.owner_whatsapp)).join("");
-  armAll();
-  skin();
+  paintGrid(list, shopNow.shop_name, shopNow.owner_whatsapp);
+
   el("search-form").addEventListener("submit", (ev) => {
     ev.preventDefault();
     location.href = "/?q=" + encodeURIComponent(el<HTMLInputElement>("q").value)

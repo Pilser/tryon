@@ -3,6 +3,7 @@ import stylexPlugin from "@stylexjs/esbuild-plugin";
 import path from "path";
 import { fileURLToPath } from "url";
 import { cpSync, mkdirSync } from "node:fs";
+import { shellcss } from "./build-shellcss";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,4 +33,5 @@ await esbuild.build({
     }) as any,
   ],
 });
-console.log("built dist/main.js + dist/stylex.css");
+await shellcss(path.join(root, "dist", "stylex.css"));
+console.log("built dist/main.js + dist/stylex.css + dist/shell.css");

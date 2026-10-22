@@ -1,5 +1,10 @@
-/* pages/product.ts - compose only: duo + info + share + studio. */
+/* pages/product.ts - compose only: duo + info + share + studio.
+   Back-navigation paints the page instantly from the cache the previous
+   visit left behind; one parallel round trip (product + shop together,
+   the old code chained them) refreshes it. */
 import { getProduct, getShop } from "../core/api";
+import { productSync, storeProduct, shopSync, shop } from "../core/shop-cache";
+import type { Product, ShopSettings } from "../core/types";
 import { esc, money, brandHTML, sizesHTML } from "../core/format";
 import { inquireUrl, waShareUrl } from "../core/whatsapp";
 import { waIcon } from "../components/whatsapp-icon";
@@ -11,13 +16,34 @@ import { skin } from "../skin";
 
 export async function product(): Promise<void> {
   const id = new URLSearchParams(location.search).get("id") || "";
-  const p = await getProduct(id);
-  const shop = await getShop();
+  const detail = document.getElementById("detail");
+  if (!detail) throw new Error("missing #detail");
+
+  // instant paint from what the previous page left in storage
+  const cachedP = id ? productSync(id) : null;
+  const cachedShop = shopSync();
+  if (cachedP && cachedShop) render(cachedP, cachedShop, detail);
+
+  // one parallel round trip to confirm / fill
+  const [p, shopR] = await Promise.all([getProduct(id), shop()]);
+  storeProduct(id, p);
+  const changed =
+    !cachedP || !cachedShop || brandChanged(cachedShop, shopR) || JSON.stringify(cachedP) !== JSON.stringify(p);
+  if (changed) {
+    // rebuilt only when data (or shop identity) actually changed - the
+    // common back-navigation case keeps its listeners and scroll
+    render(p, shopR, detail);
+  }
+}
+
+function brandChanged(prev: ShopSettings | null, now: ShopSettings): boolean {
+  return !prev || prev.shop_name !== now.shop_name || prev.owner_whatsapp !== now.owner_whatsapp;
+}
+
+function render(p: Product, shop: ShopSettings, detail: HTMLElement): void {
   document.title = p.title + " - " + shop.shop_name;
   const brand = document.querySelector(".brand");
   if (brand) brand.innerHTML = brandHTML(shop);
-  const detail = document.getElementById("detail");
-  if (!detail) throw new Error("missing #detail");
   const link = location.origin + "/app/product.html?id=" + p.id;
   detail.innerHTML =
     `<article class="detail">${duoHTML(p)}

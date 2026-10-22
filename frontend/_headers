@@ -15,7 +15,7 @@
 # revalidation a cheap 304 and a deploy can never serve a stale entry).
 /app/dist/main.js
   Cache-Control: no-cache
-/app/dist/stylex.css
+/app/dist/shell.css
   Cache-Control: no-cache
 
 # Pages: same story, plus a couple of hardening headers.

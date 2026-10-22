@@ -6,6 +6,7 @@ import { getShop, listProducts } from "../core/api";
 import { all as allProducts, shopSync, productsSync } from "../core/shop-cache";
 import { esc, brandHTML } from "../core/format";
 import { cardHTML, armAll } from "../components/product-card";
+import { skGridHTML } from "../components/skeleton";
 import { skin } from "../skin";
 import type { Product } from "../core/types";
 
@@ -33,6 +34,12 @@ export async function landing(): Promise<void> {
   const cached = productsSync();
   if (cached && !query && !category) {
     paintGrid(cached, cachedShop?.shop_name || "Shop", cachedShop?.owner_whatsapp || "");
+  } else {
+    // cache miss (or a filtered view): YouTube-style shimmer placeholders
+    // stand in the grid until the fetch answers - the page never shows an
+    // empty hole while loading.
+    el("count").textContent = "loading…";
+    el("grid").innerHTML = skGridHTML(8);
   }
 
   el<HTMLInputElement>("q").value = query;

@@ -11,6 +11,7 @@ import { waIcon } from "../components/whatsapp-icon";
 import { linkIcon, shareIcon, downloadIcon } from "../components/icons";
 import { loadOwner, loadTimeline } from "../core/store";
 import { duoHTML, armDuo } from "../components/duo";
+import { skDetailHTML } from "../components/skeleton";
 import { initStudio } from "../components/studio";
 import { skin } from "../skin";
 
@@ -23,6 +24,7 @@ export async function product(): Promise<void> {
   const cachedP = id ? productSync(id) : null;
   const cachedShop = shopSync();
   if (cachedP && cachedShop) render(cachedP, cachedShop, detail);
+  else detail.innerHTML = skDetailHTML(); // shimmer silhouette until data arrives
 
   // one parallel round trip to confirm / fill
   const [p, shopR] = await Promise.all([getProduct(id), shop()]);

@@ -17,7 +17,7 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
 
 function paintGrid(list: Product[], name: string, wa: string): void {
   el("count").textContent = list.length + " products";
-  el("grid").innerHTML = list.map((p) => cardHTML(p, name, wa)).join("");
+  el("grid").innerHTML = list.map((p, i) => cardHTML(p, name, wa, i)).join("");
   armAll();
   skin();
 }

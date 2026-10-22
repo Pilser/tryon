@@ -4,8 +4,10 @@ import { product } from "./pages/product";
 import { studio } from "./pages/studio";
 import { dashboard } from "./pages/dashboard";
 import { skin } from "./skin";
+import { installErrorLog } from "./core/log";
 
 const page = document.body.dataset.page;
+installErrorLog();
 skin(); // Paint the static shell instantly; pages re-run it after render.
 async function boot(): Promise<void> {
   if (page === "product") await product();

@@ -11,6 +11,8 @@ import { prepFile, thumbOf, previewURL } from "./photo";
 import { paintTimeline } from "./timeline";
 import { deviceId, fingerprintParts, isSpent, rememberDeviceId, type Allowance } from "../core/device";
 import { paintQuota } from "./quota";
+import { genWait, type GenWait } from "./wait";
+import { logErr } from "../core/log";
 
 function el(id: string): HTMLElement {
   const n = document.getElementById(id);
@@ -25,7 +27,7 @@ export function initStudio(product: Product): void {
   let activeThumb = "";
   let activeFull = "";
   let activeKey = "";
-  let animTimer: number | null = null;
+  let genWaiter: GenWait | null = null; // the one active try-on wait (wait.ts)
   const fail = (m: string): void => { const e = el("st-err"); e.textContent = m; show(e, true); };
   const clear = (): void => { const e = el("st-err"); e.textContent = ""; show(e, false); };
   /* Allowance: server-owned; the banner only appears when nothing is left,
@@ -99,8 +101,8 @@ export function initStudio(product: Product): void {
     }
   };
   const stopAnim = (): void => {
-    if (animTimer !== null) { clearInterval(animTimer); animTimer = null; }
-    (el("st-prev") as HTMLImageElement).style.opacity = "";
+    genWaiter?.stop();
+    genWaiter = null;
   };
 
   const onPickFile = async (f: File): Promise<void> => {
@@ -126,7 +128,7 @@ export function initStudio(product: Product): void {
         paintTimeline(selectEntry, t);
       })();
       im.src = u;
-    } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+    } catch (e) { logErr("photo prep", e); fail(e instanceof Error ? e.message : String(e)); }
   };
   const onPick = (ev: Event): void => {
     const f = (ev.target as HTMLInputElement).files?.[0];
@@ -233,22 +235,20 @@ export function initStudio(product: Product): void {
   el("st-start").addEventListener("click", () => void (async () => {
     if (!file && !activeImageId) { fail("Pick a photo first."); return; }
     clear(); show(el("st-start"), false);
-    // Processing animation on the added image while the try-on runs.
+    // The wait rides on the user photo: spinner + real seconds, relaxing
+    // to "took longer than usual - please wait" after 10s (wait.ts).
     const prev = el("st-prev") as HTMLImageElement;
     const prog = el("st-prog");
-    let dots = 0;
-    prev.style.opacity = ".45";
-    prog.textContent = "Processing your photo";
+    genWaiter?.stop();
+    genWaiter = genWait(prog, prev);
+    genWaiter.phase("Generating");
     show(prog, true);
-    animTimer = window.setInterval(() => {
-      dots = (dots + 1) % 4;
-      prog.textContent = "Processing your photo" + ".".repeat(dots);
-      prev.style.opacity = prev.style.opacity === ".45" ? ".75" : ".45";
-    }, 450);
     try {
       let imageId = activeImageId;
       if (file && !imageId) {
-        prog.textContent = "Uploading photo";
+        genWaiter.stop(); // the seconds restart cleanly per stage
+        genWaiter = genWait(prog, prev);
+        genWaiter.phase("Uploading photo");
         const u = await uploadPerson(file.blob);
         if (!u.imageId) throw new Error("no imageId returned");
         imageId = activeImageId = u.imageId;
@@ -256,7 +256,10 @@ export function initStudio(product: Product): void {
         if (activeKey) updateTimelineEntry(activeKey, { imageId: u.imageId });
         paintTimeline(selectEntry, activeThumb);
       }
-      prog.textContent = "Trying it on (about 10 seconds)";
+      genWaiter.stop();
+      genWaiter = genWait(prog, prev);
+      genWaiter.phase("Generating");
+      show(prog, true);
       const { status, body } = await tryOnSync({
         product_id: product.id, title: product.title, description: product.description,
         image_url: product.image_url, person_image_id: imageId as string,
@@ -273,7 +276,7 @@ export function initStudio(product: Product): void {
       let url: string | null = null;
       if (status === 200 && body.resultImageUrl) url = body.resultImageUrl;
       else if (status === 202 && body.generationId) {
-        url = await pollGeneration(body.generationId, (s) => { prog.textContent = `Checking result (${s}s)`; });
+        url = await pollGeneration(body.generationId, () => genWaiter?.phase("Checking result"));
       } else throw new Error(body.message || "try-on failed (credit refunded)");
       stopAnim(); show(el("st-prog"), false);
       // The result feeds the user card (hold = original, release = result)
@@ -285,6 +288,7 @@ export function initStudio(product: Product): void {
       // last free try and the button hides when nothing is left.
       void refreshAllowance();
     } catch (e) {
+      logErr("try-on", e);
       stopAnim(); show(el("st-prog"), false);
       fail(e instanceof Error ? e.message : String(e));
       if (!spent) show(el("st-start"), true);

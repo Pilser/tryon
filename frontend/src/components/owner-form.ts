@@ -4,6 +4,8 @@
    multipart with the saved owner token. */
 import { createProduct, listProducts, ownerLogin, ownerLogout, listCategories, createCategory, getShop, saveShop } from "../core/api";
 import { invalidateProducts } from "../core/shop-cache";
+import { busyBtn } from "./wait";
+import { logErr } from "../core/log";
 import { capturePhoto } from "./capture";
 import { esc, brandHTML, toMinor, toMajor } from "../core/format";
 import { currencyOptions, currencyInfo, DEFAULT_CURRENCY } from "../core/currencies";
@@ -131,6 +133,7 @@ export function initOwnerForm(): void {
       if (editingCat) fd.set("id", editingCat);
       fd.set("title", title);
       if (file) fd.set("image", file);
+      const restore = busyBtn(document.getElementById("bd-cat-add") as HTMLButtonElement | null, "Saving…");
       try {
         await createCategory(fd, loadOwner());
         exitCatEdit();
@@ -138,7 +141,10 @@ export function initOwnerForm(): void {
         if (edit) edit.value = "";
         await loadCats();
         window.dispatchEvent(new Event("cats-changed"));
-      } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+      } catch (e) {
+        logErr("owner:category save", e);
+        fail(e instanceof Error ? e.message : String(e));
+      } finally { restore(); }
     })());
     void loadCats();
   }
@@ -192,6 +198,7 @@ export function initOwnerForm(): void {
       const cur = (document.getElementById("bd-shop-currency") as HTMLSelectElement | null)?.value || DEFAULT_CURRENCY;
       const file = (document.getElementById("bd-shop-logo") as HTMLInputElement | null)?.files?.[0];
       if (!name && !file) { fail("Enter a shop name or pick a logo."); return; }
+      const restore = busyBtn(document.getElementById("bd-shop-save") as HTMLButtonElement | null, "Saving…");
       const fd = new FormData();
       if (name) fd.set("shop_name", name);
       fd.set("owner_whatsapp", wa);
@@ -205,7 +212,10 @@ export function initOwnerForm(): void {
         if (brand) brand.innerHTML = brandHTML(s);
         el("bd-ok").textContent = "Shop saved - navbar updated.";
         show(el("bd-ok"), true);
-      } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+      } catch (e) {
+        logErr("owner:shop save", e);
+        fail(e instanceof Error ? e.message : String(e));
+      } finally { restore(); }
     })());
   }
   { // Styled slot from latest try-on result (fetched to a File on save).
@@ -358,22 +368,23 @@ export function initOwnerForm(): void {
         try {
           const b = await (await fetch(src)).blob();
           fd.set("image" + i, new File([b], "slot" + i + ".jpg", { type: b.type || "image/jpeg" }));
-        } catch { fail("Kept photo expired - re-pick slot " + (i + 1) + "."); return; }
+        } catch (e) { logErr("owner:slot refetch", e); fail("Kept photo expired - re-pick slot " + (i + 1) + "."); return; }
       }
       const img0 = fd.get("image0");
       if (!(img0 instanceof File) || !img0.size) { fail("Garment photo is required."); return; }
-      const btn = el("bd-submit") as HTMLButtonElement;
-      btn.disabled = true; btn.textContent = "Uploading…";
+      const restore = busyBtn(el("bd-submit") as HTMLButtonElement, editingId ? "Saving…" : "Uploading…");
       try {
         const j = await createProduct(fd, loadOwner());
         invalidateProducts(); // the landing grid must not serve pre-add rows
-        btn.disabled = false; btn.textContent = editingId ? "Save changes" : "Save bundle";
         const ok = el("bd-ok");
         ok.innerHTML = `Saved: <a href="/app/product.html?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> - now on the landing grid.`;
         show(ok, true);
         exitEdit();
         window.dispatchEvent(new Event("cats-changed"));
-      } catch (e) { btn.disabled = false; btn.textContent = editingId ? "Save changes" : "Save bundle"; fail(e instanceof Error ? e.message : String(e)); }
+      } catch (e) {
+        logErr(editingId ? "owner:product edit" : "owner:bundle upload", e);
+        fail(e instanceof Error ? e.message : String(e));
+      } finally { restore(); }
     })();
   });
   void refresh();

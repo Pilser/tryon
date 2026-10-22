@@ -6,6 +6,7 @@
    Click SMALL=G -> back to LARGE=G, SMALL=S. */
 import * as stylex from "@stylexjs/stylex";
 import { card as s, gallery as g } from "../styles/card.stylex";
+import { enterDelays, wait as uiWait } from "../styles/ui.stylex";
 import type { Product } from "../core/types";
 import { esc, money, sizesHTML } from "../core/format";
 import { inquireUrl, waShareUrl, shareUrl } from "../core/whatsapp";
@@ -37,6 +38,13 @@ export function armFsFit(root: Element, img: HTMLImageElement): void {
 const cx = (...ss: any[]): string =>
   (stylex.props(ss.filter(Boolean)) as { className?: string }).className ?? "";
 
+/** The stagger class for the card at position `i` (0 = instant, rest wait
+    their 45ms slot; capped so a big list still starts under half a second). */
+function cardEnterCls(i: number): string {
+  const slot = "d" + Math.min(i, 8) as keyof typeof enterDelays;
+  return cx(uiWait.cardEnter, enterDelays[slot]);
+}
+
 export function bundleOf(p: Product): { g: string; m: string; s: string } {
   const g0 = p.image_url;
   const m = p.model_image_url || p.image_url;
@@ -47,10 +55,13 @@ export function bundleOf(p: Product): { g: string; m: string; s: string } {
 const CAP_G = "Garment - tap inset to see it worn";
 const CAP_S = "Worn - hold to compare without · tap inset for garment";
 
-export function cardHTML(p: Product, shop: string, owner: string): string {
+/** The landing grid card. `i` (position) staggers the entrance: results
+    rise in one after another instead of popping as one block. */
+export function cardHTML(p: Product, shop: string, owner: string, i = 0): string {
   const b = bundleOf(p);
   const single = !(p.styled_image_url || p.model_image_url);
-  return `<article class="${cx(s.root)} productcard" data-garment="${esc(b.g)}" data-model="${esc(b.m)}" data-styled="${esc(b.s)}">
+  const enter = i > 0 ? cardEnterCls(i) : "";
+  return `<article class="${cx(s.root)} productcard${enter}" data-garment="${esc(b.g)}" data-model="${esc(b.m)}" data-styled="${esc(b.s)}">
     <a class="${cx(s.media)}" href="/app/product.html?id=${esc(p.id)}" tabindex="-1"><img class="${cx(s.img)} main" loading="lazy" decoding="async" draggable="false" src="${esc(b.g)}" alt="${esc(p.title)}"/></a>
     <div class="${cx(s.badgePill)}"></div><p class="${cx(s.badge)}">${esc(p.category)}</p>
     ${single ? "" : `<button class="${cx(s.inset)} model-inset" aria-label="see it worn"><img class="${cx(s.insetImg)} inset-img" loading="lazy" decoding="async" draggable="false" src="${esc(b.s)}" alt="model wearing it"/></button>

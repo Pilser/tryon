@@ -7,7 +7,6 @@
    product. Olive tokens stay the theme; only the surfaces change. */
 import * as stylex from "@stylexjs/stylex";
 import { tokens as t } from "./tokens.stylex";
-
 export const ui = stylex.create({
   /* ------------------------------------------------------------ page --- */
   page: {
@@ -154,4 +153,73 @@ export const ui = stylex.create({
   inlineHead: {
     display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", minWidth: 0,
   },
+
+  /* ------------------------------------------------------------ wait ---
+     Waiting feedback: a spinner ring for busy buttons, the generation
+     countdown line (relaxes to "took longer than usual" past 10s), the
+     pulsing user photo on top of which the countdown runs, and the dims
+     a pressed card so a click is visibly parked until data answers. */
+});
+
+/** Shared keyframes (outside the kit so elements compose them freely). */
+const spinKf = stylex.keyframes({
+  from: { transform: "rotate(0deg)" },
+  to: { transform: "rotate(360deg)" },
+});
+const pulseKf = stylex.keyframes({
+  "0%,100%": { opacity: "1" },
+  "50%": { opacity: ".55" },
+});
+const glowKf = stylex.keyframes({
+  // violet halo (#8b6fe8 is tokens.complement; literal here because it
+  // needs an 8-digit alpha, which a var() reference cannot carry)
+  "0%,100%": { boxShadow: "0 0 0 0 #8b6fe844" },
+  "50%": { boxShadow: "0 0 0 6px #8b6fe822" },
+});
+const riseKf = stylex.keyframes({
+  from: { opacity: "0", transform: "translateY(10px)" },
+  to: { opacity: "1", transform: "none" },
+});
+
+/** Extra kit exported separately: applied by stylex.props() at runtime. */
+export const wait = stylex.create({
+  spinner: {
+    display: "inline-block", width: 14, height: 14,
+    borderWidth: 2, borderStyle: "solid", borderRadius: 999,
+    borderColor: t.line, borderTopColor: t.primary,
+    animationName: spinKf, animationDuration: ".8s",
+    animationTimingFunction: "linear", animationIterationCount: "infinite",
+    flexShrink: 0,
+  },
+  waitLine: { display: "inline-flex", alignItems: "center", gap: 6, color: t.muted, fontSize: 13 },
+  waitSlow: { color: t.complement, fontWeight: 600 },
+  photoPulse: {
+    animationName: pulseKf, animationDuration: "1.2s",
+    animationTimingFunction: "ease-in-out", animationIterationCount: "infinite",
+  },
+  /** The pressed card waiting for its data (owner studio save paths). */
+  busyGlow: {
+    animationName: glowKf, animationDuration: "1.4s",
+    animationTimingFunction: "ease-in-out", animationIterationCount: "infinite",
+    opacity: ".7",
+  },
+  /** Card entrance: grid/shop results rise in, staggered by index. */
+  cardEnter: {
+    animationName: riseKf, animationDuration: ".38s",
+    animationTimingFunction: "cubic-bezier(.2,.7,.3,1)", animationFillMode: "both",
+  },
+});
+
+/** One stylex bucket per stagger slot. Card 0 is instant; slots 1..8 add
+    45ms each, the last slot caps the wait so a long grid still starts. */
+export const enterDelays = stylex.create({
+  d0: { animationDelay: "0ms" },
+  d1: { animationDelay: "45ms" },
+  d2: { animationDelay: "90ms" },
+  d3: { animationDelay: "135ms" },
+  d4: { animationDelay: "180ms" },
+  d5: { animationDelay: "225ms" },
+  d6: { animationDelay: "270ms" },
+  d7: { animationDelay: "315ms" },
+  d8: { animationDelay: "420ms" },
 });

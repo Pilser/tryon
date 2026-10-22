@@ -115,6 +115,7 @@ export function mirror(
       continue;
     }
     i++;
+    out.push(ch);
   }
   return out.join("");
 }

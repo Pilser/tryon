@@ -25,19 +25,28 @@ const SLOW_AT = 10;
 const cls = (st: unknown): string =>
   (stylex.props(st as never) as { className?: string }).className ?? "";
 
+/** StyleX props are space-separated atomic classes; classList rejects any
+    token containing whitespace, so split before touching the list. */
+const setCls = (el: Element, c: string, on: boolean): void => {
+  const toks = c.split(/\s+/).filter(Boolean);
+  if (!toks.length) return;
+  if (on) el.classList.add(...toks);
+  else el.classList.remove(...toks);
+};
+
 export function genWait(prog: HTMLElement, photo?: HTMLElement | null): GenWait {
   let elapsed = 0;
   let slow = false;
   let label = "Generating";
 
   prog.innerHTML = "";
-  prog.classList.add(cls(wait.waitLine));
+  setCls(prog, cls(wait.waitLine), true);
   const ring = document.createElement("span");
   ring.className = cls(wait.spinner);
   prog.appendChild(ring);
   const line = document.createElement("span");
   prog.appendChild(line);
-  if (photo) photo.classList.add(cls(wait.photoPulse));
+  if (photo) setCls(photo, cls(wait.photoPulse), true);
 
   const drop = (): string =>
     slow ? ` - please wait (${elapsed}s)` : ` (${elapsed}s)`;
@@ -45,7 +54,7 @@ export function genWait(prog: HTMLElement, photo?: HTMLElement | null): GenWait 
   const paint = (): void => {
     line.textContent =
       slow ? `${label} took longer than usual${drop()}` : `${label}${drop()}`;
-    prog.classList.toggle(cls(wait.waitSlow), slow);
+    setCls(prog, cls(wait.waitSlow), slow);
   };
 
   const timer = window.setInterval(() => {
@@ -62,8 +71,9 @@ export function genWait(prog: HTMLElement, photo?: HTMLElement | null): GenWait 
     },
     stop(): void {
       window.clearInterval(timer);
-      if (photo) photo.classList.remove(cls(wait.photoPulse));
-      prog.classList.remove(cls(wait.waitLine), cls(wait.waitSlow));
+      if (photo) setCls(photo, cls(wait.photoPulse), false);
+      setCls(prog, cls(wait.waitLine), false);
+      setCls(prog, cls(wait.waitSlow), false);
       prog.innerHTML = "";
     },
   };

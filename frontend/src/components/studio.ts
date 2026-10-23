@@ -341,9 +341,17 @@ export function initStudio(product: Product): void {
   ));
   const saved = loadPerson();
   if (personUsable(saved) && document.getElementById("st-prev")) {
-    activeImageId = (saved as { imageId: string }).imageId;
+    activeImageId = (saved as { imageId?: string }).imageId || null;
     const thumb = (saved as { thumb?: string }).thumb || "";
     const entry = loadTimeline().find((x) => (x.imageId && x.imageId === activeImageId) || (thumb && x.thumb === thumb));
+    // The photo can be restored from this browser while the server never
+    // saw it (picked, not yet uploaded): keep its blob so Start uploads it
+    // instead of claiming "Pick a photo first" over a visible photo.
+    if (!activeImageId && entry?.photoKey) {
+      void loadPhoto(entry.photoKey).then((blob) => {
+        if (blob) file = { blob, mime: blob.type || "image/jpeg" };
+      }).catch(() => undefined);
+    }
     // Restore at full quality (the stored file), not the ribbon icon.
     void (async () => {
       const src = entry ? await fullSrc(entry) : thumb;

@@ -10,6 +10,15 @@ import type { Category, Product } from "../core/types";
 const cx = (...ss: any[]): string =>
   (stylex.props(ss.filter(Boolean)) as { className?: string }).className ?? "";
 
+/** StyleX props are space-separated atomic classes; classList rejects any
+    token containing whitespace, so split before touching the list. */
+const setCls = (el: Element, c: string, on: boolean): void => {
+  const toks = c.split(/\s+/).filter(Boolean);
+  if (!toks.length) return;
+  if (on) el.classList.add(...toks);
+  else el.classList.remove(...toks);
+};
+
 export interface RibbonCat {
   key: string;
   title: string;
@@ -91,8 +100,8 @@ export function armCatRibbon(box: HTMLElement, cats: RibbonCat[], products: Prod
       if (!open) { panel.style.display = "none"; }
       else { panel.style.display = ""; q.value = ""; paintGrid(); }
       row.querySelectorAll("button").forEach((x) => {
-        if ((x as HTMLElement).dataset.cat === open && open) x.classList.add(cx(s.itemOn));
-        else x.classList.remove(cx(s.itemOn));
+        if ((x as HTMLElement).dataset.cat === open && open) setCls(x, cx(s.itemOn), true);
+        else setCls(x, cx(s.itemOn), false);
       });
     });
   });

@@ -9,6 +9,26 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap"/></noscript>
 <style>@view-transition{navigation:auto}</style><link rel="stylesheet" href="/app/dist/shell.css"/>
+<style>/* loading skeleton (YouTube-style): static, pre-JS. Colors come from the shell.css token vars; the container metrics mirror the compiled rules (which override these once main.js maps them) */
+.skc{background-color:var(--xegrvge);background-image:linear-gradient(100deg,rgba(244,247,228,0) 40%,rgba(244,247,228,.09) 50%,rgba(244,247,228,0) 60%);background-size:200% 100%;background-repeat:no-repeat;animation:skc-sweep 1.4s linear infinite}
+@keyframes skc-sweep{from{background-position:200% 0}to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skc{animation:none}}
+#grid{display:grid;gap:14px;width:100%;max-width:1100px;margin-left:auto;margin-right:auto;padding:14px 14px 40px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+@media (min-width:720px){#grid{gap:18px;padding-left:26px;padding-right:26px;padding-top:18px}}
+.skc-card{border:1px solid var(--xegrvge);border-radius:14px;background:var(--x7s7ikk);overflow:hidden;padding-bottom:16px}
+.skc-media{display:block;width:100%;aspect-ratio:3/4}
+.skc-cap{display:block;margin:0;padding:8px 16px 0}
+.skc-capbar{display:block;height:12px;border-radius:6px}
+.skc-head{display:block;padding:2px 16px 0}
+.skc-bar{display:block;height:16px;border-radius:8px}
+.w60{width:62%}.w86{width:86%}.w38{width:38%}
+.skc-price{display:block;margin:0;padding:4px 16px 0}
+.skc-btn{display:block;margin:12px 16px 0;height:44px;border-radius:10px}
+.skc-btn2{display:block;margin:8px 16px 0;height:44px;border-radius:10px;border:1px solid var(--xegrvge);background-color:transparent}
+#detail{display:block;max-width:1100px;margin-left:auto;margin-right:auto;padding:66px 22px 40px}
+.skc-frame{display:block;width:100%;aspect-ratio:3/4;border-radius:12px}
+.skc-stack{display:grid;gap:10px;align-content:start;padding:14px 0}
+</style>
 <link rel="modulepreload" href="/app/dist/main.js"/>
 </head>
 <body data-page="landing">
@@ -18,9 +38,9 @@
   <h1 class="hero-title">TryOn and Shop</h1>
   <p class="hero-sub">See any piece on yourself before you buy - a photo, ten seconds, no size guessing.</p>
   <form class="search" id="search-form"><span class="search-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span><input class="search-input" id="q" name="q" type="search" placeholder="Search products…"/><select class="cat-sel" id="cat" name="category" aria-label="Category"></select><button class="search-go" type="submit" aria-label="Search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
-  <p class="count" id="count"></p>
+  <p class="count" id="count">loading…</p>
 </main>
-<main class="grid" id="grid"></main>
+<main class="grid" id="grid"><article class="skc-card"><div class="skc skc-media"></div><p class="skc-cap"><span class="skc skc-capbar w86"></span></p><div class="skc-head"><span class="skc skc-bar w60"></span></div><p class="skc-price"><span class="skc skc-bar w38"></span></p><span class="skc skc-btn"></span><span class="skc skc-btn2"></span></article><article class="skc-card"><div class="skc skc-media"></div><p class="skc-cap"><span class="skc skc-capbar w86"></span></p><div class="skc-head"><span class="skc skc-bar w60"></span></div><p class="skc-price"><span class="skc skc-bar w38"></span></p><span class="skc skc-btn"></span><span class="skc skc-btn2"></span></article><article class="skc-card"><div class="skc skc-media"></div><p class="skc-cap"><span class="skc skc-capbar w86"></span></p><div class="skc-head"><span class="skc skc-bar w60"></span></div><p class="skc-price"><span class="skc skc-bar w38"></span></p><span class="skc skc-btn"></span><span class="skc skc-btn2"></span></article><article class="skc-card"><div class="skc skc-media"></div><p class="skc-cap"><span class="skc skc-capbar w86"></span></p><div class="skc-head"><span class="skc skc-bar w60"></span></div><p class="skc-price"><span class="skc skc-bar w38"></span></p><span class="skc skc-btn"></span><span class="skc skc-btn2"></span></article><article class="skc-card"><div class="skc skc-media"></div><p class="skc-cap"><span class="skc skc-capbar w86"></span></p><div class="skc-head"><span class="skc skc-bar w60"></span></div><p class="skc-price"><span class="skc skc-bar w38"></span></p><span class="skc skc-btn"></span><span class="skc skc-btn2"></span></article><article class="skc-card"><div class="skc skc-media"></div><p class="skc-cap"><span class="skc skc-capbar w86"></span></p><div class="skc-head"><span class="skc skc-bar w60"></span></div><p class="skc-price"><span class="skc skc-bar w38"></span></p><span class="skc skc-btn"></span><span class="skc skc-btn2"></span></article><article class="skc-card"><div class="skc skc-media"></div><p class="skc-cap"><span class="skc skc-capbar w86"></span></p><div class="skc-head"><span class="skc skc-bar w60"></span></div><p class="skc-price"><span class="skc skc-bar w38"></span></p><span class="skc skc-btn"></span><span class="skc skc-btn2"></span></article><article class="skc-card"><div class="skc skc-media"></div><p class="skc-cap"><span class="skc skc-capbar w86"></span></p><div class="skc-head"><span class="skc skc-bar w60"></span></div><p class="skc-price"><span class="skc skc-bar w38"></span></p><span class="skc skc-btn"></span><span class="skc skc-btn2"></span></article></main>
 <script type="module" src="/app/dist/main.js"></script>
 </body>
 </html>

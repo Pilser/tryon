@@ -10,7 +10,6 @@ import { all, shop, shopSync, productsSync, productSync, invalidateProducts } fr
 import { inquireUrl, shareUrl } from "../core/whatsapp";
 import { waIcon } from "../components/whatsapp-icon";
 import { duoHTML, armDuo } from "../components/duo";
-import { skStudioHTML } from "../components/skeleton";
 import { ribbonCats, catRibbonHTML, armCatRibbon } from "../components/cat-ribbon";
 import { initStudio } from "../components/studio";
 import { initOwnerForm } from "../components/owner-form";
@@ -41,9 +40,8 @@ export async function studio(): Promise<void> {
     await paintProduct(cachedList[0], cachedShop, owner, q, cachedList, true);
   } else if (cachedP && cachedShop) {
     await paintProduct(cachedP, cachedShop, owner, q, cachedList ?? [], true);
-  } else {
-    box.innerHTML = skStudioHTML(); // shimmer silhouette until data arrives
   }
+  // no cache: the skeleton baked into the shell stands in #st-product.
 
   // one parallel round trip replaces the cached paint
   const [fetchedShop, list, deep] = await Promise.all([shop(), all(), id ? getProduct(id) : Promise.resolve(null)]);

@@ -9,6 +9,19 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Poppins:wght@400;600;700&display=swap"/></noscript>
 <style>@view-transition{navigation:auto}</style><link rel="stylesheet" href="/app/dist/shell.css"/>
+<style>/* loading skeleton (YouTube-style): static, pre-JS. Colors come from the shell.css token vars; the container metrics mirror the compiled rules (which override these once main.js maps them) */
+.skc{background-color:var(--xegrvge);background-image:linear-gradient(100deg,rgba(244,247,228,0) 40%,rgba(244,247,228,.09) 50%,rgba(244,247,228,0) 60%);background-size:200% 100%;background-repeat:no-repeat;animation:skc-sweep 1.4s linear infinite}
+@keyframes skc-sweep{from{background-position:200% 0}to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skc{animation:none}}
+main.page{display:grid;gap:14px;width:100%;max-width:1100px;margin-left:auto;margin-right:auto;padding:66px 14px 40px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:720px){main.page{gap:18px;padding-top:78px;padding-left:26px;padding-right:26px}}
+.skc-frame{display:block;width:100%;max-width:520px;aspect-ratio:3/4;border-radius:12px}
+.skc-bar{display:block;height:16px;border-radius:8px}
+.w60{width:62%}.w86{width:86%}.w38{width:38%}
+.skc-btn{display:block;height:44px;border-radius:10px}
+.skc-btn2{display:block;border:1px solid var(--xegrvge);background-color:transparent}
+.skc-stack{display:grid;gap:10px;align-content:start;padding:14px 0;max-width:520px}
+</style>
 <link rel="modulepreload" href="/app/dist/main.js"/>
 </head>
 <body data-page="studio">
@@ -20,7 +33,7 @@
       <p class="page-lead">Pick a photo, try the piece on, and keep every attempt in the ribbon below.</p>
     </div>
   </header>
-  <div id="st-product"></div>
+  <div id="st-product"><div class="skc skc-frame"></div><div class="skc-stack"><span class="skc skc-bar w60"></span><span class="skc skc-bar w86"></span><span class="skc skc-btn"></span><span class="skc skc-btn2"></span></div></div>
   <section class="studio" id="studio">
     <h3 class="tl-head" id="st-tlhead" style="display:none">Your photos - tap to reuse</h3>
     <div id="st-timeline" class="tl-row" style="display:none"></div>

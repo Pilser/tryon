@@ -180,11 +180,6 @@ const riseKf = stylex.keyframes({
   from: { opacity: "0", transform: "translateY(10px)" },
   to: { opacity: "1", transform: "none" },
 });
-/** YouTube-style sweep: a soft highlight slides across the grey block. */
-const shimmerKf = stylex.keyframes({
-  from: { backgroundPosition: "200% 0" },
-  to: { backgroundPosition: "-200% 0" },
-});
 
 /** Extra kit exported separately: applied by stylex.props() at runtime. */
 export const wait = stylex.create({
@@ -227,33 +222,4 @@ export const enterDelays = stylex.create({
   d6: { animationDelay: "270ms" },
   d7: { animationDelay: "315ms" },
   d8: { animationDelay: "420ms" },
-});
-
-/** Skeleton placeholder kit: YouTube's loading state, in house colours.
-    Blocks carry `sk.box` (grey base + the sweeping highlight); shapes
-    (media/bar/btn) size the block to mirror the real element it stands
-    in for, so the layout never jumps when data replaces the skeleton. */
-export const sk = stylex.create({
-  box: {
-    backgroundColor: t.line,
-    backgroundImage:
-      "linear-gradient(100deg, rgba(244,247,228,0) 40%, rgba(244,247,228,.09) 50%, rgba(244,247,228,0) 60%)",
-    backgroundSize: "200% 100%",
-    backgroundRepeat: "no-repeat",
-    animationName: shimmerKf, animationDuration: "1.4s",
-    animationTimingFunction: "linear", animationIterationCount: "infinite",
-  },
-  /** Stands inside the real media frame (aspect ratio comes from it). */
-  media: { width: "100%", height: "100%", display: "block" },
-  /** Product-frame block when no frame element exists (detail/studio). */
-  frame: { width: "100%", aspectRatio: "3 / 4", borderRadius: 12, display: "block" },
-  bar: { height: 16, borderRadius: 8, width: "62%", display: "block" },
-  barWide: { height: 12, borderRadius: 6, width: "86%", display: "block" },
-  barShort: { height: 16, borderRadius: 8, width: "38%", display: "block" },
-  btn: { height: 44, borderRadius: 10, width: "100%", display: "block" },
-  /** Vertical rhythm for the info side of detail/studio skeletons. */
-  stack: {
-    display: "grid", gap: 10, alignContent: "start",
-    paddingTop: 14, paddingBottom: 14,
-  },
 });

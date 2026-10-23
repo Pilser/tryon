@@ -31,16 +31,21 @@ jobs:
           /tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen \
             target/wasm32-unknown-unknown/release/tryon_worker.wasm \
             --out-dir .local-rig/glue-node --target nodejs --out-name tryon_worker
-      - name: upload wasm artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tryon-worker-${{ github.ref_name }}
-          path: |
-            target/wasm32-unknown-unknown/release/*.wasm
-            .local-rig/glue-node/tryon_worker.js
-            .local-rig/glue-node/tryon_worker_bg.wasm
-            .local-rig/glue-node/tryon_worker.d.ts
-          if-no-files-found: error
+      # Release ASSETS (not Actions artifacts): the artifact storage quota
+      # blocked releases mid-2026; release assets are counted separately
+      # and survive. Each job zips its outputs and attaches them to the
+      # tag's release, which the deploy flow downloads.
+      - name: attach wasm to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG="${{ github.ref_name }}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes --title "$TAG"
+          zip -q -r tryon-worker-$TAG.zip \
+            target/wasm32-unknown-unknown/release/tryon_worker.wasm \
+            .local-rig/glue-node
+          gh release upload "$TAG" tryon-worker-$TAG.zip --clobber
 
   imgpipe:
     runs-on: ubuntu-latest
@@ -62,13 +67,15 @@ jobs:
           /tmp/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl/wasm-bindgen \
             target/wasm32-unknown-unknown/release/tryon_imgpipe.wasm \
             --out-dir frontend/dist/imgpipe --target web --out-name imgpipe
-      - name: upload imgpipe artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tryon-imgpipe-${{ github.ref_name }}
-          path: |
-            frontend/dist/imgpipe/
-          if-no-files-found: error
+      - name: attach imgpipe to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG="${{ github.ref_name }}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes --title "$TAG"
+          zip -q -r tryon-imgpipe-$TAG.zip frontend/dist/imgpipe
+          gh release upload "$TAG" tryon-imgpipe-$TAG.zip --clobber
 
   frontend:
     runs-on: ubuntu-latest
@@ -84,18 +91,19 @@ jobs:
       - name: build (esbuild + stylex)
         working-directory: frontend
         run: bun build.ts
-      - name: upload dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tryon-frontend-${{ github.ref_name }}
-          path: |
-            frontend/dist/*.js
-            frontend/dist/*.js.map
-            frontend/dist/stylex.css
-            frontend/*.html
-            frontend/_redirects
-            frontend/_headers
-          if-no-files-found: error
+      - name: attach dist to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG="${{ github.ref_name }}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes --title "$TAG"
+          zip -q -j tryon-frontend-$TAG.zip \
+            frontend/dist/main.js frontend/dist/main.js.map \
+            frontend/dist/stylex.css \
+            frontend/index.html frontend/product.html frontend/studio.html frontend/dashboard.html \
+            frontend/_redirects frontend/_headers
+          gh release upload "$TAG" tryon-frontend-$TAG.zip --clobber
 
   platform:
     runs-on: ubuntu-latest
@@ -138,14 +146,15 @@ jobs:
       - name: build (esbuild + stylex)
         working-directory: SaaSTryon/platform/frontend
         run: bun build.ts
-      - name: upload platform artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tryon-platform-${{ github.ref_name }}
-          path: |
-            SaaSTryon/platform/build/*
-            SaaSTryon/platform/frontend/dist/*
-          if-no-files-found: error
+      - name: attach platform to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG="${{ github.ref_name }}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes --title "$TAG"
+          zip -q -r tryon-platform-$TAG.zip SaaSTryon/platform/build SaaSTryon/platform/frontend/dist
+          gh release upload "$TAG" tryon-platform-$TAG.zip --clobber
 
 
   # The shop bundle: built ONCE per release and stored in R2. Every
@@ -213,12 +222,15 @@ jobs:
           for f in $(find . -type f | sed 's|^\./||'); do
             bunx wrangler@4 r2 object put "$PREFIX/assets/$f" --file "$f" --remote
           done
-      - name: upload bundle artifact (fallback copy)
-        uses: actions/upload-artifact@v4
-        with:
-          name: tryon-bundle-${{ github.ref_name }}
-          path: bundle-out/
-          if-no-files-found: error
+      - name: attach the bundle to the release (deploy flow downloads it)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG="${{ github.ref_name }}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes --title "$TAG"
+          zip -q -r tryon-bundle-$TAG.zip bundle-out
+          gh release upload "$TAG" tryon-bundle-$TAG.zip --clobber
 
   # Optional: publish to Cloudflare when the repo has the secrets
   # (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID). Skipped otherwise, so

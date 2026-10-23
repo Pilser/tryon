@@ -84,14 +84,16 @@ async function paintProduct(
   const box = el("st-product");
   box.innerHTML = `<div id="st-cats"></div>`
     + duoHTML(p)
-    + `<div class="st-info" id="st-info">
-        <p class="st-price">${esc(money(p))}</p>
-        ${p.description ? `<p class="st-desc">${esc(p.description)}</p>` : ""}
-        <div class="st-actions">
-          <button id="st-cp" class="icon-btn" type="button" title="Copy link" aria-label="Copy link">${linkIcon()}</button>
-          <a id="st-wa" class="icon-btn" target="_blank" title="Share" aria-label="Share" href="${esc(waShareUrl(location.origin, p.title, p.id))}">${shareIcon()}</a>
-          <button id="st-dl" class="icon-btn" type="button" title="Download latest photo" aria-label="Download latest photo">${downloadIcon()}</button>
+    + `<div class="st-info" id="st-info" style="display:grid;gap:8px;padding:8px 0 4px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <p class="price" style="margin:0">${esc(money(p))}</p>
+          <div class="row" style="gap:6px;margin:0">
+            <button id="st-cp" class="icon-btn" type="button" title="Copy link" aria-label="Copy link">${linkIcon()}</button>
+            <a id="st-wa" class="icon-btn" target="_blank" title="Share" aria-label="Share" href="${esc(waShareUrl(location.origin, p.title, p.id))}">${shareIcon()}</a>
+            <button id="st-dl" class="icon-btn" type="button" title="Download latest photo" aria-label="Download latest photo">${downloadIcon()}</button>
+          </div>
         </div>
+        ${p.description ? `<p class="hint" style="margin:0">${esc(p.description)}</p>` : ""}
       </div>`;
   armDuo(box);
 

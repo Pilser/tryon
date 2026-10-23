@@ -10,6 +10,11 @@ on:
   push:
     tags: ["v*"]
 
+# The jobs attach their outputs to the tag's release (see the zip steps):
+# the default read-only token cannot create them.
+permissions:
+  contents: write
+
 jobs:
   worker:
     runs-on: ubuntu-latest

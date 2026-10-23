@@ -106,7 +106,7 @@ jobs:
           zip -q -j tryon-frontend-$TAG.zip \
             frontend/dist/main.js frontend/dist/main.js.map \
             frontend/dist/stylex.css \
-            frontend/index.html frontend/product.html frontend/studio.html frontend/dashboard.html \
+            frontend/index.html frontend/studio.html frontend/dashboard.html \
             frontend/_redirects frontend/_headers
           gh release upload "$TAG" tryon-frontend-$TAG.zip --clobber
 

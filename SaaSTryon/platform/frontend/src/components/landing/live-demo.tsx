@@ -13,7 +13,7 @@ export function LiveDemo(props: { feed: Feed | null; live: boolean }): JSX.Eleme
   const first = props.feed?.items[0];
   const frame =
     props.live && first
-      ? `${DEMO.shop}/app/product.html?id=${encodeURIComponent(first.id)}`
+      ? `${DEMO.shop}/app/studio.html?id=${encodeURIComponent(first.id)}`
       : DEMO.app;
   return (
     <section className={cx(ld.section)} id="live">

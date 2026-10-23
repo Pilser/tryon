@@ -377,7 +377,7 @@ export function initOwnerForm(): void {
         const j = await createProduct(fd, loadOwner());
         invalidateProducts(); // the landing grid must not serve pre-add rows
         const ok = el("bd-ok");
-        ok.innerHTML = `Saved: <a href="/app/product.html?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> - now on the landing grid.`;
+        ok.innerHTML = `Saved: <a href="/app/studio.html?id=${encodeURIComponent(j.id)}">${esc(j.id)}</a> - now on the landing grid.`;
         show(ok, true);
         exitEdit();
         window.dispatchEvent(new Event("cats-changed"));

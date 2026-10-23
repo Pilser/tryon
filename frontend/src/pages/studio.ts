@@ -7,14 +7,15 @@
    previous page left behind paints first. */
 import { getProduct, getShop, listProducts, listCategories } from "../core/api";
 import { all, shop, shopSync, productsSync, productSync, invalidateProducts } from "../core/shop-cache";
-import { inquireUrl, shareUrl } from "../core/whatsapp";
+import { inquireUrl, shareUrl, waShareUrl } from "../core/whatsapp";
 import { waIcon } from "../components/whatsapp-icon";
 import { duoHTML, armDuo } from "../components/duo";
+import { linkIcon, shareIcon, downloadIcon } from "../components/icons";
 import { ribbonCats, catRibbonHTML, armCatRibbon } from "../components/cat-ribbon";
 import { initStudio } from "../components/studio";
 import { initOwnerForm } from "../components/owner-form";
-import { brandHTML } from "../core/format";
-import { loadOwner } from "../core/store";
+import { brandHTML, esc, money } from "../core/format";
+import { loadOwner, loadTimeline } from "../core/store";
 import { skin } from "../skin";
 import type { Product, ShopSettings } from "../core/types";
 
@@ -79,9 +80,19 @@ async function paintProduct(
 ): Promise<void> {
   void tentative;
   document.title = "Try on " + p.title + " - " + shopS.shop_name;
+  const link = location.origin + "/app/studio.html?id=" + p.id;
   const box = el("st-product");
   box.innerHTML = `<div id="st-cats"></div>`
-    + duoHTML(p);
+    + duoHTML(p)
+    + `<div class="st-info" id="st-info">
+        <p class="st-price">${esc(money(p))}</p>
+        ${p.description ? `<p class="st-desc">${esc(p.description)}</p>` : ""}
+        <div class="st-actions">
+          <button id="st-cp" class="icon-btn" type="button" title="Copy link" aria-label="Copy link">${linkIcon()}</button>
+          <a id="st-wa" class="icon-btn" target="_blank" title="Share" aria-label="Share" href="${esc(waShareUrl(location.origin, p.title, p.id))}">${shareIcon()}</a>
+          <button id="st-dl" class="icon-btn" type="button" title="Download latest photo" aria-label="Download latest photo">${downloadIcon()}</button>
+        </div>
+      </div>`;
   armDuo(box);
 
   // Category icon ribbon: collapsed icons, tap to expand search + grid.
@@ -104,7 +115,7 @@ async function paintProduct(
   // Inquire sits left in the CTA row; Start appears right of it on photo.
   const inq = document.getElementById("st-inquire") as HTMLAnchorElement | null;
   if (inq) {
-    inq.href = inquireUrl(shopS.owner_whatsapp, shopS.shop_name, p.title, shareUrl(location.origin, p.id));
+    inq.href = inquireUrl(shopS.owner_whatsapp, shopS.shop_name, p.title, link);
     inq.innerHTML = waIcon() + "<span>Inquire</span>";
     (inq as HTMLElement).style.display = "";
   }
@@ -125,6 +136,31 @@ async function paintProduct(
     if (loadOwner()) edit.style.display = "";
   }
   initStudio(p);
+  // Copy link + download latest try-on photo, ported from the retired
+  // product page so studio is the single product view.
+  const cp = document.getElementById("st-cp") as HTMLButtonElement | null;
+  if (cp) {
+    cp.addEventListener("click", () => {
+      const done = (): void => { cp.style.opacity = ".5"; window.setTimeout(() => { cp.style.opacity = ""; }, 1200); };
+      const fallback = (): void => {
+        const i = document.createElement("input"); i.value = link; document.body.appendChild(i); i.select(); document.execCommand("copy"); i.remove(); done();
+      };
+      if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(link).then(done).catch(fallback); else fallback();
+    });
+  }
+  const dl = document.getElementById("st-dl") as HTMLButtonElement | null;
+  if (dl) {
+    dl.addEventListener("click", () => {
+      const first = loadTimeline()[0];
+      if (!first) return;
+      const src = first.kind === "person" ? first.thumb : first.url;
+      if (!src) return;
+      const save = (href: string): void => { const a = document.createElement("a"); a.href = href; a.download = "tryon-photo.jpg"; a.click(); };
+      if (src.startsWith("data:")) { save(src); return; }
+      dl.style.opacity = ".5";
+      void fetch(src).then(async (r) => { const b = await r.blob(); save(URL.createObjectURL(b)); dl.style.opacity = ""; }).catch(() => { dl.style.opacity = ""; window.open(src, "_blank", "noopener"); });
+    });
+  }
   // Deep link from product-page Update: fill the form for this product.
   if (q.get("edit") === "1" && loadOwner()) {
     const fn = (window as unknown as { __bdEdit?: (prod: typeof p) => void }).__bdEdit;

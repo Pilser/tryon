@@ -22,7 +22,7 @@ watch(path.join(ROOT, "src"), { recursive: true }, (_ev, file) => {
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => void build(String(file)), 300);
 });
-for (const f of ["index.html", "product.html", "studio.html"]) {
+for (const f of ["index.html", "studio.html"]) {
   watch(path.join(ROOT, f), () => console.log(`[dev] ${f} changed (served live, no build needed)`));
 }
 

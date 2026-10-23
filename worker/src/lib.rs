@@ -28,7 +28,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get("/", |_, _| moved("/app/"))
         .get_async("/product/:id", |_, ctx| async move {
             let id = ctx.param("id").cloned().unwrap_or_default();
-            moved(&format!("/app/product.html?id={id}"))
+            moved(&format!("/app/studio.html?id={id}"))
         })
         .get("/studio", |_, _| moved("/app/studio.html?owner=1"))
         .get("/dashboard", |_, _| moved("/app/dashboard.html?owner=1"))

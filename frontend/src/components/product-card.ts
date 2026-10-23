@@ -62,7 +62,7 @@ export function cardHTML(p: Product, shop: string, owner: string, i = 0): string
   const single = !(p.styled_image_url || p.model_image_url);
   const enter = i > 0 ? cardEnterCls(i) : "";
   return `<article class="${cx(s.root)} productcard${enter}" data-garment="${esc(b.g)}" data-model="${esc(b.m)}" data-styled="${esc(b.s)}">
-    <a class="${cx(s.media)}" href="/app/product.html?id=${esc(p.id)}" tabindex="-1"><img class="${cx(s.img)} main" loading="lazy" decoding="async" draggable="false" src="${esc(b.g)}" alt="${esc(p.title)}"/></a>
+    <a class="${cx(s.media)}" href="/app/studio.html?id=${esc(p.id)}" tabindex="-1"><img class="${cx(s.img)} main" loading="lazy" decoding="async" draggable="false" src="${esc(b.g)}" alt="${esc(p.title)}"/></a>
     <div class="${cx(s.badgePill)}"></div><p class="${cx(s.badge)}">${esc(p.category)}</p>
     ${single ? "" : `<button class="${cx(s.inset)} model-inset" aria-label="see it worn"><img class="${cx(s.insetImg)} inset-img" loading="lazy" decoding="async" draggable="false" src="${esc(b.s)}" alt="model wearing it"/></button>
     <p class="${cx(s.caption)} swap-cur">${CAP_G}</p>`}

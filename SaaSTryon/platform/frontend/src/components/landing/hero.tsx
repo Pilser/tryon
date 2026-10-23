@@ -16,7 +16,7 @@ export function Hero(props: { feed: Feed | null; live: boolean }): JSX.Element {
   /* The frame points at the real try-on page of a real product. When
      the live feed is not readable we still show the shop itself. */
   const frame = props.live && first
-    ? `${DEMO.shop}/app/product.html?id=${encodeURIComponent(first.id)}`
+    ? `${DEMO.shop}/app/studio.html?id=${encodeURIComponent(first.id)}`
     : DEMO.app;
 
   return (

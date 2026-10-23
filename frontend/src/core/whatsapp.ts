@@ -12,7 +12,7 @@ export const inquireUrl = (owner: string, shop: string, title: string, productUr
   );
 
 export const shareUrl = (origin: string, productId: string): string =>
-  origin.replace(/\/$/, "") + "/app/product.html?id=" + encodeURIComponent(productId);
+  origin.replace(/\/$/, "") + "/app/studio.html?id=" + encodeURIComponent(productId);
 
 export const waShareUrl = (origin: string, title: string, productId: string): string =>
   "https://wa.me/?text=" + encodeURIComponent(`Check this out: ${title} ${shareUrl(origin, productId)}`);

@@ -26,7 +26,7 @@ export const card = stylex.create({
     color: t.text, fontSize: 13, textAlign: "center",
   },
   inset: {
-    position: "absolute", right: 12, bottom: 12, width: 72, height: 96,
+    position: "absolute", right: 10, bottom: 10, width: 60, height: 80,
     borderRadius: 8, backgroundColor: t.line,
     borderWidth: 2, borderStyle: "solid", borderColor: "#f4f7e4",
     padding: 0, overflow: "hidden", cursor: "pointer",

@@ -20,6 +20,8 @@ pub fn validate(req: &TryOnRequest) -> Result<(), &'static str> {
 /// Build the Genlook `POST /try-on/sync` body (same shape as async
 /// `POST /try-on`). Product sent inline on first use so Genlook analyzes
 /// it; later calls can send only `{ externalId }` for a faster result.
+/// `output.aiLabel: false` turns the EU-AI-Act badge off (the storefront
+/// labels generated photos as AI try-ons itself — see docs/GENLOOK_API.md).
 pub fn build_sync_body(
     external_id: &str,
     title: &str,
@@ -35,6 +37,7 @@ pub fn build_sync_body(
             "images": [{ "source": { "url": product_image_url } }],
         }],
         "person": { "image": { "source": { "id": person_image_id } } },
+        "output": { "aiLabel": false },
     })
 }
 
@@ -209,6 +212,7 @@ mod tests {
         let b = build_sync_body("shirt-42", "Tee", "Cotton tee", "https://cdn/x.jpg", "img1");
         assert_eq!(b["products"][0]["externalId"], json!("shirt-42"));
         assert_eq!(b["person"]["image"]["source"]["id"], json!("img1"));
+        assert_eq!(b["output"]["aiLabel"], json!(false));
     }
 
     #[test]

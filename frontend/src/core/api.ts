@@ -20,6 +20,7 @@ interface SyncResult {
     message?: string;
     status?: string;
     code?: string;
+    details?: { generationId?: string };
   } & Partial<Allowance>;
 }
 

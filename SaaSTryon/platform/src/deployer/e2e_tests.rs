@@ -368,6 +368,13 @@ fn subdomain_taken_fails_before_any_cf_call() {
                 _ => own,
             })
         }
+        async fn shop_of(
+            &self,
+            owner: &str,
+            sub: &str,
+        ) -> Result<Option<ShopRow>, String> {
+            self.inner.shop_of(owner, sub).await
+        }
         async fn record_shop(&self, row: &ShopRow) -> Result<(), String> {
             self.inner.record_shop(row).await
         }

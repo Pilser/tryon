@@ -212,6 +212,8 @@ mod tests {
         let u = UserRow {
             id: "usr_2".into(),
             email: "b@x.io".into(),
+            name: String::new(),
+            reg_no: String::new(),
             contact: String::new(),
             shop_name: "B-Tricky NAME".into(),
             status: "pending".into(),

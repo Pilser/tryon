@@ -1,11 +1,14 @@
 /* outbound.rs - the Genlook proxy for tenant shops (Phase E). A tenant
 shop calls `/api/v1/shop/genlook/<path>` with Bearer = its cluster
-secret; we meter one `tryon_tokens` credit per call (atomic
-check-and-decrement that fails closed when the D1 meta counter is
-unknown), then forward to Genlook with the platform's key. The shop
-never sees the platform key. A Genlook 5xx (or a transport error)
-refunds the credit; a 4xx consumes it — the attempt was metered
-capacity, the payload was the shop's fault. */
+secret; ONLY try-on-creating paths (`try-on`, `try-on/sync`) meter one
+`tryon_tokens` credit (atomic check-and-decrement that fails closed when
+the D1 meta counter is unknown). Uploads (`images/upload`) and polls
+(`generations/:id`) are free — Genlook charges only for generation, so
+we must not charge for anything else. Forward with the platform's key;
+the shop never sees it. A Genlook 5xx (or a transport error) refunds the
+credit when one was metered; a 4xx consumes it — the attempt was metered
+capacity, the payload was the shop's fault. Transport errors always come
+back as JSON `{code,message,status}` so the shop surfaces a real message. */
 use worker::{Env, Error, Fetch, Headers, Method, Request, RequestInit, Response, Result};
 
 use crate::{auth, http, shops, store};
@@ -64,10 +67,22 @@ pub fn genlook_target(base: &str, path: &str) -> String {
     )
 }
 
+/// The Genlook paths that start a generation and therefore cost a credit.
+/// Uploads (`images/upload`) and polls (`generations/:id`) are free —
+/// Genlook bills only for generation, so the meter must match that.
+pub fn is_metered_path(path: &str) -> bool {
+    path == "try-on" || path.starts_with("try-on/")
+}
+
 /// `GET|POST /api/v1/shop/genlook/<path>` — shop-authenticated Genlook
 /// proxy with per-shop credit metering. `path` is the remainder of the
 /// Genlook API path (e.g. `images/upload`, `try-on/sync`,
 /// `generations/<id>`), passed through verbatim.
+///
+/// Only try-on-creating paths cost a credit; uploads and polls are free
+/// (Genlook bills for generation only). Transport errors / upstream 5xx
+/// refund the metered credit and answer a JSON error body so the shop's
+/// frontend can show the real problem instead of a bare 500.
 pub async fn handle_genlook(env: Env, req: &mut Request, path: String) -> Result<Response> {
     let Some(token) = auth::bearer(req.headers()) else {
         return http::unauthorized();
@@ -78,9 +93,16 @@ pub async fn handle_genlook(env: Env, req: &mut Request, path: String) -> Result
     };
     let now = auth::now_ms();
 
-    // Meter first: the atomic UPDATE only fires when the balance is >= 1,
-    // so an empty shop is refused before any Genlook spend happens.
-    let paid = shops::consume_credit(&db, &shop.id, now).await?;
+    // Meter only generation-creating calls. `try-on` and `try-on/sync`
+    // are the only paths that start a generation (and therefore cost a
+    // credit). Everything else — `images/upload`, `generations/:id`,
+    // `products`, `check-credits` — is free.
+    let metered = is_metered_path(&path);
+    let paid = if metered {
+        shops::consume_credit(&db, &shop.id, now).await?
+    } else {
+        true
+    };
     if !paid {
         return http::json_error(
             402,
@@ -117,17 +139,28 @@ pub async fn handle_genlook(env: Env, req: &mut Request, path: String) -> Result
     let upstream = Request::new_with_init(&genlook_target(&base(&env), &path), &init)?;
     let resp = match Fetch::Request(upstream).send().await {
         Ok(r) => r,
-        // Transport failure: refund so the shop is not charged for a call
-        // Genlook never saw.
+        // Transport failure: refund if a credit was metered (the call
+        // never reached Genlook) and answer a JSON error so the shop can
+        // show a real message instead of an opaque 500.
         Err(e) => {
-            let _ = shops::grant_credits(&db, &shop.id, 1, now).await;
-            return Err(e);
+            let _ = e;
+            if metered {
+                let _ = shops::grant_credits(&db, &shop.id, 1, now).await;
+            }
+            return http::json_error(
+                502,
+                "GENLOOK_UNREACHABLE",
+                "try-on service unreachable — please retry",
+            );
         }
     };
     if resp.status_code() >= 500 {
-        // Genlook-side outage: refund. A 4xx keeps the charge — metered
-        // capacity was used, the payload was the caller's fault.
-        shops::grant_credits(&db, &shop.id, 1, now).await?;
+        // Genlook-side outage: refund a metered credit. A 4xx keeps the
+        // charge — metered capacity was used, the payload was the caller's
+        // fault.
+        if metered {
+            shops::grant_credits(&db, &shop.id, 1, now).await?;
+        }
     }
     Ok(resp)
 }
@@ -164,5 +197,17 @@ mod tests {
             genlook_target("https://api.genlook.app/tryon/v1/", "/try-on/sync"),
             "https://api.genlook.app/tryon/v1/try-on/sync"
         );
+    }
+
+    #[test]
+    fn only_try_on_paths_meter_a_credit() {
+        // Generation-creating paths are charged.
+        assert!(is_metered_path("try-on"));
+        assert!(is_metered_path("try-on/sync"));
+        // Free paths must NOT be charged (uploads, polls, products…).
+        assert!(!is_metered_path("images/upload"));
+        assert!(!is_metered_path("generations/cm8gen456xyz"));
+        assert!(!is_metered_path("products"));
+        assert!(!is_metered_path("check-credits"));
     }
 }

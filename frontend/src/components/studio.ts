@@ -274,9 +274,14 @@ export function initStudio(product: Product): void {
         return;
       }
       let url: string | null = null;
+      // The generation id arrives either on 202 (pending) or, when the
+      // sync path ran out of time (GENERATION_TIMEOUT), inside
+      // `details.generationId` — Genlook keeps generating, so poll it
+      // instead of failing over a completed image.
+      const gid = body.generationId || body.details?.generationId;
       if (status === 200 && body.resultImageUrl) url = body.resultImageUrl;
-      else if (status === 202 && body.generationId) {
-        url = await pollGeneration(body.generationId, () => genWaiter?.phase("Checking result"));
+      else if (gid) {
+        url = await pollGeneration(gid, () => genWaiter?.phase("Checking result"));
       } else throw new Error(body.message || "try-on failed (credit refunded)");
       stopAnim(); show(el("st-prog"), false);
       // The result feeds the user card (hold = original, release = result)

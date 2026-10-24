@@ -1,11 +1,14 @@
-/* pages/landing.ts - compose only: shop + inline search/filter + cards.
-   Paints the grid from the previous page's cache instantly, then one
-   parallel round trip replaces it with live data (the old code chained
-   THREE round trips before anything appeared). */
-import { getShop, listProducts } from "../core/api";
+/* pages/landing.ts - compose only: shop + inline search/filter + cards +
+   category ribbon. The ribbon mirrors the studio one: a scrollable row of
+   category icons; tapping one reveals that category's products in a mini
+   grid below (search inside it, tap a product to open its studio page).
+   The hero is intentionally compact so the first product row is reachable
+   without scrolling on phones. */
+import { getShop, listProducts, listCategories } from "../core/api";
 import { all as allProducts, shopSync, productsSync } from "../core/shop-cache";
 import { esc, brandHTML } from "../core/format";
 import { cardHTML, armAll } from "../components/product-card";
+import { ribbonCats, catRibbonHTML, armCatRibbon } from "../components/cat-ribbon";
 import { skin } from "../skin";
 import type { Product } from "../core/types";
 
@@ -40,10 +43,10 @@ export async function landing(): Promise<void> {
   el<HTMLInputElement>("q").value = query;
 
   // one parallel round trip replaces what the cache showed. Unfiltered
-  // pages reuse the all-list as THE list (single note: the cache-aware
-  // all() keeps the next page's instant paint alive); filtered pages
-  // still ask the server (exact semantics), now in PARALLEL not chain.
-  const allP = allProducts(); // cache-aware; fresh hits paint from cache alone
+  // pages reuse the all-list as THE list (cache-aware all() keeps the
+  // next page's instant paint alive); filtered pages ask the server
+  // (exact semantics), in PARALLEL not chain.
+  const allP = allProducts();
   const listP = query || category ? listProducts({ q: query, category }) : allP;
   const [shopNow, allList, list] = await Promise.all([getShop(), allP, listP]);
   if (brand) brand.innerHTML = brandHTML(shopNow);
@@ -52,6 +55,18 @@ export async function landing(): Promise<void> {
   sel.innerHTML = `<option value="">All</option>` + cats.map((c) =>
     `<option value="${esc(c)}"${c === category ? " selected" : ""}>${esc(c)}</option>`).join("");
   paintGrid(list, shopNow.shop_name, shopNow.owner_whatsapp);
+
+  // Category ribbon: same component as the studio — scrollable icon row,
+  // tap reveals a mini-grid of that category's products.
+  const zone = document.getElementById("st-cats");
+  if (zone) {
+    const rc = ribbonCats(await listCategories(), allList);
+    if (rc.length) {
+      zone.innerHTML = catRibbonHTML(rc);
+      armCatRibbon(zone, rc, allList, false);
+      skin();
+    }
+  }
 
   el("search-form").addEventListener("submit", (ev) => {
     ev.preventDefault();

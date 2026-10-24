@@ -138,4 +138,22 @@ export const base = stylex.create({
     fontSize: 14,
     textDecoration: "none",
   },
+  /* Landing search toggle: an icon in the navbar instead of a full bar,
+     so the hero keeps its space until the shopper asks for search. */
+  searchToggle: {
+    position: "absolute",
+    right: 48,
+    top: 8,
+    width: 24,
+    height: 24,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: t.muted,
+    fontSize: 14,
+    backgroundColor: "transparent",
+    borderStyle: "none",
+    cursor: "pointer",
+    ":hover": { color: t.text },
+  },
 });

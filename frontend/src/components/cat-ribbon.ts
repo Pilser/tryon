@@ -63,10 +63,14 @@ export function othersOf(products: Product[], keys: Set<string>): Product[] {
 }
 
 export function catRibbonHTML(cats: RibbonCat[]): string {
-  return `<div class="${cx(s.row)}" id="st-cat-row">` + cats.map((c) =>
-    `<button class="${cx(s.item)}" type="button" data-cat="${esc(c.key)}" title="${esc(c.title)}">`
-    + (c.img ? `<img class="${cx(s.img)}" loading="lazy" decoding="async" src="${esc(c.img)}" alt=""/>` : `<span class="${cx(s.img)} ${cx(s.imgBlank)}">?</span>`)
-    + `<span class="${cx(s.label)}">${esc(c.title)}</span></button>`).join("") + `</div>`
+  return `<div class="${cx(s.wrap)}" id="st-cat-wrap">`
+    + `<div class="${cx(s.row)}" id="st-cat-row">` + cats.map((c) =>
+      `<button class="${cx(s.item)}" type="button" data-cat="${esc(c.key)}" title="${esc(c.title)}">`
+      + (c.img ? `<img class="${cx(s.img)}" loading="lazy" decoding="async" src="${esc(c.img)}" alt=""/>` : `<span class="${cx(s.img)} ${cx(s.imgBlank)}">?</span>`)
+      + `<span class="${cx(s.label)}">${esc(c.title)}</span></button>`).join("") + `</div>`
+    + `<button class="${cx(s.arrow, s.arrowL)}" id="st-cat-prev" type="button" aria-label="Scroll categories left">&#8249;</button>`
+    + `<button class="${cx(s.arrow, s.arrowR)}" id="st-cat-next" type="button" aria-label="Scroll categories right">&#8250;</button>`
+    + `</div>`
     + `<div class="${cx(s.panel)}" id="st-cat-panel" style="display:none">`
     + `<input class="${cx(s.q)}" id="st-cat-q" type="search" placeholder="Search in this category"/>`
     + `<h4 class="${cx(s.title)}" id="st-cat-title"></h4>`
@@ -74,12 +78,34 @@ export function catRibbonHTML(cats: RibbonCat[]): string {
 }
 
 export function armCatRibbon(box: HTMLElement, cats: RibbonCat[], products: Product[], owner: boolean): void {
-  const row = box.querySelector("#st-cat-row");
+  const wrap = box.querySelector("#st-cat-wrap") as HTMLElement | null;
+  const row = box.querySelector("#st-cat-row") as HTMLElement | null;
+  const prev = box.querySelector("#st-cat-prev") as HTMLButtonElement | null;
+  const next = box.querySelector("#st-cat-next") as HTMLButtonElement | null;
   const panel = box.querySelector("#st-cat-panel") as HTMLElement | null;
   const q = box.querySelector("#st-cat-q") as HTMLInputElement | null;
   const grid = box.querySelector("#st-cat-grid");
   const title = box.querySelector("#st-cat-title");
   if (!row || !panel || !q || !grid || !title) return;
+  /* Horizontal scroll affordance: arrows appear only when items overflow
+     the viewport (they never wrap — the row is one line). */
+  const updateArrows = (): void => {
+    if (!wrap || !prev || !next) return;
+    const max = row.scrollWidth - row.clientWidth;
+    const atStart = row.scrollLeft <= 2;
+    const atEnd = max <= 2 || row.scrollLeft >= max - 2;
+    setCls(prev, cx(s.arrowOn), !atStart);
+    setCls(next, cx(s.arrowOn), !atEnd);
+  };
+  const nudge = (dir: -1 | 1): void => {
+    row.scrollBy({ left: dir * Math.max(180, row.clientWidth * 0.6), behavior: "smooth" });
+  };
+  prev?.addEventListener("click", () => nudge(-1));
+  next?.addEventListener("click", () => nudge(1));
+  row.addEventListener("scroll", updateArrows, { passive: true });
+  window.addEventListener("resize", updateArrows);
+  updateArrows();
+
   let open = "";
   const known = new Set(cats.map((c) => c.key).filter(Boolean));
   const paintGrid = (): void => {

@@ -1,14 +1,14 @@
-/* pages/landing.ts - compose only: shop + inline search/filter + cards +
-   category ribbon. The ribbon mirrors the studio one: a scrollable row of
-   category icons; tapping one reveals that category's products in a mini
-   grid below (search inside it, tap a product to open its studio page).
-   The hero is intentionally compact so the first product row is reachable
-   without scrolling on phones. */
+/* pages/landing.ts - compose only: shop + category ribbon + search +
+   cards. The hero is deliberately compact: search is behind an icon in
+   the navbar (revealed on tap), the product count only shows for the
+   logged-in owner, and the ribbon mirrors the studio one (scrollable
+   icons, tap reveals a category mini-grid). */
 import { getShop, listProducts, listCategories } from "../core/api";
 import { all as allProducts, shopSync, productsSync } from "../core/shop-cache";
 import { esc, brandHTML } from "../core/format";
 import { cardHTML, armAll } from "../components/product-card";
 import { ribbonCats, catRibbonHTML, armCatRibbon } from "../components/cat-ribbon";
+import { loadOwner } from "../core/store";
 import { skin } from "../skin";
 import type { Product } from "../core/types";
 
@@ -19,7 +19,12 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
 }
 
 function paintGrid(list: Product[], name: string, wa: string): void {
-  el("count").textContent = list.length + " products";
+  // The "N products" line is owner-only (it eats hero space for guests).
+  if (loadOwner()) {
+    const c = el("count");
+    c.textContent = list.length + " products";
+    c.style.display = "";
+  }
   el("grid").innerHTML = list.map((p, i) => cardHTML(p, name, wa, i)).join("");
   armAll();
   skin();
@@ -40,6 +45,23 @@ export async function landing(): Promise<void> {
   // no cache: the skeleton baked into the shell HTML stands in the grid
   // until this fetch answers (YouTube's loading state, zero JS needed).
 
+  // Search toggle: a navbar icon reveals the compact search row.
+  const toggle = document.getElementById("search-toggle");
+  const form = document.getElementById("search-form");
+  if (toggle && form) {
+    toggle.addEventListener("click", () => {
+      const visible = form.style.display !== "none" && form.style.display !== "";
+      if (visible) {
+        form.style.display = "none";
+        toggle.setAttribute("aria-expanded", "false");
+      } else {
+        form.style.display = "";
+        toggle.setAttribute("aria-expanded", "true");
+        el<HTMLInputElement>("q").focus();
+      }
+    });
+  }
+
   el<HTMLInputElement>("q").value = query;
 
   // one parallel round trip replaces what the cache showed. Unfiltered
@@ -56,8 +78,8 @@ export async function landing(): Promise<void> {
     `<option value="${esc(c)}"${c === category ? " selected" : ""}>${esc(c)}</option>`).join("");
   paintGrid(list, shopNow.shop_name, shopNow.owner_whatsapp);
 
-  // Category ribbon: same component as the studio — scrollable icon row,
-  // tap reveals a mini-grid of that category's products.
+  // Category ribbon: same component as the studio — scrollable icon row
+  // (with chevrons on overflow), tap reveals that category's products.
   const zone = document.getElementById("st-cats");
   if (zone) {
     const rc = ribbonCats(await listCategories(), allList);

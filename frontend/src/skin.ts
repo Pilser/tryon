@@ -16,6 +16,7 @@ const MAP: Array<[string, any[]]> = [
   [".topbar", [base.topbar]],  [".brand", [base.brand]],
   [".nav-back", [base.navBack]],
   [".studio-link", [base.studioLink]],
+  [".search-toggle", [base.searchToggle]],
   [".hero-title", [landing.heroTitle]],
   [".hero-sub", [landing.heroSub]],
   [".glow", [landing.glow]],

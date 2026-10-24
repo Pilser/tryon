@@ -11,8 +11,9 @@ export const landing = stylex.create({
     position: "relative", overflow: "hidden",
     display: "grid", justifyItems: "center", textAlign: "center",
     gap: 8, width: "100%", maxWidth: 1100, marginLeft: "auto", marginRight: "auto",
-    paddingTop: 10, paddingBottom: 6, paddingLeft: 14, paddingRight: 14,
-    "@media (min-width: 720px)": { gap: 10, paddingTop: 16, paddingBottom: 8 },
+    /* Clear the 40px navbar without wasting a huge hero. */
+    paddingTop: 46, paddingBottom: 6, paddingLeft: 14, paddingRight: 14,
+    "@media (min-width: 720px)": { gap: 10, paddingTop: 58, paddingBottom: 8 },
   },
   glow: {
     position: "absolute", left: "50%", top: -180, width: 640, height: 420,
@@ -30,7 +31,7 @@ export const landing = stylex.create({
     "@media (min-width: 720px)": { fontSize: 14 },
   },
   search: {
-    width: "100%", maxWidth: 620, height: 42, borderRadius: 10,
+    width: "100%", maxWidth: 620, height: 40, borderRadius: 10,
     backgroundColor: t.surface, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
     display: "flex", alignItems: "center", gap: 4, boxSizing: "border-box",
     paddingLeft: 10, paddingRight: 4, paddingTop: 3, paddingBottom: 3,
@@ -40,15 +41,15 @@ export const landing = stylex.create({
   searchInput: {
     flexGrow: 1, minWidth: 0,
     backgroundColor: "transparent", borderStyle: "none", outlineStyle: "none",
-    color: t.text, fontSize: 14, height: 32,
+    color: t.text, fontSize: 14, height: 30,
   },
   catSel: {
-    flexShrink: 0, maxWidth: 112, height: 34, borderRadius: 8,
+    flexShrink: 0, maxWidth: 104, height: 30, borderRadius: 8,
     backgroundColor: t.bg, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
-    color: t.text, fontSize: 13, paddingLeft: 8, paddingRight: 4, outlineStyle: "none",
+    color: t.text, fontSize: 12, paddingLeft: 6, paddingRight: 2, outlineStyle: "none",
   },
   searchGo: {
-    flexShrink: 0, width: 34, height: 34, borderRadius: 8,
+    flexShrink: 0, width: 30, height: 30, borderRadius: 8,
     backgroundColor: t.primary, color: t.primaryInk,
     borderStyle: "none", cursor: "pointer",
     display: "flex", alignItems: "center", justifyContent: "center",

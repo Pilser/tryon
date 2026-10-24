@@ -255,12 +255,30 @@ export const compare = stylex.create({
 
 /* Category ribbon + expandable panel (studio page). */
 export const cats = stylex.create({
+  wrap: {
+    position: "relative",
+  },
   row: {
     display: "flex", gap: 10, overflowX: "auto", paddingTop: 8, paddingBottom: 8,
     scrollbarWidth: "none",
     "::-webkit-scrollbar": { display: "none" },
     "@media (max-width: 720px)": { gap: 8, paddingTop: 4, paddingBottom: 4 },
   },
+  /* Scroll affordances: chevrons float over the ribbon edges. They only
+     appear when the row actually overflows (JS toggles visibility). */
+  arrow: {
+    position: "absolute", top: "50%", transform: "translateY(-50%)",
+    zIndex: 2, width: 28, height: 28, borderRadius: 999,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    backgroundColor: t.surface, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
+    color: t.text, fontSize: 14, lineHeight: 1, cursor: "pointer",
+    opacity: 0, pointerEvents: "none",
+    transitionProperty: "opacity", transitionDuration: ".15s",
+    boxShadow: "0 2px 8px rgba(0,0,0,.35)",
+  },
+  arrowL: { left: 2 },
+  arrowR: { right: 2 },
+  arrowOn: { opacity: 1, pointerEvents: "auto" },
   item: {
     display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
     flexShrink: 0, width: 72, padding: 6, borderRadius: 10, cursor: "pointer",

@@ -57,7 +57,8 @@ export const landing = stylex.create({
   count: { margin: 0, color: t.muted, fontSize: 12 },
   grid: {
     display: "grid", gap: 12,
-    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+    /* Mobile: exactly 2 columns (product cards + skeletons match). */
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     width: "100%", maxWidth: 1100, marginLeft: "auto", marginRight: "auto",
     paddingLeft: 14, paddingRight: 14, paddingBottom: 40, paddingTop: 8,
     "@media (min-width: 720px)": {

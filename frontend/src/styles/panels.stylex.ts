@@ -311,9 +311,11 @@ export const cats = stylex.create({
     color: t.text, fontSize: 15, paddingLeft: 14, paddingRight: 14, outlineStyle: "none",
   },
   title: { marginTop: 10, marginBottom: 8, marginLeft: 0, marginRight: 0, fontSize: 15, color: t.text },
-  grid: { display: "flex", flexWrap: "wrap", gap: 10 },
+  /* Products in the chosen category: ONE row, horizontal scroll (the
+     same pattern as the ribbon itself — never wraps onto another line). */
+  grid: { display: "flex", flexWrap: "nowrap", gap: 10, overflowX: "auto", paddingBottom: 4 },
   mini: {
-    width: 104, borderRadius: 10, overflow: "hidden", textDecoration: "none",
+    flexShrink: 0, width: 104, borderRadius: 10, overflow: "hidden", textDecoration: "none",
     backgroundColor: t.bg, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
   },
   miniImg: { width: "100%", height: 120, objectFit: "cover", display: "block" },

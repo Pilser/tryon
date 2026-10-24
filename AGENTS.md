@@ -8,38 +8,54 @@ These rules are load-bearing. Slow disk + 7.6 GiB RAM: a stray `cargo build --re
 - NEVER `--release`, NEVER `--profile release`, NEVER `lto`, NEVER `strip` locally.
 - NEVER `cargo bench`, NEVER `cargo fuzz`.
 - NEVER two `cargo` processes at once (one check/test at a time — subagents serialize).
-- NEVER set `CARGO_TARGET_DIR` to the repo (`./target`) — it hammers the slow disk. ALWAYS RAM (§2).
+- NEVER set `CARGO_TARGET_DIR` to the repo (`./target`) — it hammers the slow disk. ALWAYS the wrappers' target dirs (§2: RAM first, disk overflow allowed).
 - Vendor exception: `_vendor/embedded-agent/AGENTS.md` says never `cargo check` there — that rule stays INSIDE `_vendor` only. For `crates/*`, `cargo check` + `cargo test` via §2 wrappers are the ONLY allowed commands.
 
-## 2. ONLY allowed locally: check + test, in RAM, capped
+## 2. ONLY allowed locally: check + test, capped (RAM first, disk allowed)
 
 All local cargo runs MUST go through the wrappers (they set target dir + caps):
 
 ```bash
-./scripts/ram-check.sh -p <crate>  # == cargo check --tests -p <crate>, RAM target + caps
-./scripts/ram-test.sh -p <crate>   # == cargo test -p <crate>, RAM target + caps
+./scripts/ram-check.sh -p <crate>  # == cargo check --tests -p <crate>, target dir + caps
+./scripts/ram-test.sh -p <crate>   # == cargo test -p <crate>, target dir + caps
 ./scripts/check-bloat.sh # no caps needed, always allowed
 cargo fmt --check        # allowed (no build artifacts)
 ```
+
+LOCAL DISK BUILD IS ALLOWED (agreed 2026-10-24): the primary RAM target
+`/dev/shm/ca-target` is mounted `noexec` on this machine, so build scripts
+(proc-macro etc.) cannot run from it. When the wrappers fail with
+`Permission denied (os error 13)` from `/dev/shm`, use the disk overflow
+target `/tmp/opencode/ca-target` instead — **no per-run `allow-disk-target`
+permission is needed anymore**. This is the DEFAULT fallback, not a last
+resort. Constraints that stay in force:
+
+- Target dir is NEVER the repo (`./target`); it is `/dev/shm/ca-target` or
+  `/tmp/opencode/ca-target`.
+- `--jobs 1` and one crate at a time when on disk (never more parallel than
+  RAM-reasonable).
+- Never `--release` (CI builds the binaries; this machine only checks).
 
 SCOPE RULE (resource saving): ALWAYS pass `-p <phase-crate>` — check/test ONLY the crate you changed. NEVER `--workspace` (wrappers refuse it). Full-workspace runs are allowed ONLY at integration phases (8+) with explicit user approval.
 
 What the wrappers set (do NOT override to be more parallel):
 
 ```bash
-export CARGO_TARGET_DIR=/dev/shm/ca-target        # RAM tmpfs, never repo ./target
+export CARGO_TARGET_DIR=/dev/shm/ca-target        # RAM tmpfs (primary)
+# fallback: CARGO_TARGET_DIR=/tmp/opencode/ca-target (disk, slow, allowed)
 export CARGO_BUILD_JOBS=2                          # 4-core box: leave 2 cores for desktop
 export CARGO_INCREMENTAL=0                         # less RAM, slower rebuild is fine
 export RUSTFLAGS="-C codegen-units=4"              # cap parallel codegen memory
 # invocation: cargo check --tests -p <crate> --jobs 2
 #             cargo test -p <crate> --jobs 2 -- --test-threads=2
+# on disk:   --jobs 1
 ```
 
-RAM guardrails (wrappers enforce, humans too):
+Guardrails (wrappers enforce, humans too):
 
-- `/dev/shm` is only ~1.6 GiB. Before running: `df -h /dev/shm` must show ≥1 GiB free, `free -h` must show ≥2 GiB available. Else DO NOT RUN — ask user to close apps or defer to CI.
+- `/dev/shm` is only ~1.6 GiB. Before running: `df -h /dev/shm` must show ≥1 GiB free, `free -h` must show ≥2 GiB available. Else use the disk target (`/tmp/opencode/ca-target`) or ask user to close apps / defer to CI.
 - If `/dev/shm` is full: `rm -rf /dev/shm/ca-target/*` is allowed; NEVER `rm -rf target/` in repo (there should be no such dir — if one exists, delete it once and never recreate).
-- Pre-approved overflow dir `/tmp/opencode/ca-target` (disk, slow) is LAST resort and ONLY if user explicitly says `allow-disk-target`. Even then: `--jobs 1`, one crate at a time.
+- Disk overflow `/tmp/opencode/ca-target` is pre-approved (see above). It is slow disk — expect longer builds; keep `--jobs 1` and one crate at a time.
 - If OOM risk (compile stalls, swap climbing per `free`): Ctrl-C immediately, report, defer to CI.
 
 ## 3. Binaries ONLY in CI (release-only, cached)
@@ -73,5 +89,5 @@ Phases are in `docs/ARCHITECTURE.md §7`. Rules for every implementation subagen
 | bloat gate | `./scripts/check-bloat.sh --max 500` |
 | format | `cargo fmt` (check-only `cargo fmt --check` in CI) |
 | local binary | NO — open a PR, let `release.yml` build it |
-| disk slow | expected — that is WHY target dir is RAM |
+| disk slow | expected — that is WHY the disk overflow target is jobs-1 / one-crate-at-a-time |
 | machine freezing | Ctrl-C, `rm -rf /dev/shm/ca-target`, report, defer to CI |

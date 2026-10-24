@@ -19,7 +19,8 @@ export interface Allowance {
 
 const ID_KEY = "tryon.device.v1";
 
-/** Browser signals the server hashes into a restore key. */
+/** Browser signals the server hashes into a restore key. No canvas (Safari
+    randomizes it): hardware-shape signals only, which are stable. */
 export const fingerprintParts = (): string => {
   const tz = (() => {
     try {
@@ -34,6 +35,9 @@ export const fingerprintParts = (): string => {
     tz,
     navigator.language || "",
     navigator.platform || "",
+    `${navigator.hardwareConcurrency ?? ""}`,
+    `${(navigator as { deviceMemory?: number }).deviceMemory ?? ""}`,
+    `${navigator.maxTouchPoints ?? ""}`,
   ].join("|");
 };
 

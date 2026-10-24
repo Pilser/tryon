@@ -13,7 +13,7 @@ use worker::{Env, Request, Response};
 use crate::routes::errors;
 
 /// Idempotent schema, one statement per element (`exec` takes one at a time).
-pub const USAGE_DDL: [&str; 4] = [
+pub const USAGE_DDL: [&str; 5] = [
     "CREATE TABLE IF NOT EXISTS devices (
         id TEXT PRIMARY KEY,
         fingerprint TEXT NOT NULL DEFAULT '',
@@ -46,6 +46,14 @@ pub const USAGE_DDL: [&str; 4] = [
     "CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL DEFAULT ''
+    )",
+    "CREATE TABLE IF NOT EXISTS device_ips (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_id TEXT NOT NULL,
+        ip TEXT NOT NULL,
+        first_seen_ms INTEGER NOT NULL DEFAULT 0,
+        last_seen_ms INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(device_id, ip)
     )",
 ];
 
@@ -94,6 +102,31 @@ pub fn fingerprint(parts: &[&str]) -> String {
 pub fn clean_whatsapp(raw: &str) -> String {
     raw.chars().filter(|c| c.is_ascii_digit()).collect()
 }
+
+/// The client's public IP from the request headers. Cloudflare always
+/// injects `CF-Connecting-IP`; fall back to `x-forwarded-for` (first hop).
+/// Pure, so it can be unit-tested without a live Worker request.
+pub fn client_ip(cf_connecting: Option<&str>, xff: Option<&str>) -> String {
+    if let Some(ip) = cf_connecting {
+        let ip = ip.trim();
+        if !ip.is_empty() && !ip.contains(',') && ip.len() <= 64 {
+            return ip.to_string();
+        }
+    }
+    if let Some(xff) = xff {
+        if let Some(first) = xff.split(',').next() {
+            let ip = first.trim();
+            if !ip.is_empty() && ip.len() <= 64 {
+                return ip.to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+/// Keep the most recent distinct IPs per device (bounded, prevents a
+/// device's history from growing forever).
+const MAX_IPS_PER_DEVICE: usize = 12;
 
 pub fn now_ms() -> i64 {
     js_sys::Date::now() as i64
@@ -220,6 +253,61 @@ pub async fn set_counters(env: &Env, id: &str, bonus: i64, until: i64, now: i64)
         });
 }
 
+/// Record one observed IP for a device (bounded history). `ip` is the
+/// client's public IP — a context signal, never part of the fingerprint.
+pub async fn record_ip(env: &Env, id: &str, ip: &str, now: i64) {
+    if ip.is_empty() || id.is_empty() {
+        return;
+    }
+    let Ok(db) = env.d1("DB") else { return };
+    let _ = db
+        .prepare(
+            "INSERT INTO device_ips (device_id,ip,first_seen_ms,last_seen_ms) \
+             VALUES (?,?,?,?) ON CONFLICT(device_id,ip) DO UPDATE SET last_seen_ms=excluded.last_seen_ms",
+        )
+        .bind(&[
+            JsValue::from(id.to_string()),
+            JsValue::from(ip.to_string()),
+            JsValue::from(now),
+            JsValue::from(now),
+        ])
+        .map(|stmt| async move {
+            let _ = stmt.run().await;
+        });
+    // Prune to the most recent MAX_IPS_PER_DEVICE distinct IPs.
+    let _ = db
+        .prepare(
+            "DELETE FROM device_ips WHERE device_id=? AND last_seen_ms < \
+             COALESCE((SELECT MIN(last_seen_ms) FROM ( \
+               SELECT last_seen_ms FROM device_ips WHERE device_id=? \
+               ORDER BY last_seen_ms DESC LIMIT ?)), 0)",
+        )
+        .bind(&[
+            JsValue::from(id.to_string()),
+            JsValue::from(id.to_string()),
+            JsValue::from(MAX_IPS_PER_DEVICE as i64),
+        ])
+        .map(|stmt| async move {
+            let _ = stmt.run().await;
+        });
+}
+
+/// True when this device has used `ip` before (continuity witness).
+pub async fn ip_known(env: &Env, id: &str, ip: &str) -> bool {
+    if ip.is_empty() || id.is_empty() {
+        return false;
+    }
+    let Ok(db) = env.d1("DB") else { return false };
+    let Ok(stmt) = db
+        .prepare("SELECT ip AS id FROM device_ips WHERE device_id=? AND ip=? LIMIT 1")
+        .bind(&[JsValue::from(id.to_string()), JsValue::from(ip.to_string())])
+    else {
+        return false;
+    };
+    let row: Option<IdRow> = stmt.first(None).await.ok().flatten();
+    row.is_some()
+}
+
 /// Public shape of a device, safe to send to the browser.
 #[derive(Serialize)]
 pub struct DeviceSnapshot {
@@ -265,8 +353,12 @@ pub struct RegisterIn {
     pub fingerprint: String,
 }
 
-/// `POST /api/device` - register this browser, or restore the id that was
-/// registered for the same fingerprint (new browser, same machine).
+/// `POST /api/device` - register this browser. Restore the id that was
+/// registered for the same fingerprint ONLY when there is continuity:
+/// the current IP was seen before for that device (same network), or the
+/// device has a WhatsApp number (a real human we can reach). A matching
+/// fingerprint with NO history and NO contact is treated as a NEW person
+/// on an identical device — we do not merge strangers.
 pub async fn handle_register(mut req: Request, env: Env) -> worker::Result<Response> {
     let input: RegisterIn = req
         .json()
@@ -279,6 +371,10 @@ pub async fn handle_register(mut req: Request, env: Env) -> worker::Result<Respo
         fingerprint(&[&input.fingerprint])
     };
     let now = now_ms();
+    let ip = client_ip(
+        req.headers().get("cf-connecting-ip").ok().flatten().as_deref(),
+        req.headers().get("x-forwarded-for").ok().flatten().as_deref(),
+    );
     let mut id = clean_device_id(&input.id).unwrap_or_default();
     if id.is_empty() || device_row(&env, &id).await.is_none() {
         let restored = if fp.is_empty() {
@@ -289,12 +385,27 @@ pub async fn handle_register(mut req: Request, env: Env) -> worker::Result<Respo
                 .filter(|found| clean_device_id(found).is_some())
         };
         match restored {
-            Some(canonical) => id = canonical,
+            Some(canonical) => {
+                // Continuity score: IP overlap OR the device already has a
+                // WhatsApp contact. Otherwise it's a stranger on an
+                // identical device -> keep a fresh identity.
+                let overlap = ip_known(&env, &canonical, &ip).await;
+                let has_contact = device_row(&env, &canonical)
+                    .await
+                    .map(|r| !r.whatsapp.is_empty())
+                    .unwrap_or(false);
+                if overlap || has_contact {
+                    id = canonical;
+                } else if id.is_empty() {
+                    id = crate::routes::ids::new_id('d');
+                }
+            }
             None if id.is_empty() => id = crate::routes::ids::new_id('d'),
             None => {}
         }
     }
     upsert_device(&env, &id, &fp, now).await;
+    record_ip(&env, &id, &ip, now).await;
     Response::from_json(&snapshot(&env, &id).await)
 }
 
@@ -361,6 +472,24 @@ mod tests {
             fingerprint(&["Mozilla/5.0", "1280x900", "Africa/Kampala"])
         );
         assert_eq!(a.len(), 16);
+    }
+
+    #[test]
+    fn client_ip_prefers_cf_connecting_and_falls_back_to_xff() {
+        assert_eq!(
+            client_ip(Some("41.210.10.5"), Some("1.2.3.4, 5.6.7.8")),
+            "41.210.10.5"
+        );
+        assert_eq!(client_ip(None, Some("1.2.3.4, 5.6.7.8")), "1.2.3.4");
+        assert_eq!(client_ip(None, Some(" 9.9.9.9 ")), "9.9.9.9");
+        assert_eq!(client_ip(Some("  "), Some("8.8.8.8")), "8.8.8.8");
+        assert_eq!(client_ip(Some(""), None), "");
+        assert_eq!(client_ip(None, None), "");
+        // A comma in CF-Connecting-IP is invalid -> falls through to xff.
+        assert_eq!(
+            client_ip(Some("1.1.1.1, 2.2.2.2"), Some("3.3.3.3")),
+            "3.3.3.3"
+        );
     }
 
     #[test]

@@ -745,7 +745,9 @@ pub async fn handle_tryon_api(env: Env, req: &Request) -> Result<Response> {
     }
     let url = format!("{}/account/credits", crate::outbound::base(&env));
     let mut headers = worker::Headers::new();
-    headers.set("authorization", &format!("Bearer {key}"))?;
+    // Genlook authenticates with the x-api-key header (not Authorization):
+    // without it the credits endpoint answers 401 and the balance is null.
+    headers.set("x-api-key", &key)?;
     let mut init = worker::RequestInit::new();
     init.with_method(worker::Method::Get);
     init.with_headers(headers);

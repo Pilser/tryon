@@ -9,6 +9,7 @@ import { logErr } from "../core/log";
 import { capturePhoto } from "./capture";
 import { esc, brandHTML, toMinor, toMajor } from "../core/format";
 import { currencyOptions, currencyInfo, DEFAULT_CURRENCY } from "../core/currencies";
+import { countryCodeOptions, splitWa, combineWa, cleanNational, DEFAULT_COUNTRY_CODE } from "../core/countries";
 import { loadOwner, saveOwner, loadTimeline } from "../core/store";
 import type { Product } from "../core/types";
 import { skin } from "../skin";
@@ -171,6 +172,15 @@ export function initOwnerForm(): void {
       paintPriceHint(code);
     };
     fillCurrency(DEFAULT_CURRENCY);
+    // Owner WhatsApp country code: Uganda default, national number field
+    // holds only the local digits (leading 0 is stripped on save).
+    const fillWa = (full: string): void => {
+      const ccSel = document.getElementById("bd-shop-wa-cc") as HTMLSelectElement | null;
+      if (ccSel) ccSel.innerHTML = countryCodeOptions(full ? splitWa(full).cc : DEFAULT_COUNTRY_CODE);
+      const num = document.getElementById("bd-shop-wa") as HTMLInputElement | null;
+      if (num && !num.value) num.value = full ? cleanNational(splitWa(full).national) : "";
+    };
+    fillWa("");
     document.getElementById("bd-currency")?.addEventListener("change", (ev) =>
       paintPriceHint((ev.target as HTMLSelectElement).value));
     void (async () => {
@@ -178,8 +188,7 @@ export function initOwnerForm(): void {
         const s = await getShop();
         const name = document.getElementById("bd-shop-name") as HTMLInputElement | null;
         if (name && !name.value) name.value = s.shop_name || "";
-        const wa = document.getElementById("bd-shop-wa") as HTMLInputElement | null;
-        if (wa && !wa.value) wa.value = s.owner_whatsapp || "";
+        fillWa(s.owner_whatsapp || "");
         fillCurrency(s.currency || DEFAULT_CURRENCY);
         paintCur(s.shop_name || "", s.logo_url || "");
       } catch { /* shop optional here */ }
@@ -194,7 +203,9 @@ export function initOwnerForm(): void {
     });
     document.getElementById("bd-shop-save")?.addEventListener("click", () => void (async () => {
       const name = ((document.getElementById("bd-shop-name") as HTMLInputElement | null)?.value || "").trim();
-      const wa = ((document.getElementById("bd-shop-wa") as HTMLInputElement | null)?.value || "").trim();
+      const cc = ((document.getElementById("bd-shop-wa-cc") as HTMLSelectElement | null)?.value || DEFAULT_COUNTRY_CODE).trim();
+      const num = ((document.getElementById("bd-shop-wa") as HTMLInputElement | null)?.value || "").trim();
+      const wa = num ? combineWa(cc, num) : "";
       const cur = (document.getElementById("bd-shop-currency") as HTMLSelectElement | null)?.value || DEFAULT_CURRENCY;
       const file = (document.getElementById("bd-shop-logo") as HTMLInputElement | null)?.files?.[0];
       if (!name && !file) { fail("Enter a shop name or pick a logo."); return; }

@@ -42,6 +42,19 @@ export const studio = stylex.create({
     backgroundColor: t.bg, borderWidth: 1, borderStyle: "solid", borderColor: t.line,
     color: t.text, fontSize: 15, paddingLeft: 16, paddingRight: 16, outlineStyle: "none",
   },
+  /* Owner WhatsApp: country-code select + local number on one row. */
+  waRow: {
+    display: "flex", gap: 8, alignItems: "center", flexWrap: "nowrap",
+    minWidth: 240, width: "100%",
+    "@media (max-width: 720px)": { minWidth: 0, width: "100%" },
+  },
+  waCc: {
+    width: 150, flexShrink: 0, minWidth: 140,
+    "@media (max-width: 720px)": { width: 120 },
+  },
+  waNum: {
+    flexGrow: 1, minWidth: 0, width: "auto",
+  },
   loginCard: {
     borderWidth: 1, borderStyle: "solid", borderColor: t.line,
     borderRadius: 14, backgroundColor: t.surface, display: "grid", gap: 12,

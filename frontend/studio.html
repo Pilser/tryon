@@ -112,7 +112,10 @@ main.page{display:grid;gap:14px;width:100%;max-width:1100px;margin-left:auto;mar
       <h3 class="catbox-title">Shop</h3>
       <div class="row">
         <input class="cat-in" id="bd-shop-name" placeholder="Shop name"/>
-        <input class="cat-in" id="bd-shop-wa" placeholder="Owner WhatsApp (e.g. 256772000000)"/>
+        <div class="cat-in wa-row">
+          <select class="cat-sel wa-cc" id="bd-shop-wa-cc" aria-label="Country code"></select>
+          <input class="cat-in wa-num" id="bd-shop-wa" inputmode="tel" placeholder="Local number, e.g. 755 304 241"/>
+        </div>
         <select class="cat-sel" id="bd-shop-currency"></select>
         <label class="btn secondary">Logo<input id="bd-shop-logo" type="file" accept="image/*" hidden/></label>
         <button class="btn primary" id="bd-shop-save" type="button">Save</button>

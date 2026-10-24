@@ -61,6 +61,7 @@ export function cardHTML(p: Product, shop: string, owner: string, i = 0): string
   const b = bundleOf(p);
   const single = !(p.styled_image_url || p.model_image_url);
   const enter = i > 0 ? cardEnterCls(i) : "";
+  const inqHref = inquireUrl(owner, shop, p.title, shareUrl(location.origin, p.id));
   return `<article class="${cx(s.root)} productcard${enter}" data-garment="${esc(b.g)}" data-model="${esc(b.m)}" data-styled="${esc(b.s)}">
     <a class="${cx(s.media)}" href="/app/studio.html?id=${esc(p.id)}" tabindex="-1"><img class="${cx(s.img)} main" loading="lazy" decoding="async" draggable="false" src="${esc(b.g)}" alt="${esc(p.title)}"/></a>
     <div class="${cx(s.badgePill)}"></div><p class="${cx(s.badge)}">${esc(p.category)}</p>
@@ -69,7 +70,7 @@ export function cardHTML(p: Product, shop: string, owner: string, i = 0): string
     <div class="${cx(s.head)}"><h3 class="${cx(s.titleFlush)}">${esc(p.title)}</h3>${sizesHTML(p.sizes)}</div>
     <p class="${cx(s.price)}">${esc(money(p))}</p>
     <a class="${cx(s.tryon)}" href="/app/studio.html?id=${esc(p.id)}"><span class="${cx(s.tryonLabel)}">Try On</span></a>
-    <a class="${cx(s.inquire)}" target="_blank" rel="noopener" href="${esc(inquireUrl(owner, shop, p.title, shareUrl(location.origin, p.id)))}"><span class="${cx(s.inquireLabel)}">${waIcon()} Inquire</span></a>
+    ${inqHref ? `<a class="${cx(s.inquire)}" target="_blank" rel="noopener" href="${esc(inqHref)}"><span class="${cx(s.inquireLabel)}">${waIcon()} Inquire</span></a>` : ""}
   </article>`;
 }
 

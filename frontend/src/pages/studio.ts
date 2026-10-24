@@ -117,9 +117,14 @@ async function paintProduct(
   // Inquire sits left in the CTA row; Start appears right of it on photo.
   const inq = document.getElementById("st-inquire") as HTMLAnchorElement | null;
   if (inq) {
-    inq.href = inquireUrl(shopS.owner_whatsapp, shopS.shop_name, p.title, link);
-    inq.innerHTML = waIcon() + "<span>Inquire</span>";
-    (inq as HTMLElement).style.display = "";
+    const inqHref = inquireUrl(shopS.owner_whatsapp, shopS.shop_name, p.title, link);
+    if (inqHref) {
+      inq.href = inqHref;
+      inq.innerHTML = waIcon() + "<span>Inquire</span>";
+      (inq as HTMLElement).style.display = "";
+    } else {
+      (inq as HTMLElement).style.display = "none";
+    }
   }
   // Update (owner only): fills the bundle form with this product so the
   // owner can change photos, title or text and re-save the same id.

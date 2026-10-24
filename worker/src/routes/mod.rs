@@ -12,6 +12,7 @@ pub mod photos;
 pub mod platform;
 pub mod products;
 pub mod quota;
+pub mod remote_image;
 pub mod shop;
 pub mod studio;
 pub mod tokens;

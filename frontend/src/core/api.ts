@@ -46,6 +46,19 @@ export const uploadPerson = (blob: Blob): Promise<{ imageId: string; imageUrl?: 
   return api("/api/person-upload", { method: "POST", body: fd });
 };
 
+/** Same-origin fetch of a remote image (Genlook's GCS bucket): the
+    browser cannot read storage.googleapis.com signed URLs directly
+    (no CORS), so the worker fetches them for us. Use this for any
+    fetch() of a Genlook result/user image. */
+export const remoteImageUrl = (u: string): string => {
+  if (!u || u.startsWith("data:")) return u;
+  try {
+    const host = new URL(u, location.origin).host;
+    if (host !== location.host) return "/api/remote-image?u=" + encodeURIComponent(u);
+  } catch { /* keep as-is */ }
+  return u;
+};
+
 export const tryOnSync = (body: SyncBody): Promise<SyncResult> =>
   fetch("/api/try-on/sync", {
     method: "POST",

@@ -99,6 +99,12 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             let id = ctx.param("id").cloned().unwrap_or_default();
             routes::tryon::handle_generation(ctx.env, &id).await
         })
+        // Remote image proxy: the browser cannot read Genlook's GCS
+        // signed URLs directly (no CORS), so the worker fetches them and
+        // serves the bytes with permissive CORS (routes/remote-image.rs).
+        .get_async("/api/remote-image", |req, ctx| async move {
+            routes::remote_image::handle(req, ctx.env).await
+        })
         // Owner-only writes
         .post_async("/api/owner/login", |req, ctx| async move {
             routes::owner::handle_login(req, ctx.env).await

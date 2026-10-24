@@ -2,7 +2,7 @@
    studio page). Slot tap picks that slot's photo; previews + validation
    inline; styled slot also accepts the latest try-on result; submit posts
    multipart with the saved owner token. */
-import { createProduct, listProducts, ownerLogin, ownerLogout, listCategories, createCategory, getShop, saveShop } from "../core/api";
+import { createProduct, listProducts, ownerLogin, ownerLogout, listCategories, createCategory, getShop, saveShop, remoteImageUrl } from "../core/api";
 import { invalidateProducts } from "../core/shop-cache";
 import { busyBtn } from "./wait";
 import { logErr } from "../core/log";
@@ -366,7 +366,7 @@ export function initOwnerForm(): void {
         const src = keep || gen;
         if (!src) continue;
         try {
-          const b = await (await fetch(src)).blob();
+          const b = await (await fetch(remoteImageUrl(src))).blob();
           fd.set("image" + i, new File([b], "slot" + i + ".jpg", { type: b.type || "image/jpeg" }));
         } catch (e) { logErr("owner:slot refetch", e); fail("Kept photo expired - re-pick slot " + (i + 1) + "."); return; }
       }

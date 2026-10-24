@@ -2,7 +2,7 @@
    Photo is uploaded EAGERLY on pick so the timeline entry is reusable
    at once (imageId patched in when upload lands); Start reuses it.
    Result prepends to timeline top. Pixels via components/photo.ts. */
-import { tryOnSync, pollGeneration, uploadPerson, registerDevice, backupPhoto } from "../core/api";
+import { tryOnSync, pollGeneration, uploadPerson, registerDevice, backupPhoto, remoteImageUrl } from "../core/api";
 import { capturePhoto } from "./capture";
 import { nowSecs, savePerson, pushTimeline, updateTimelineEntry, loadPerson, loadTimeline, personUsable } from "../core/store";
 import { savePhoto, loadPhoto, prunePhotos } from "../core/photo-store";
@@ -183,7 +183,7 @@ export function initStudio(product: Product): void {
       save.textContent = "Save photo";
       save.addEventListener("click", () => void (async () => {
         try {
-          const b = await (await fetch(url)).blob();
+          const b = await (await fetch(remoteImageUrl(url))).blob();
           const a = document.createElement("a");
           a.href = URL.createObjectURL(b); a.download = "tryon-result.jpg"; a.click();
         } catch {

@@ -5,7 +5,7 @@
    Boot fan: shop + all-products + a deep-linked product now resolve
    TOGETHER (the old chain made 4-5 sequential round trips); the cache a
    previous page left behind paints first. */
-import { getProduct, getShop, listProducts, listCategories } from "../core/api";
+import { getProduct, getShop, listProducts, listCategories, remoteImageUrl } from "../core/api";
 import { all, shop, shopSync, productsSync, productSync, invalidateProducts } from "../core/shop-cache";
 import { inquireUrl, shareUrl, waShareUrl } from "../core/whatsapp";
 import { waIcon } from "../components/whatsapp-icon";
@@ -160,7 +160,7 @@ async function paintProduct(
       const save = (href: string): void => { const a = document.createElement("a"); a.href = href; a.download = "tryon-photo.jpg"; a.click(); };
       if (src.startsWith("data:")) { save(src); return; }
       dl.style.opacity = ".5";
-      void fetch(src).then(async (r) => { const b = await r.blob(); save(URL.createObjectURL(b)); dl.style.opacity = ""; }).catch(() => { dl.style.opacity = ""; window.open(src, "_blank", "noopener"); });
+      void fetch(remoteImageUrl(src)).then(async (r) => { const b = await r.blob(); save(URL.createObjectURL(b)); dl.style.opacity = ""; }).catch(() => { dl.style.opacity = ""; window.open(src, "_blank", "noopener"); });
     });
   }
   // Deep link from product-page Update: fill the form for this product.

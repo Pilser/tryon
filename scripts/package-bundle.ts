@@ -43,6 +43,9 @@ const INCLUDE: Array<{ dir: string; match: (rel: string) => boolean }> = [
   { dir: "dist/imgpipe", match: (rel) => /\.(js|wasm)$/.test(rel) },
   { dir: "pwa", match: (rel) => /\.js$/.test(rel) },
   { dir: "public/imgpipe", match: (rel) => /\.(js|wasm)$/.test(rel) },
+  /* The 3D shop (SpaceWebView build): a separate, lazily-opened page.
+     Only fetched when the shopper taps the 3D icon, never by the main JS. */
+  { dir: "3d", match: (rel) => /\.(js|css|html)$/.test(rel) },
 ];
 
 for (const p of [glueSrc, wasmSrc, frontendRoot, schemaSrc]) {

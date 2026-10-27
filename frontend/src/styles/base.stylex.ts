@@ -139,10 +139,11 @@ export const base = stylex.create({
     textDecoration: "none",
   },
   /* Landing search toggle: an icon in the navbar instead of a full bar,
-     so the hero keeps its space until the shopper asks for search. */
+     so the hero keeps its space until the shopper asks for search.
+     Sits left of the 3D entry (which sits left of the studio link). */
   searchToggle: {
     position: "absolute",
-    right: 48,
+    right: 76,
     top: 8,
     width: 24,
     height: 24,
@@ -155,5 +156,20 @@ export const base = stylex.create({
     borderStyle: "none",
     cursor: "pointer",
     ":hover": { color: t.text },
+  },
+  /* The 3D entry: opening it is a normal navigation, so the 3D bundle is
+     only fetched when the shopper actually taps the cube. */
+  spaceLink: {
+    position: "absolute",
+    right: 48,
+    top: 10,
+    width: 24,
+    height: 24,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: t.muted,
+    textDecoration: "none",
+    ":hover": { color: t.primary },
   },
 });

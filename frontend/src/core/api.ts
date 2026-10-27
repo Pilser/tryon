@@ -20,9 +20,19 @@ interface SyncResult {
     message?: string;
     status?: string;
     code?: string;
-    details?: { generationId?: string };
+    /** VALIDATION_FAILED carries an array; GENERATION_TIMEOUT an object. */
+    details?: Array<{ path?: string; message?: string }> | { generationId?: string };
   } & Partial<Allowance>;
 }
+
+/** Genlook's per-field validation errors as one readable line. */
+export const detailText = (details: SyncResult["body"]["details"]): string => {
+  if (!details || !Array.isArray(details)) return "";
+  return details
+    .map((d) => [d.path, d.message].filter(Boolean).join(": "))
+    .filter(Boolean)
+    .join("; ");
+};
 
 export async function api<T = unknown>(path: string, opts?: RequestInit): Promise<T> {
   const r = await fetch(path, opts);

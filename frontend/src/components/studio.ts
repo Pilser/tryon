@@ -2,7 +2,7 @@
    Photo is uploaded EAGERLY on pick so the timeline entry is reusable
    at once (imageId patched in when upload lands); Start reuses it.
    Result prepends to timeline top. Pixels via components/photo.ts. */
-import { tryOnSync, pollGeneration, uploadPerson, registerDevice, backupPhoto, remoteImageUrl } from "../core/api";
+import { tryOnSync, pollGeneration, uploadPerson, registerDevice, backupPhoto, remoteImageUrl, detailText } from "../core/api";
 import { capturePhoto } from "./capture";
 import { nowSecs, savePerson, pushTimeline, updateTimelineEntry, loadPerson, loadTimeline, personUsable } from "../core/store";
 import { savePhoto, loadPhoto, prunePhotos } from "../core/photo-store";
@@ -265,7 +265,13 @@ export function initStudio(product: Product): void {
       genWaiter.phase("Generating");
       show(prog, true);
       const runSync = (pid: string) => tryOnSync({
-        product_id: product.id, title: product.title, description: product.description,
+        product_id: product.id, title: product.title,
+        // Genlook validates these strings: an empty description is rejected
+        // (products with no text are common), so fall back to the garment
+        // facts we do have. Genlook reads it to size the fit.
+        description: (product.description || "").trim()
+          || [product.category, product.sizes].filter(Boolean).join(" · ")
+          || product.title,
         image_url: product.image_url, person_image_id: pid,
         device_id: deviceId(),
       });
@@ -313,11 +319,16 @@ export function initStudio(product: Product): void {
       // sync path ran out of time (GENERATION_TIMEOUT), inside
       // `details.generationId` — Genlook keeps generating, so poll it
       // instead of failing over a completed image.
-      const gid = body.generationId || body.details?.generationId;
+      const gid = body.generationId
+        || (body.details && !Array.isArray(body.details) ? body.details.generationId : undefined);
       if (status === 200 && body.resultImageUrl) url = body.resultImageUrl;
       else if (gid) {
         url = await pollGeneration(gid, () => genWaiter?.phase("Checking result"));
-      } else throw new Error(body.message || "try-on failed (credit refunded)");
+      } else {
+        // Name the failing field instead of only "failed validation".
+        const fields = detailText(body.details);
+        throw new Error([body.message || "try-on failed", fields].filter(Boolean).join(" — "));
+      }
       stopAnim(); show(el("st-prog"), false);
       // The result feeds the user card (hold = original, release = result)
       // and goes first in the ribbon; no second card opens below.

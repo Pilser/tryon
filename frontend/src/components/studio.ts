@@ -28,6 +28,10 @@ export function initStudio(product: Product): void {
   let activeFull = "";
   let activeKey = "";
   let genWaiter: GenWait | null = null; // the one active try-on wait (wait.ts)
+  /* Last try-on response, kept for the catch block: the console must say
+     WHICH status/code failed, not only where. */
+  let lastStatus = 0;
+  let lastCode = "";
   const fail = (m: string): void => { const e = el("st-err"); e.textContent = m; show(e, true); };
   const clear = (): void => { const e = el("st-err"); e.textContent = ""; show(e, false); };
   /* Allowance: server-owned; the banner only appears when nothing is left,
@@ -260,11 +264,42 @@ export function initStudio(product: Product): void {
       genWaiter = genWait(prog, prev);
       genWaiter.phase("Generating");
       show(prog, true);
-      const { status, body } = await tryOnSync({
+      const runSync = (pid: string) => tryOnSync({
         product_id: product.id, title: product.title, description: product.description,
-        image_url: product.image_url, person_image_id: imageId as string,
+        image_url: product.image_url, person_image_id: pid,
         device_id: deviceId(),
       });
+      let { status, body } = await runSync(imageId as string);
+      lastStatus = status;
+      lastCode = body.code || "";
+      // The person photo lives at Genlook for a few days only. A stored
+      // imageId can therefore be expired: re-upload the browser's copy and
+      // retry once instead of failing ("image not found") over a photo the
+      // shopper still has.
+      const imageProblem =
+        /IMAGE/i.test(lastCode) ||
+        /image/i.test(body.message || "") ||
+        (status === 404 && !body.generationId);
+      if (imageProblem && (file?.blob || activeKey)) {
+        genWaiter.phase("Re-uploading photo");
+        const blob = file?.blob
+          ?? await (async () => {
+            const entry = loadTimeline().find((x) => x.thumb === activeKey && x.photoKey);
+            return entry?.photoKey ? loadPhoto(entry.photoKey) : null;
+          })();
+        if (blob) {
+          const u = await uploadPerson(blob);
+          if (u.imageId) {
+            imageId = activeImageId = u.imageId;
+            savePerson(u.imageId, activeKey);
+            if (activeKey) updateTimelineEntry(activeKey, { imageId: u.imageId });
+            genWaiter.phase("Generating");
+            ({ status, body } = await runSync(imageId as string));
+            lastStatus = status;
+            lastCode = body.code || "";
+          }
+        }
+      }
       if (status === 402) {
         // Free tries spent: surface the unlock banner instead of an error
         // line (the body carries the allowance snapshot from the server).
@@ -293,7 +328,7 @@ export function initStudio(product: Product): void {
       // last free try and the button hides when nothing is left.
       void refreshAllowance();
     } catch (e) {
-      logErr("try-on", e);
+      logErr(`try-on (status ${lastStatus || "?"}${lastCode ? " " + lastCode : ""})`, e);
       stopAnim(); show(el("st-prog"), false);
       fail(e instanceof Error ? e.message : String(e));
       if (!spent) show(el("st-start"), true);

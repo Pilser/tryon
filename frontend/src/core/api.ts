@@ -66,8 +66,12 @@ export const tryOnSync = (body: SyncBody): Promise<SyncResult> =>
     body: JSON.stringify(body),
   }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }));
 
-export const generation = (id: string): Promise<{ status: string; resultImageUrl?: string }> =>
-  api("/api/generations/" + encodeURIComponent(id));
+export const generation = (id: string): Promise<{
+  status: string;
+  resultImageUrl?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}> => api("/api/generations/" + encodeURIComponent(id));
 
 export const createProduct = (formData: FormData, token = ""): Promise<{ id: string }> =>
   api("/api/studio/products", {
@@ -293,7 +297,12 @@ export async function pollGeneration(id: string, onTick: (secs: number) => void)
     await new Promise((r) => setTimeout(r, 2000));
     const j = await generation(id);
     if (j.status === "COMPLETED" && j.resultImageUrl) return j.resultImageUrl;
-    if (j.status === "FAILED") throw new Error("Generation failed (credit refunded) - try another photo.");
+    if (j.status === "FAILED") {
+      // Genlook ships a stable code + human message; keep both so the
+      // console and the error line say WHY (not just "failed").
+      const why = [j.errorCode, j.errorMessage].filter(Boolean).join(": ");
+      throw new Error(why || "Generation failed (credit refunded) - try another photo.");
+    }
   }
   throw new Error("Still running after ~90s. Reload and try again.");
 }

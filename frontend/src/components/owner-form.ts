@@ -123,7 +123,20 @@ export function initOwnerForm(): void {
     document.getElementById("bd-cat-file")?.addEventListener("change", (ev) => {
       const f = (ev.target as HTMLInputElement).files?.[0];
       const img = catImg();
-      if (f && img) { img.src = URL.createObjectURL(f); show(img, true); }
+      if (!f || !img) return;
+      void (async () => {
+        try {
+          const { prepFile } = await import("../components/photo");
+          const p = await prepFile(f);
+          const out = new File([p.blob], "category.jpg", { type: p.mime });
+          img.src = URL.createObjectURL(out); show(img, true);
+          const dt = new DataTransfer(); dt.items.add(out);
+          (ev.target as HTMLInputElement).files = dt.files;
+        } catch (e) {
+          logErr("owner:category prep", e);
+          fail(e instanceof Error ? e.message : String(e));
+        }
+      })();
     });
     document.getElementById("bd-cat-add")?.addEventListener("click", () => void (async () => {
       const title = ((document.getElementById("bd-cat-title") as HTMLInputElement | null)?.value || "").trim();
@@ -198,8 +211,20 @@ export function initOwnerForm(): void {
       if (!f) return;
       const box = document.getElementById("bd-shop-cur");
       if (!box) return;
-      box.innerHTML = `<span class="cat-chip"><img class="cat-chip-img" src="${URL.createObjectURL(f)}" alt=""/><span>New logo - Save to keep</span></span>`;
-      skin(box);
+      void (async () => {
+        try {
+          const { prepFile } = await import("../components/photo");
+          const p = await prepFile(f);
+          const out = new File([p.blob], "logo.jpg", { type: p.mime });
+          box.innerHTML = `<span class="cat-chip"><img class="cat-chip-img" src="${URL.createObjectURL(out)}" alt=""/><span>New logo - Save to keep</span></span>`;
+          skin(box);
+          const dt = new DataTransfer(); dt.items.add(out);
+          (ev.target as HTMLInputElement).files = dt.files;
+        } catch (e) {
+          logErr("owner:logo prep", e);
+          fail(e instanceof Error ? e.message : String(e));
+        }
+      })();
     });
     document.getElementById("bd-shop-save")?.addEventListener("click", () => void (async () => {
       const name = ((document.getElementById("bd-shop-name") as HTMLInputElement | null)?.value || "").trim();
@@ -259,17 +284,18 @@ export function initOwnerForm(): void {
   const feedFile = (i: number, f: File): void => {
     void (async () => {
       try {
-        const { normalizeHeicFile } = await import("heic-normalize");
-        f = await normalizeHeicFile(f);
-      } catch {
-        /* keep the original file on normalizer failure */
+        const { prepFile } = await import("../components/photo");
+        const p = await prepFile(f);
+        const out = new File([p.blob], f.name.replace(/\.[^.]+$/, "") + (p.mime === "image/png" ? ".png" : ".jpg"), { type: p.mime });
+        const img = el("slot-img-" + i) as HTMLImageElement;
+        img.src = URL.createObjectURL(out); show(img, true);
+        const dt = new DataTransfer(); dt.items.add(out);
+        (el("file" + i) as HTMLInputElement).files = dt.files;
+        paintSlot(i);
+      } catch (e) {
+        logErr("owner:photo prep", e);
+        fail(e instanceof Error ? e.message : String(e));
       }
-      if (f.size > 10 * 1024 * 1024) { fail(`Photo ${i + 1} over 10 MB.`); return; }
-      const img = el("slot-img-" + i) as HTMLImageElement;
-      img.src = URL.createObjectURL(f); show(img, true);
-      const dt = new DataTransfer(); dt.items.add(f);
-      (el("file" + i) as HTMLInputElement).files = dt.files;
-      paintSlot(i);
     })();
   };
   const onSlotFile = (i: number) => (ev: Event): void => {

@@ -3,7 +3,7 @@
    imgpipe glue is present at /imgpipe/. No other code processes pixels. */
 import { mb } from "../core/format";
 
-const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/avif"];
 export const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_EDGE = 1600, MIN_DIM = 256;
 
@@ -42,7 +42,7 @@ async function loadWasm(): Promise<Imgpipe | null> {
 }
 
 function validate(file: File): void {
-  if (file.type && !ACCEPTED.includes(file.type)) throw new Error("Use JPEG, PNG, WebP or HEIC.");
+  if (file.type && !ACCEPTED.includes(file.type)) throw new Error("Use JPEG, PNG, WebP, HEIC or AVIF.");
   if (file.size > MAX_BYTES) throw new Error("Photo over 10 MB.");
 }
 

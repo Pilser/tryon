@@ -76,6 +76,11 @@ for (const p of ["terms", "privacy"]) {
   const src = path.join(here, "src", p + ".html");
   if (existsSync(src)) cpSync(src, path.join(dist, p + ".html"));
 }
+/* Favicon. */
+const ico = path.join(here, "src", "favicon.ico");
+if (existsSync(ico)) cpSync(ico, path.join(dist, "favicon.ico"));
+const logo = path.join(here, "src", "logo.png");
+if (existsSync(logo)) cpSync(logo, path.join(dist, "logo.png"));
 /* The landing page's own assets: the real screenshots of the product
    and the committed snapshot of the demo catalogue (the grid is never
    empty, even with no network). */

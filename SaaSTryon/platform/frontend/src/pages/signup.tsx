@@ -4,16 +4,14 @@
    then the owner signs in on login.html. */
 import { useState, type ChangeEvent, type FormEvent, type JSX } from "react";
 import { createRoot } from "react-dom/client";
-import { ApiError, signup } from "../api";
+import { ApiError, signup, saveSession, type Session } from "../api";
 import { base as b, boot, cx, pf, ui as u } from "../kit";
 
 export default function SignupPage(): JSX.Element {
   const [form, setForm] = useState({ name: "", email: "", contact: "", shopName: "" });
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  /** The registration number the platform gave this request. */
-  const [regNo, setRegNo] = useState("");
+  const [done, setDone] = useState(false);
 
   const edit =
     (key: "name" | "email" | "contact" | "shopName") =>
@@ -36,10 +34,13 @@ export default function SignupPage(): JSX.Element {
           ...(form.name.trim() ? { name: form.name.trim() } : {}),
           ...(form.shopName.trim() ? { shop_name: form.shopName.trim() } : {}),
         });
-        setRegNo(out.reg_no || "");
-        setSent(true);
+        if (out.session_id) {
+          saveSession({ session_id: out.session_id, user: out.user! });
+        }
+        setDone(true);
+        setTimeout(() => window.location.replace("home.html"), 900);
       } catch (e) {
-        setError(e instanceof ApiError ? e.message : "Could not send the request - offline?");
+        setError(e instanceof ApiError ? e.message : "Could not create account - offline?");
       } finally {
         setBusy(false);
       }
@@ -50,35 +51,39 @@ export default function SignupPage(): JSX.Element {
     <main className={cx(b.reset, u.page)}>
       <header className={cx(u.header)}>
         <div>
-          <h1 className={cx(u.h1)}>Request platform access</h1>
+          <h1 className={cx(u.h1)}>Create your account</h1>
           <p className={cx(u.lead)}>
-            One request per shop. The platform team approves it, sends a sign-in
-            token to your WhatsApp contact, and your shop deploys from your home page.
+            Free to start — 5 free try-ons included. Sign up with email or use Google/TikTok.
           </p>
         </div>
         <a className={cx(b.btn, b.btnSecondary, u.btnGrow)} href="login.html">
-          Already approved?
+          Already have an account?
         </a>
       </header>
-      {sent ? (
+      {done ? (
         <div className={cx(u.card)}>
-          <h2 className={cx(u.cardTitle)}>Pending approval</h2>
-          <p className={cx(u.rowSub)}>
-            Your request is in. Every shop is approved by hand; once approved a
-            sign-in token lands on your WhatsApp contact.
-          </p>
-          {regNo ? (
-            <p className={cx(u.inlineNote)}>
-              Your registration number is <b>{regNo}</b> - keep it: it tells your
-              shop apart from anyone with the same name.
-            </p>
-          ) : null}
-          <p className={cx(u.inlineNote)}>
-            Enter that token on <a href="login.html">the login page</a> to open your platform home.
-          </p>
+          <h2 className={cx(u.cardTitle)}>Welcome!</h2>
+          <p className={cx(u.rowSub)}>Your account is ready. Opening your platform home…</p>
         </div>
       ) : (
         <form className={cx(u.card)} onSubmit={submit}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+            <a
+              className={cx(b.btn, b.btnPrimary, u.btnGrow)}
+              href="/api/v1/auth/google"
+              style={{ textAlign: "center", textDecoration: "none" }}
+            >
+              Sign up with Google
+            </a>
+            <a
+              className={cx(b.btn, b.btnSecondary, u.btnGrow)}
+              href="/api/v1/auth/tiktok"
+              style={{ textAlign: "center", textDecoration: "none" }}
+            >
+              Sign up with TikTok
+            </a>
+          </div>
+          <p className={cx(u.rowSub)} style={{ marginBottom: 16 }}>Or create with email:</p>
           <label className={cx(pf.label)} htmlFor="su-name">Your name</label>
           <input
             className={cx(pf.field)}
@@ -89,10 +94,6 @@ export default function SignupPage(): JSX.Element {
             value={form.name}
             onChange={edit("name")}
           />
-          <p className={cx(u.rowSub)}>
-            The platform shows your name next to your shops. You can change it
-            later in your own account tab.
-          </p>
           <label className={cx(pf.label)} htmlFor="su-email">Email</label>
           <input
             className={cx(pf.field)}
@@ -113,7 +114,6 @@ export default function SignupPage(): JSX.Element {
             value={form.contact}
             onChange={edit("contact")}
           />
-          <p className={cx(u.rowSub)}>The number that receives your sign-in token.</p>
           <label className={cx(pf.label)} htmlFor="su-shop">Shop name (optional)</label>
           <input
             className={cx(pf.field)}
@@ -125,7 +125,7 @@ export default function SignupPage(): JSX.Element {
           />
           <div className={cx(pf.fieldRow)}>
             <button className={cx(b.btn, b.btnPrimary, u.btnGrow)} type="submit" disabled={busy}>
-              {busy ? "Sending…" : "Request access"}
+              {busy ? "Creating…" : "Create account"}
             </button>
           </div>
           {error ? <p className={cx(b.error)}>{error}</p> : null}

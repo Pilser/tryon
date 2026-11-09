@@ -74,7 +74,7 @@ pub struct UsageOut {
 
 /// `GET /api/studio/usage` - dashboard overview: devices, tries, tokens.
 pub async fn handle_usage(req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     device::ensure_ddl(&env).await?;
@@ -150,7 +150,7 @@ pub struct BlockIn {
 /// `POST /api/studio/devices/block` - owner blocks a device (wrong number,
 /// burned try-ons nobody paid for) or unblocks it after they talk.
 pub async fn handle_device_block(mut req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let input: BlockIn = req
@@ -178,7 +178,7 @@ pub async fn handle_device_block(mut req: Request, env: Env) -> worker::Result<R
 /// (each try-on costs 1; the balance endpoint is the only way to read it,
 /// generation responses carry no cost field).
 pub async fn handle_credits(req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let key = crate::routes::genlook_api::api_key(&env)?;

@@ -35,9 +35,11 @@ pub fn env_token(env: &Env) -> String {
         .unwrap_or_default()
 }
 
-/// Owner gate for the dashboard routes: the `Authorization: Bearer …`
-/// header must match, or the deployment must have no token (local rig).
-pub fn authorized(req: &Request, env: &Env) -> bool {
+/// Async owner gate: accepts either the OWNER_TOKEN (existing) OR a valid
+/// platform session cookie (SSO from latiforge.com). Empty OWNER_TOKEN =
+/// open local backend (preserves dev ergonomics).
+pub async fn authorized_async(req: &Request, env: &Env) -> bool {
+    // 1. Legacy OWNER_TOKEN check.
     let expected = env_token(env);
     let provided = req
         .headers()
@@ -45,7 +47,30 @@ pub fn authorized(req: &Request, env: &Env) -> bool {
         .ok()
         .flatten()
         .unwrap_or_default();
-    crate::routes::studio::authorized(Some(&provided), &expected)
+    if crate::routes::studio::authorized(Some(&provided), &expected) {
+        return true;
+    }
+    // 2. Platform session cookie (SSO).
+    if let Some(cookie_val) = cookie(req, "tryon_session") {
+        if crate::routes::platform::verify_platform_session(env, &cookie_val).await {
+            return true;
+        }
+    }
+    // Open backend (no token set) still passes.
+    expected.is_empty()
+}
+
+fn cookie(req: &Request, name: &str) -> Option<String> {
+    let raw = req.headers().get("cookie").ok().flatten()?;
+    for part in raw.split(';') {
+        let part = part.trim();
+        if let Some((k, v)) = part.split_once('=') {
+            if k.trim() == name {
+                return Some(v.trim().to_string());
+            }
+        }
+    }
+    None
 }
 
 /// `POST /api/owner/login` — verify the submitted token.
@@ -61,7 +86,15 @@ pub async fn handle_login(mut req: Request, env: Env) -> Result<Response> {
     }
 }
 
-/// `POST /api/owner/logout` — stateless ack; the browser drops the token.
+/// `GET /api/owner/sso` — checks if a valid platform session cookie is
+/// present and the user is approved. Returns {ok:true} on success.
+pub async fn handle_sso(req: Request, env: Env) -> Result<Response> {
+    if authorized_async(&req, &env).await {
+        Response::from_json(&LoginOut { ok: true })
+    } else {
+        crate::routes::errors::unauthorized()
+    }
+}
 pub async fn handle_logout() -> Result<Response> {
     Response::from_json(&LoginOut { ok: true })
 }

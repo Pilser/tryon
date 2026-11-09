@@ -2,7 +2,7 @@
 time based), redeeming them into a device's allowance, and deleting
 them. Codes are random, unambiguous and single-use; the D1 row records
 who redeemed them and when, which is what the dashboard lists. */
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsValue;
 use worker::{Env, Request, Response};
 
@@ -159,7 +159,7 @@ pub struct MintIn {
 /// `POST /api/studio/tokens` - mint 1..50 unlock codes.
 /// Body: `{kind:"count"|"time", value: 3 | 24, count: 1, note: "bought 5k"}`
 pub async fn handle_mint(mut req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let input: MintIn = req
@@ -216,7 +216,7 @@ pub struct DeleteIn {
 
 /// `POST /api/studio/tokens/delete` - remove a code (used or not).
 pub async fn handle_delete(mut req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let input: DeleteIn = req
@@ -240,7 +240,7 @@ pub async fn handle_delete(mut req: Request, env: Env) -> worker::Result<Respons
 /// can no longer be redeemed. The row stays for the audit trail and shows
 /// up as canceled (a used state) in the dashboard, deletable like the rest.
 pub async fn handle_cancel(mut req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let input: DeleteIn = req
@@ -292,7 +292,7 @@ fn purge_sql(filter: &str) -> Option<&'static str> {
 
 /// `POST /api/studio/tokens/purge` - bulk-delete spent codes by filter.
 pub async fn handle_purge(mut req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let input: PurgeIn = req

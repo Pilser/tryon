@@ -27,7 +27,7 @@ HTTP status (mirrors the shop's `routes/errors.rs` shape). */
 use serde::de::DeserializeOwned;
 use worker::{Env, Method, Request, Response, Result};
 
-use crate::{admin, auth, credits, dashboard, deploy, domain, landing, manage, outbound};
+use crate::{admin, auth, credits, dashboard, deploy, domain, landing, manage, oauth, outbound};
 
 /// Everything under `/api/v1/*`; anything else is a static asset.
 pub async fn route(mut req: Request, env: Env) -> Result<Response> {
@@ -38,6 +38,10 @@ pub async fn route(mut req: Request, env: Env) -> Result<Response> {
     let segs: Vec<&str> = rest.split('/').filter(|s| !s.is_empty()).collect();
     match (req.method(), segs.as_slice()) {
         (Method::Post, ["signup"]) => auth::signup(env, &mut req).await,
+        (Method::Get, ["auth", "google"]) => oauth::google_redirect(env, &req).await,
+        (Method::Get, ["auth", "google", "callback"]) => oauth::google_callback(env, &req).await,
+        (Method::Get, ["auth", "tiktok"]) => oauth::tiktok_redirect(env, &req).await,
+        (Method::Get, ["auth", "tiktok", "callback"]) => oauth::tiktok_callback(env, &req).await,
         (Method::Patch, ["account"]) => auth::handle_account(env, &mut req).await,
         (Method::Post, ["login"]) => auth::login(env, &mut req).await,
         (Method::Post, ["revoke"]) => auth::revoke(env, req.headers()).await,

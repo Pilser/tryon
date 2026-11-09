@@ -267,7 +267,7 @@ struct PhotoList {
 /// `GET /api/studio/photos?device_id=..` - one device's folder, newest
 /// first (omit `device_id` for every device, capped at 500).
 pub async fn handle_list(req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let wanted = req
@@ -293,7 +293,7 @@ pub async fn handle_list(req: Request, env: Env) -> worker::Result<Response> {
 /// `GET /api/studio/photo?key=..` - stream one backed-up photo (owner only;
 /// they are not public, unlike product images).
 pub async fn handle_get(req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let key = req
@@ -344,7 +344,7 @@ pub struct DeleteIn {
 /// `POST /api/studio/photos/delete` - folder-style cleanup: everything, or
 /// only what is older than N days, for one device or for all of them.
 pub async fn handle_delete(mut req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let input: DeleteIn = req

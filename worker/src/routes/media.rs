@@ -8,7 +8,12 @@ use worker::{Env, Request, Response, Result};
 /// Pure: the bucket key behind a /media/... path (tested).
 pub fn key_from_path(path: &str) -> Option<String> {
     let key = path.trim_start_matches('/').strip_prefix("media/")?.trim();
-    if key.is_empty() || key.len() > 200 || key.contains("..") || key.contains("//") {
+    if key.is_empty()
+        || key.len() > 200
+        || key.contains("..")
+        || key.contains("//")
+        || key.starts_with('/')
+    {
         return None;
     }
     let ok = |c: char| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '/');

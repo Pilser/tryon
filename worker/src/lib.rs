@@ -106,6 +106,9 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             routes::remote_image::handle(req, ctx.env).await
         })
         // Owner-only writes
+        .get_async("/api/owner/sso", |req, ctx| async move {
+            routes::owner::handle_sso(req, ctx.env).await
+        })
         .post_async("/api/owner/login", |req, ctx| async move {
             routes::owner::handle_login(req, ctx.env).await
         })

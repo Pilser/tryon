@@ -84,8 +84,11 @@ async fn user_by_token(db: &D1Database, raw_token: &str) -> Result<Option<store:
 
 /// Verify a Bearer session token against D1: only non-expired sessions
 /// verify; the session's user existence is checked by callers.
+/// Also accepts the session id from the `tryon_session` cookie (shared
+/// across .latiforge.com) so shop subdomains can reuse the platform login.
 pub async fn verify_session(db: &D1Database, headers: &Headers) -> Result<Option<Session>> {
-    let Some(id) = bearer(headers) else {
+    let id = bearer(headers).or_else(|| cookie(headers, "tryon_session"));
+    let Some(id) = id else {
         return Ok(None);
     };
     let Some(s) = store::session_by_id(db, &id).await? else {
@@ -98,8 +101,22 @@ pub async fn verify_session(db: &D1Database, headers: &Headers) -> Result<Option
     Ok(Some(s))
 }
 
+/// Read a named cookie value from the Cookie header.
+pub fn cookie(headers: &Headers, name: &str) -> Option<String> {
+    let raw = headers.get("cookie").ok().flatten()?;
+    for part in raw.split(';') {
+        let part = part.trim();
+        if let Some((k, v)) = part.split_once('=') {
+            if k.trim() == name {
+                return Some(v.trim().to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Issue a fresh session for an approved user (login).
-async fn create_login_session(db: &D1Database, user_id: &str) -> Result<Session> {
+pub async fn create_login_session(db: &D1Database, user_id: &str) -> Result<Session> {
     let now = now_ms();
     let s = Session {
         id: crate::store::new_id("sess"),
@@ -111,8 +128,9 @@ async fn create_login_session(db: &D1Database, user_id: &str) -> Result<Session>
     Ok(s)
 }
 
-/// `POST /api/v1/signup {email, contact, shop_name?}` — creates a
-/// `pending` user; approval (admin) is the only path forward.
+/// `POST /api/v1/signup {email, contact, shop_name?}` — creates an
+/// auto-approved account (5 free try-ons, no admin gate). Returns a
+/// session id + signin token so the owner can deploy immediately.
 pub async fn signup(env: worker::Env, req: &mut worker::Request) -> Result<Response> {
     let Some(body) = http::json_body::<SignupIn>(req).await else {
         return http::bad_request("BAD_JSON", "expected {email, contact, shop_name?}");
@@ -129,8 +147,6 @@ pub async fn signup(env: worker::Env, req: &mut worker::Request) -> Result<Respo
     if shop_name.len() > 80 {
         return http::bad_request("BAD_SHOP_NAME", "shop_name too long (max 80)");
     }
-    // The person's name (rev 0007): the admin sees it everywhere a user
-    // appears, and the owner can change it in their own portal.
     let name = body.name.unwrap_or_default().trim().to_string();
     if name.len() > 80 {
         return http::bad_request("BAD_NAME", "name too long (max 80)");
@@ -142,16 +158,31 @@ pub async fn signup(env: worker::Env, req: &mut worker::Request) -> Result<Respo
     let id = store::new_id("usr");
     let reg_no = store::next_reg_no(&db).await?;
     let created = now_ms();
-    store::insert_user(
-        &db, &id, &email, &name, &reg_no, &contact, &shop_name, created,
+    store::insert_user_auto(
+        &db, &id, &email, &name, &reg_no, &contact, &shop_name, 5, created,
     )
     .await?;
+    let token = new_token();
+    store::set_auth(&db, &id, &hash_token(&token), created).await?;
+    let s = create_login_session(&db, &id).await?;
     store::append_audit(&db, "system", "signup", &id, &email, created).await?;
-    Response::from_json(&SignupOut {
-        status: "pending",
-        name,
-        reg_no,
-    })
+    let user = store::user_by_id(&db, &id).await?.unwrap();
+    let mut resp = Response::from_json(&SignupOut {
+        status: "approved",
+        name: name.clone(),
+        reg_no: reg_no.clone(),
+        token: token.clone(),
+        session_id: s.id.clone(),
+        user: store::UserView::from(&user),
+    })?;
+    resp.headers_mut().set(
+        "Set-Cookie",
+        &format!(
+            "tryon_session={}; Domain=.latiforge.com; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000",
+            s.id
+        ),
+    )?;
+    Ok(resp)
 }
 
 #[derive(Deserialize)]
@@ -171,6 +202,15 @@ pub struct SignupOut {
     /// Echoed so the signup page can show "we registered you as LGF-0042".
     pub name: String,
     pub reg_no: String,
+    /// The one-shot signin token (minted at signup, no admin gate).
+    #[serde(default)]
+    pub token: String,
+    /// The session id (also set as a shared cookie).
+    #[serde(default)]
+    pub session_id: String,
+    /// The user (auto-approved).
+    #[serde(default)]
+    pub user: store::UserView,
 }
 
 /// `PATCH /api/v1/account` - the owner changes their own details (the

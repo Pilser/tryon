@@ -22,8 +22,7 @@ export default function LoginPage(): JSX.Element {
         <div>
           <h1 className={cx(u.h1)}>Sign in</h1>
           <p className={cx(u.lead)}>
-            Approved by the team? Your sign-in token arrived on your WhatsApp contact.
-            Paste it once - the session stays on this device.
+            Sign in with Google or TikTok — no password, no token.
           </p>
         </div>
       </header>
@@ -33,29 +32,50 @@ export default function LoginPage(): JSX.Element {
           <p className={cx(u.rowSub)}>Opening your platform home…</p>
         </div>
       ) : (
-        <TokenCard
-          title="Token"
-          lead="One token per owner. No token yet? Request access first."
-          placeholder="Sign-in token"
-          cta="Log in"
-          busy={busy}
-          error={error}
-          onToken={(token) => {
-            setBusy(true);
-            setError("");
-            void (async () => {
-              try {
-                const res = await login(token);
-                saveSession(res);
-                setSession(res);
-              } catch (e) {
-                setError(e instanceof ApiError ? e.message : "Could not sign in - offline?");
-              } finally {
-                setBusy(false);
-              }
-            })();
-          }}
-        />
+        <div className={cx(u.card)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <a
+              className={cx(base.btn, base.btnPrimary, u.btnGrow)}
+              href="/api/v1/auth/google"
+              style={{ textAlign: "center", textDecoration: "none" }}
+            >
+              Sign in with Google
+            </a>
+            <a
+              className={cx(base.btn, base.btnSecondary, u.btnGrow)}
+              href="/api/v1/auth/tiktok"
+              style={{ textAlign: "center", textDecoration: "none" }}
+            >
+              Sign in with TikTok
+            </a>
+          </div>
+          <p className={cx(u.rowSub)} style={{ marginTop: 16 }}>
+            Or paste a sign-in token if you have one.
+          </p>
+          <TokenCard
+            title="Token"
+            lead="One token per owner."
+            placeholder="Sign-in token"
+            cta="Log in"
+            busy={busy}
+            error={error}
+            onToken={(token) => {
+              setBusy(true);
+              setError("");
+              void (async () => {
+                try {
+                  const res = await login(token);
+                  saveSession(res);
+                  setSession(res);
+                } catch (e) {
+                  setError(e instanceof ApiError ? e.message : "Could not sign in - offline?");
+                } finally {
+                  setBusy(false);
+                }
+              })();
+            }}
+          />
+        </div>
       )}
     </main>
   );

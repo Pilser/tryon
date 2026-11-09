@@ -118,6 +118,9 @@ export const ownerLogin = (token: string): Promise<{ ok: boolean }> =>
 export const ownerLogout = (): Promise<{ ok: boolean }> =>
   api<{ ok: boolean }>("/api/owner/logout", { method: "POST" }).catch(() => ({ ok: true }));
 
+export const ownerSso = (): Promise<{ ok: boolean }> =>
+  api<{ ok: boolean }>("/api/owner/sso", { method: "GET", credentials: "include" as RequestCredentials }).catch(() => ({ ok: false }));
+
 /* Shopper identity: register the device, give a contact, redeem a code. */
 const jsonPost = <T>(path: string, body: unknown): Promise<T> =>
   api<T>(path, {

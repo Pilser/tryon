@@ -116,7 +116,7 @@ export const signup = (input: {
   shop_name?: string;
   /** The person's name (rev 0007). */
   name?: string;
-}): Promise<{ status: string; name: string; reg_no: string }> =>
+}): Promise<{ status: string; name: string; reg_no: string; token?: string; session_id?: string; user?: PlatformUser }> =>
   call("POST", "/api/v1/signup", input);
 
 /** The owner changes their own details. The id, the status, the

@@ -242,6 +242,36 @@ pub async fn insert_user(
     .await
 }
 
+/// Signup insert for auto-approved accounts (no admin gate): status
+/// 'approved' from the start, allowance = 5 free try-ons (admin-adjustable
+/// later). Used by unified login Phase A.
+pub async fn insert_user_auto(
+    db: &D1Database,
+    id: &str,
+    email: &str,
+    name: &str,
+    reg_no: &str,
+    contact: &str,
+    shop_name: &str,
+    deploy_allowance: i64,
+    created_ms: i64,
+) -> Result<()> {
+    write(
+        db,
+        "INSERT INTO users (id,email,name,reg_no,contact,shop_name,status,deploy_allowance,deploy_used,created_ms,approved_by) VALUES (?,?,?,?,?,?,'approved',?,0,?,'auto')",
+        vec![
+            id.into(),
+            email.into(),
+            name.into(),
+            reg_no.into(),
+            contact.into(),
+            shop_name.into(),
+            JsValue::from(deploy_allowance as f64),
+            JsValue::from(created_ms as f64),
+        ],
+    )
+    .await
+}
 /// The registration number of a new account: `LGF-0042`, a short
 /// human reference the admin can read out and filter by. The number is
 /// unique per account (the sequence counts the existing rows).

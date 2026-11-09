@@ -372,8 +372,16 @@ pub async fn handle_register(mut req: Request, env: Env) -> worker::Result<Respo
     };
     let now = now_ms();
     let ip = client_ip(
-        req.headers().get("cf-connecting-ip").ok().flatten().as_deref(),
-        req.headers().get("x-forwarded-for").ok().flatten().as_deref(),
+        req.headers()
+            .get("cf-connecting-ip")
+            .ok()
+            .flatten()
+            .as_deref(),
+        req.headers()
+            .get("x-forwarded-for")
+            .ok()
+            .flatten()
+            .as_deref(),
     );
     let mut id = clean_device_id(&input.id).unwrap_or_default();
     if id.is_empty() || device_row(&env, &id).await.is_none() {

@@ -6,7 +6,7 @@
 import esbuild from "esbuild";
 import stylexPlugin from "@stylexjs/esbuild-plugin";
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -71,6 +71,11 @@ for (const page of PAGES) {
    served as dist/index.html, so the apex and the page share one shell,
    one hashed stylesheet and one cache tag. */
 cpSync(path.join(dist, "landing.html"), path.join(dist, "index.html"));
+/* Static pages (no JS bundle) — Terms of Service + Privacy Policy. */
+for (const p of ["terms", "privacy"]) {
+  const src = path.join(here, "src", p + ".html");
+  if (existsSync(src)) cpSync(src, path.join(dist, p + ".html"));
+}
 /* The landing page's own assets: the real screenshots of the product
    and the committed snapshot of the demo catalogue (the grid is never
    empty, even with no network). */

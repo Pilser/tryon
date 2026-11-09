@@ -17,7 +17,28 @@ pub fn base(env: &Env) -> String {
         .to_string()
 }
 
-/// Configured = both a URL and the per-shop secret exist.
+/// Verify a platform session id by calling the platform's /api/v1/me.
+/// Returns true if the session is valid and the user is approved.
+pub async fn verify_platform_session(env: &Env, session_id: &str) -> bool {
+    if !configured(env) {
+        return false;
+    }
+    let url = format!("{}/api/v1/me", base(env));
+    let mut headers = Headers::new();
+    headers
+        .set("authorization", &format!("Bearer {}", session_id))
+        .ok();
+    let mut init = RequestInit::new();
+    init.with_method(Method::Get);
+    init.with_headers(headers);
+    let Ok(resp) = Fetch::Request(Request::new_with_init(&url, &init).unwrap())
+        .send()
+        .await
+    else {
+        return false;
+    };
+    resp.status_code() == 200
+}
 pub fn configured(env: &Env) -> bool {
     !base(env).is_empty()
         && !env
@@ -58,7 +79,7 @@ pub fn valid_code(code: &str) -> bool {
 /// platform and reports the verdict; the shop keeps no ledger of its own
 /// (the platform's `credits` table is the one balance that matters).
 pub async fn handle_redeem(mut req: Request, env: Env) -> Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return crate::routes::errors::unauthorized();
     }
     let input: RedeemIn = req
@@ -152,7 +173,7 @@ pub struct PlatformCode {
 /// they came from: the codes the shop redeemed carry a face value, so
 /// the studio can show "40 of your 120 credits came from admin codes".
 pub async fn handle_platform_credits(req: Request, env: Env) -> Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return crate::routes::errors::unauthorized();
     }
     if !configured(&env) {
@@ -201,7 +222,7 @@ pub fn valid_amount(n: i64) -> bool {
 /// The platform puts the request in front of its admin (manual billing
 /// gate); credits land only after an approval.
 pub async fn handle_request(mut req: Request, env: Env) -> Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return crate::routes::errors::unauthorized();
     }
     let input: RequestIn = req

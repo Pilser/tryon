@@ -193,7 +193,7 @@ pub struct SettingsIn {
 
 /// `POST /api/studio/settings` - free try-ons given to every device.
 pub async fn handle_settings(mut req: Request, env: Env) -> worker::Result<Response> {
-    if !crate::routes::owner::authorized(&req, &env) {
+    if !crate::routes::owner::authorized_async(&req, &env).await {
         return errors::unauthorized();
     }
     let input: SettingsIn = req

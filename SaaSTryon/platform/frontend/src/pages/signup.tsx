@@ -120,3 +120,7 @@ export default function SignupPage(): JSX.Element {
     </main>
   );
 }
+
+boot();
+const root = document.getElementById("root");
+if (root) createRoot(root).render(<SignupPage />);

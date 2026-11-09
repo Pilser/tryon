@@ -105,3 +105,7 @@ export default function LoginPage(): JSX.Element {
     </main>
   );
 }
+
+boot();
+const root = document.getElementById("root");
+if (root) createRoot(root).render(<LoginPage />);

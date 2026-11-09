@@ -79,7 +79,7 @@ function Nav(): JSX.Element {
             Sign in
           </a>
           <a className={cx(ld.navBtnPrimary)} href="/signup.html">
-            Request a shop
+            Create your shop
           </a>
         </div>
       </nav>
@@ -173,8 +173,8 @@ function FinalCta(): JSX.Element {
           Tell us your email and your WhatsApp number. We approve, you get your
           address, and the first garment is one upload away.
         </p>
-        <a className={cx(b.btn, b.btnPrimary, u.btnGrow)} href="/signup.html">
-          Request a shop
+        <a className={cx(b.btn, b.btnPrimary, u.btnGrow)} href="/signup.html" style={{ fontSize: 16, padding: "14px 28px" }}>
+          Create your online shop
         </a>
         <p className={cx(ld.note)}>No card. We approve within a working day.</p>
       </div>

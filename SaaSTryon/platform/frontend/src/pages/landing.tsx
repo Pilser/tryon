@@ -65,7 +65,7 @@ function Nav(): JSX.Element {
     <div className={cx(ld.navBar)}>
       <nav className={cx(ld.nav)} aria-label="Primary">
         <a className={cx(ld.brand)} href="/">
-          <span className={cx(ld.brandMark)} aria-hidden="true" />
+          <img src="/logo.png" alt="Latiforge" width={24} height={24} style={{ borderRadius: 4 }} />
           Latiforge
         </a>
         <div className={cx(ld.navLinks)}>

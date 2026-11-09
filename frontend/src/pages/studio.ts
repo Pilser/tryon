@@ -16,6 +16,7 @@ import { initStudio } from "../components/studio";
 import { initOwnerForm } from "../components/owner-form";
 import { brandHTML, esc, money } from "../core/format";
 import { loadOwner, loadTimeline } from "../core/store";
+import { ownerSso } from "../core/api";
 import { skin } from "../skin";
 import type { Product, ShopSettings } from "../core/types";
 
@@ -28,7 +29,15 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
 export async function studio(): Promise<void> {
   const q = new URLSearchParams(location.search);
   const id = q.get("id") || "";
-  const owner = q.get("owner") === "1" || !!loadOwner();
+  let owner = q.get("owner") === "1" || !!loadOwner();
+  if (!owner) {
+    try {
+      const sso = await ownerSso();
+      if (sso?.ok) owner = true;
+    } catch {
+      /* no platform session - stay visitor */
+    }
+  }
   const brand = document.querySelector(".brand");
 
   // instant paint from the cache of the previous page

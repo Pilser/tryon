@@ -30,7 +30,10 @@ export function initOwnerForm(): void {
     if (!gated) return;
     show(loginBox as HTMLElement, !on); show(panel as HTMLElement, on);
   };
-  const loginFail = (m: string): void => { el("bd-login-err").textContent = m; show(el("bd-login-err"), true); };
+  const ssoLink = document.getElementById("bd-sso") as HTMLAnchorElement | null;
+  if (ssoLink) {
+    ssoLink.href = "https://latiforge.com/login?return=" + encodeURIComponent(window.location.href);
+  }
   const refresh = async (): Promise<void> => {
     if (!gated) return;
     const t = loadOwner();

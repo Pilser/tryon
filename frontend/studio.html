@@ -67,7 +67,10 @@ main.page{display:grid;gap:14px;width:100%;max-width:1100px;margin-left:auto;mar
   <section class="bundle" id="owner" style="display:none">
     <div class="login-card" id="owner-login">
       <h2>Owner login</h2>
-      <p class="hint">Enter your owner token to add products and models. It stays saved on this device until you log out.</p>
+      <p class="hint">Sign in with your Latiforge account, or paste your owner token.</p>
+      <div class="row" style="margin-bottom:10px">
+        <a class="btn primary" href="https://latiforge.com/login?return=SHOP_RETURN_URL" id="bd-sso" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">Sign in with Latiforge</a>
+      </div>
       <div class="row">
         <input class="owner-token" id="bd-token" type="password" placeholder="Owner token" autocomplete="off"/>
         <button class="btn primary" id="bd-login" type="button">Log in</button>

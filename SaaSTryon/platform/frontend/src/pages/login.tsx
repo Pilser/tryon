@@ -27,7 +27,11 @@ export default function LoginPage(): JSX.Element {
   const [session, setSession] = useState<Session | null>(null);
 
   const who = session ? (session.user.shop_name || session.user.email) : "";
-  if (session) window.setTimeout(() => window.location.replace("home.html"), 900);
+  if (session) {
+    const params = new URLSearchParams(window.location.search);
+    const ret = params.get("return");
+    window.setTimeout(() => window.location.replace(ret || "home.html"), 900);
+  }
 
   return (
     <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "var(--bg, #f7f7f5)" }}>
